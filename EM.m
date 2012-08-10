@@ -13,8 +13,7 @@ classdef EM < handle
     %abstract EM class
     
     properties (Abstract)
-        exit_toll;
-        max_iterations;
+        stem_EM_options;
     end
     
     methods (Abstract)

@@ -13,42 +13,32 @@ classdef stem_EM < EM
    
     properties
         stem_model=[];               %stem_model object
-        exit_toll=0.0001;            %relative exit tolerance on both parameter norm and log-likelihood
-        max_iterations=100;          %maximum number of EM iterations
-        numeric_opt_type='single';
+        stem_EM_options=[];
     end
     
-    properties (SetAccess=private)
-        mstep_system_size=3500;
-        compute_logL_at_all_steps=1;
-    end
-
     methods
-        function obj = stem_EM(stem_model,exit_toll,max_iterations,numeric_opt_type)
+        function obj = stem_EM(stem_model,stem_EM_options)
             % constructor
             % see properties description
-            if nargin==0
-                error('At least an argument must be provided');
+            if nargin<2
+                error('All the arguments must be provided');
             end
-            if nargin>=1
-                if isa(stem_model,'stem_model')
-                    obj.stem_model=stem_model;
-                else
-                    error('The first argument must be of class stem_model');
-                end
+
+            if isa(stem_model,'stem_model')
+                obj.stem_model=stem_model;
+            else
+                error('The first argument must be of class stem_model');
             end
+            
+            if isa(stem_EM_options,'stem_EM_options');
+                obj.stem_EM_options=stem_EM_options;
+            else
+                error('The second argument must be of class stem_EM_options');
+            end
+
             if isempty(obj.stem_model.stem_par_initial)
                 error('Initial value estimation for model parameters must be provided first');
             end            
-            if nargin>=2
-                obj.exit_toll=exit_toll;
-            end
-            if nargin>=3
-                obj.max_iterations=max_iterations;
-            end
-            if nargin>=4
-                obj.numeric_opt_type=numeric_opt_type;
-            end
         end
         
         function st_EM_result = estimate(obj)
@@ -66,11 +56,11 @@ classdef stem_EM < EM
             last_stem_par=obj.stem_model.stem_par;
             iteration=0;
             st_EM_result=stem_EM_result(); 
-            st_EM_result.max_iterations=obj.max_iterations;
-            st_EM_result.exit_toll=obj.exit_toll;
+            st_EM_result.max_iterations=obj.stem_EM_options.max_iterations;
+            st_EM_result.exit_toll=obj.stem_EM_options.exit_toll;
             st_EM_result.machine=computer;
             st_EM_result.date_start=datestr(now);
-            while (delta>obj.exit_toll)&&(delta_logL>obj.exit_toll)&&(iteration<obj.max_iterations)
+            while (delta>obj.stem_EM_options.exit_toll)&&(delta_logL>obj.stem_EM_options.exit_toll)&&(iteration<obj.stem_EM_options.max_iterations)
                 ct1=clock;
                 iteration=iteration+1;
                 disp('************************');
@@ -151,11 +141,11 @@ classdef stem_EM < EM
             last_stem_par=obj.stem_model.stem_par;
             iteration=0;
             st_EM_result=stem_EM_result(); 
-            st_EM_result.max_iterations=obj.max_iterations;
-            st_EM_result.exit_toll=obj.exit_toll;
+            st_EM_result.max_iterations=obj.stem_EM_options.max_iterations;
+            st_EM_result.exit_toll=obj.stem_EM_options.exit_toll;
             st_EM_result.machine=computer;
             st_EM_result.date_start=datestr(now);
-            while (delta>obj.exit_toll)&&(delta_logL>obj.exit_toll)&&(iteration<obj.max_iterations)
+            while (delta>obj.stem_EM_options.exit_toll)&&(delta_logL>obj.stem_EM_options.exit_toll)&&(iteration<obj.stem_EM_options.max_iterations)
                 ct1_iteration=clock;
                 iteration=iteration+1;
                 disp('************************');
@@ -304,7 +294,7 @@ classdef stem_EM < EM
                             disp('    Kalman smoother started...');
                             ct1=clock;
                             st_kalman=stem_kalman(obj.stem_model);
-                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.compute_logL_at_all_steps,time_steps,pathparallel);
+                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,time_steps,pathparallel);
                             ct2=clock;
                             disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                         else
@@ -312,7 +302,7 @@ classdef stem_EM < EM
                             disp('    Kalman smoother started...');
                             ct1=clock;
                             st_kalman=stem_kalman(obj.stem_model);
-                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.compute_logL_at_all_steps);
+                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
                             ct2=clock;
                             disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                             time_steps=1:T;
@@ -658,7 +648,7 @@ classdef stem_EM < EM
                 disp('    Kalman smoother started...');
                 ct1=clock;
                 st_kalman=stem_kalman(obj.stem_model);
-                [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.compute_logL_at_all_steps);
+                [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
                 ct2=clock;
                 disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                 if not(data.X_time_tv)
@@ -1235,7 +1225,7 @@ classdef stem_EM < EM
                 disp('    v_r update started...');
                 ct1=clock;
                 
-                if Nr<=obj.mstep_system_size
+                if Nr<=obj.stem_EM_options.mstep_system_size
                     %TEMP FULL DEVE ESSERE CALCOLATO PER LE MATRICI V IN OGNI CASO SE NON SI RISOLVE COREGIONALIZZ!!!
                     temp=zeros(size(sum_Var_wr_y1));
                     for t=1:T
@@ -1252,7 +1242,7 @@ classdef stem_EM < EM
                         hindex=randperm(size(par.v_r,1)-k)+k;
                         for h=hindex
                             initial=par.v_r(k,h);
-                            if Nr<=obj.mstep_system_size
+                            if Nr<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,data.DistMat_r,...
                                     data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             else
@@ -1273,7 +1263,7 @@ classdef stem_EM < EM
                 disp('    theta_r updating started...');
                 ct1=clock;
                 initial=par.theta_r;
-                if Nr<=obj.mstep_system_size
+                if Nr<=obj.stem_EM_options.mstep_system_size
                     min_result = fminsearch(@(x) stem_geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r,...
                         data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                     st_par_em_step.theta_r=exp(min_result);
@@ -1284,7 +1274,7 @@ classdef stem_EM < EM
                             data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                         st_par_em_step.theta_r=exp(min_result);
                     else
-                        s=ceil(Nr/obj.mstep_system_size);
+                        s=ceil(Nr/obj.stem_EM_options.mstep_system_size);
                         step=ceil(Nr/s);
                         blocks=0:step:Nr;
                         if not(blocks(end)==Nr)
@@ -1396,7 +1386,7 @@ classdef stem_EM < EM
                 ct1=clock;
                 r = symamd(sum_Var_wg_y1{1}); %note that sum_Var_wg_y1{1} and sigma_W_g{k} have the same sparseness structure
                 for z=1:K
-                    if Ng<=obj.mstep_system_size
+                    if Ng<=obj.stem_EM_options.mstep_system_size
                         temp=zeros(size(sum_Var_wg_y1{z}));
                         for t=1:T
                             temp=temp+E_wg_y1(:,t,z)*E_wg_y1(:,t,z)';
@@ -1409,7 +1399,7 @@ classdef stem_EM < EM
                         hindex=randperm(size(par.v_g(:,:,z),1)-k)+k;
                         for h=hindex
                             initial=par.v_g(k,h,z);
-                            if Ng<=obj.mstep_system_size
+                            if Ng<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,data.DistMat_g,...
                                     data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                             else
@@ -1423,7 +1413,7 @@ classdef stem_EM < EM
                     end
                     
                     initial=par.theta_g(z);
-                    if Ng<=obj.mstep_system_size
+                    if Ng<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g,...
                             data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                         st_par_em_step.theta_g(z)=exp(min_result);
@@ -1434,7 +1424,7 @@ classdef stem_EM < EM
                                 data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                             st_par_em_step.theta_g(z)=exp(min_result);
                         else
-                            s=ceil(Ng/obj.mstep_system_size);
+                            s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
                             step=ceil(Ng/s);
                             blocks=0:step:Ng;
                             if not(blocks(end)==Ng)
@@ -2055,7 +2045,7 @@ classdef stem_EM < EM
 
                 disp('    v_r update started...');
                 ct1=clock;
-                if Nr<=obj.mstep_system_size
+                if Nr<=obj.stem_EM_options.mstep_system_size
                     temp=zeros(size(sum_Var_wr_y1));
                     for t=1:T
                         temp=temp+E_wr_y1(:,t)*E_wr_y1(:,t)';
@@ -2070,7 +2060,7 @@ classdef stem_EM < EM
                         hindex=randperm(size(par.v_r,1)-k)+k;
                         for h=hindex
                             initial=par.v_r(k,h);
-                            if Nr<=obj.mstep_system_size
+                            if Nr<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,data.DistMat_r,...
                                     data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             else
@@ -2090,7 +2080,7 @@ classdef stem_EM < EM
                 ct1=clock;
                 initial=par.theta_r;
                 
-                if Nr<=obj.mstep_system_size
+                if Nr<=obj.stem_EM_options.mstep_system_size
                     min_result = fminsearch(@(x) stem_geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r,...
                         data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                     st_par_em_step.theta_r=exp(min_result);
@@ -2101,7 +2091,7 @@ classdef stem_EM < EM
                             data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                         st_par_em_step.theta_r=exp(min_result);
                     else
-                        s=ceil(Nr/obj.mstep_system_size);
+                        s=ceil(Nr/obj.stem_EM_options.mstep_system_size);
                         step=ceil(Nr/s);
                         blocks=0:step:Nr;
                         if not(blocks(end)==Nr)
@@ -2212,7 +2202,7 @@ classdef stem_EM < EM
                 %LA DIFFERENZA TRA M-STEP E M-STEP_PARALLEL E' QUESTO CICLO FOR!!! CHE NON VA 1:K MA SU INDEX
                 r = symamd(sum_Var_wg_y1{1}); %note that sum_Var_wr_y1 and sigma_W_g{k} have the same sparseness structure
                 for z=index
-                    if Ng<=obj.mstep_system_size
+                    if Ng<=obj.stem_EM_options.mstep_system_size
                         temp=zeros(size(sum_Var_wg_y1{z}));
                         for t=1:T
                             temp=temp+E_wg_y1(:,t,z)*E_wg_y1(:,t,z)';
@@ -2225,7 +2215,7 @@ classdef stem_EM < EM
                         hindex=randperm(size(par.v_g(:,:,z),1)-k)+k;
                         for h=hindex
                             initial=par.v_g(k,h,z);
-                            if Ng<=obj.mstep_system_size
+                            if Ng<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,data.DistMat_g,...
                                     data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                             else
@@ -2239,7 +2229,7 @@ classdef stem_EM < EM
                     end
                     
                     initial=par.theta_g(z);
-                    if Ng<=obj.mstep_system_size
+                    if Ng<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g,...
                             data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                         st_par_em_step.theta_g(z)=exp(min_result);
@@ -2250,7 +2240,7 @@ classdef stem_EM < EM
                                 data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                             st_par_em_step.theta_g(z)=exp(min_result);
                         else
-                            s=ceil(Ng/obj.mstep_system_size);
+                            s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
                             step=ceil(Ng/s);
                             blocks=0:step:Ng;
                             if not(blocks(end)==Ng)
@@ -2287,7 +2277,7 @@ classdef stem_EM < EM
             Ng=obj.stem_model.stem_data.stem_varset_g.N;
             for z=index
                 
-                if Ng<=obj.mstep_system_size
+                if Ng<=obj.stem_EM_options.mstep_system_size
                     temp=zeros(size(sum_Var_wg_y1{z-index(1)+1}));
                     for t=1:size(E_wg_y1,2)
                         temp=temp+E_wg_y1(:,t,z-index(1)+1)*E_wg_y1(:,t,z-index(1)+1)';
@@ -2300,7 +2290,7 @@ classdef stem_EM < EM
                     hindex=randperm(size(st_par_em_step.v_g(:,:,z),1)-k)+k;
                     for h=hindex
                         initial=st_par_em_step.v_g(k,h,z);
-                        if Ng<=obj.mstep_system_size
+                        if Ng<=obj.stem_EM_options.mstep_system_size
                             min_result = fminsearch(@(x) stem_geo_coreg_function_velement(x,k,h,st_par_em_step.v_g(:,:,z),st_par_em_step.theta_g(z),st_par_em_step.correlation_type,data.DistMat_g,...
                                 data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                         else
@@ -2314,7 +2304,7 @@ classdef stem_EM < EM
                 end
                 
                 initial=st_par_em_step.theta_g(z);
-                if Ng<=obj.mstep_system_size
+                if Ng<=obj.stem_EM_options.mstep_system_size
                     min_result = fminsearch(@(x) stem_geo_coreg_function_theta(x,st_par_em_step.v_g(:,:,z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_g,...
                         obj.stem_model.stem_data.stem_varset_g.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',25,'TolX',1e-3));
                     st_par_em_step.theta_g(z)=exp(min_result);
@@ -2325,7 +2315,7 @@ classdef stem_EM < EM
                             obj.stem_model.stem_data.stem_varset_g.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',25,'TolX',1e-3));
                         st_par_em_step.theta_g(z)=exp(min_result);
                     else
-                        s=ceil(Ng/obj.mstep_system_size);
+                        s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
                         step=ceil(Ng/s);
                         blocks=0:step:Ng;
                         if not(blocks(end)==Ng)
@@ -2349,21 +2339,6 @@ classdef stem_EM < EM
             end
         end
         
-        %Set methods
-        function set.exit_toll(obj,exit_toll)
-            if exit_toll<=0
-                error('exit_toll must be strictly positive');
-            end
-            obj.exit_toll=exit_toll;
-        end
-        
-        function set.max_iterations(obj,max_iterations)
-            if max_iterations<=0
-                error('max_iterations must be strictly positive');
-            end
-            obj.max_iterations=max_iterations;
-        end
-        
         function set.stem_model(obj,stem_model)
             if strcmp(class(stem_model),'stem_model')
                 obj.stem_model=stem_model;
@@ -2372,14 +2347,6 @@ classdef stem_EM < EM
             end            
         end
         
-        function set.numeric_opt_type(obj,numeric_opt_type)
-            if (strcmp(numeric_opt_type,'full'))||(strcmp(numeric_opt_type,'single'))
-                obj.numeric_opt_type=numeric_opt_type;
-            else
-                error('The numeric_opt_type parameter can be either single or full');
-            end
-        end
-    
     end
 end
 

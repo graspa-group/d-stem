@@ -377,7 +377,7 @@ classdef stem_model < handle
             obj.stem_data.simulated=1;
         end        
         
-        function EM_estimate(obj,exit_toll,max_iterations,numeric_opt_type,pathparallel)
+        function EM_estimate(obj,stem_EM_options)
             %DESCRIPTION: front-end method for EM estimation of this model
             %
             %INPUT
@@ -391,19 +391,7 @@ classdef stem_model < handle
             %OUTPUT
             %
             %none: the stem_EM object is created. The method stem_EM.estimate is used to estimate the model and it updates the stem_par object
-            if nargin<2
-                exit_toll=0.0001;
-            end
-            if nargin<3
-                max_iterations=1000;
-            end
-            if nargin<4
-                numeric_opt_type='single';
-            end
-            if nargin<5
-                pathparallel=[];
-            end
-            
+
             if not(isempty(obj.stem_data.stem_crossval))
                 disp('Data modification for cross-validation started...');
                 idx_var=obj.stem_data.stem_varset_g.get_Y_index(obj.stem_data.stem_crossval.variable_name);
@@ -470,14 +458,14 @@ classdef stem_model < handle
                 obj.cross_validation=0;
             end
             
-            st_EM=stem_EM(obj,exit_toll,max_iterations,numeric_opt_type);
+            st_EM=stem_EM(obj,stem_EM_options);
             %set the current parameter value with the estimated initial
             %value
             obj.stem_par=obj.stem_par_initial;
-            if isempty(pathparallel)
+            if isempty(stem_EM_options.pathparallel)
                 obj.stem_EM_result=st_EM.estimate();
             else
-                obj.stem_EM_result=st_EM.estimate_parallel(pathparallel);
+                obj.stem_EM_result=st_EM.estimate_parallel(stem_EM_options.pathparallel);
             end
             obj.estimated=1;
             if obj.cross_validation
@@ -1268,19 +1256,6 @@ classdef stem_model < handle
         %initial values estimation functions
         
         function [beta0] = get_beta0(obj)
-%             if isempty(obj.stem_data.stem_varset_r)
-%                 N=obj.N();
-%                 y = obj.stem_data.Y(:);
-%             else
-%                 if isempty(obj.stem_data.stem_varset_r.X_beta)
-%                     N=obj.Ng();
-%                     y = obj.stem_data.Y(1:N,:);
-%                 else
-%                     N=obj.N();
-%                     y = obj.stem_data.Y(:);
-%                 end
-%             end
-            
             N = obj.N;
             y = obj.stem_data.Y(:);
             T = obj.T;
