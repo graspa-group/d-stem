@@ -301,20 +301,20 @@ classdef stem_EM < EM
                                 movefile([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'kalman_parallel_',num2str(hosts(i).IPaddress),'.mat']);
                             end
                             %local Kalman Smoother computation
-                            %disp('    Kalman smoother started...');
+                            disp('    Kalman smoother started...');
                             ct1=clock;
                             st_kalman=stem_kalman(obj.stem_model);
                             [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.compute_logL_at_all_steps,time_steps,pathparallel);
                             ct2=clock;
-                            %disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
+                            disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                         else
                             %The computation is only local. The standard Kalman smoother is considered
-                            %disp('    Kalman smoother started...');
+                            disp('    Kalman smoother started...');
                             ct1=clock;
                             st_kalman=stem_kalman(obj.stem_model);
                             [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.compute_logL_at_all_steps);
                             ct2=clock;
-                            %disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
+                            disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                             time_steps=1:T;
                         end
                     else
@@ -650,17 +650,17 @@ classdef stem_EM < EM
                 obj.stem_model.set_system_size(1e10);
             end
 
-            %disp('  E step started...');
+            disp('  E step started...');
             ct1_estep=clock;
             
             if p>0
                 %Kalman smoother
-                %disp('    Kalman smoother started...');
+                disp('    Kalman smoother started...');
                 ct1=clock;
                 st_kalman=stem_kalman(obj.stem_model);
                 [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.compute_logL_at_all_steps);
                 ct2=clock;
-                %disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
@@ -689,7 +689,7 @@ classdef stem_EM < EM
             res=data.Y;
             res(isnan(res))=0;
             if not(isempty(data.X_beta))
-                %disp('    Xbeta evaluation started...');
+                disp('    Xbeta evaluation started...');
                 ct1=clock;
                 Xbeta=zeros(N,T);
                 if data.X_beta_tv
@@ -700,7 +700,7 @@ classdef stem_EM < EM
                     Xbeta=repmat(data.X_beta(:,:,1)*par.beta,1,T);
                 end
                 ct2=clock;
-                %disp(['    Xbeta evaluation ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    Xbeta evaluation ended in ',stem_time(etime(ct2,ct1))]);
                 res=res-Xbeta;
             else
                 Xbeta=[];
@@ -713,7 +713,7 @@ classdef stem_EM < EM
             %sigma_Z=Var(Zt)
             %var_Zt=Var(X_time*Zt*X_time')
 
-            %disp('    Conditional E, Var, Cov evaluation started...');
+            disp('    Conditional E, Var, Cov evaluation started...');
             ct1=clock;
             %cov_wr_yz time invariant case
             if not(isempty(data.X_rg))
@@ -1059,14 +1059,14 @@ classdef stem_EM < EM
                 clear temp_g
             end
             ct2=clock;
-            %disp(['    Conditional E, Var, Cov evaluation ended in ',stem_time(etime(ct2,ct1))]);
+            disp(['    Conditional E, Var, Cov evaluation ended in ',stem_time(etime(ct2,ct1))]);
             ct2_estep=clock;
-            %disp(['  E step ended in ',stem_time(etime(ct2_estep,ct1_estep))]);
+            disp(['  E step ended in ',stem_time(etime(ct2_estep,ct1_estep))]);
             disp('');
         end
         
         function M_step(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,st_kalmansmoother_result)
-            %disp('  M step started...');
+            disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                 Nr=obj.stem_model.stem_data.stem_varset_r.N;
@@ -1091,7 +1091,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(data.X_beta))
                 ct1=clock;
-                %disp('    beta update started...');
+                disp('    beta update started...');
                 temp1=zeros(size(data.X_beta,2));
                 temp2=zeros(size(data.X_beta,2),1);
                 d=diag(inv_sigma_eps);
@@ -1107,12 +1107,12 @@ classdef stem_EM < EM
                 end
                 st_par_em_step.beta=temp1\temp2;
                 ct2=clock;
-                %disp(['    beta update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    beta update ended in ',stem_time(etime(ct2,ct1))]);
             end
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %              sigma_eps                 %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %disp('    sigma_eps update started...');
+            disp('    sigma_eps update started...');
             ct1=clock;
             temp=zeros(N,1);
             temp1=zeros(N,1);
@@ -1130,14 +1130,14 @@ classdef stem_EM < EM
                st_par_em_step.sigma_eps(i,i)=mean(temp(blocks(i)+1:blocks(i+1)));
             end
             ct2=clock;
-            %disp(['    sigma_eps update ended in ',stem_time(etime(ct2,ct1))]);
+            disp(['    sigma_eps update ended in ',stem_time(etime(ct2,ct1))]);
            
 
             %%%%%%%%%%%%%%%%%%%%%%%%%
             %    G and sigma_eta    %
             %%%%%%%%%%%%%%%%%%%%%%%%%
             if par.p>0
-                %disp('    G and sigma_eta update started...');
+                disp('    G and sigma_eta update started...');
                 ct1=clock;
                 if not(obj.stem_model.stem_par.time_diagonal)
                     S11=st_kalmansmoother_result.zk_s(:,2:end)*st_kalmansmoother_result.zk_s(:,2:end)'+sum(st_kalmansmoother_result.Pk_s(:,:,2:end),3);
@@ -1165,7 +1165,7 @@ classdef stem_EM < EM
                     warning('Sigma eta is not s.d.p. The last s.d.p. solution is retained');
                 end
                 ct2=clock;
-                %disp(['    G and sigma_eta ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    G and sigma_eta ended in ',stem_time(etime(ct2,ct1))]);
             end
             
             [aj_rg,aj_g]=obj.stem_model.get_aj();
@@ -1173,7 +1173,7 @@ classdef stem_EM < EM
             %          alpha_rg, theta_r and v_r            %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(data.X_rg))
-                %disp('    alpha_rg update started...');
+                disp('    alpha_rg update started...');
                 ct1=clock;
                 for r=1:obj.stem_model.stem_data.nvar
                     [aj_rg_r,j_r] = obj.stem_model.get_jrg(r);
@@ -1230,9 +1230,9 @@ classdef stem_EM < EM
                 end
                 st_par_em_step.alpha_rg=alpha_rg';
                 ct2=clock;
-                %disp(['    alpha_rg update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    alpha_rg update ended in ',stem_time(etime(ct2,ct1))]);
 
-                %disp('    v_r update started...');
+                disp('    v_r update started...');
                 ct1=clock;
                 
                 if Nr<=obj.mstep_system_size
@@ -1265,12 +1265,12 @@ classdef stem_EM < EM
                         end
                     end
                     ct2=clock;
-                    %disp(['    v_r update ended in ',stem_time(etime(ct2,ct1))]);
+                    disp(['    v_r update ended in ',stem_time(etime(ct2,ct1))]);
                 else
                     %da implementare
                 end
 
-                %disp('    theta_r updating started...');
+                disp('    theta_r updating started...');
                 ct1=clock;
                 initial=par.theta_r;
                 if Nr<=obj.mstep_system_size
@@ -1307,7 +1307,7 @@ classdef stem_EM < EM
                         %data.stem_varset_r.dim,E_wr_y1,sum_Var_wr_y1,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',25,'TolX',1e-3,'UseParallel','always'));
                     end
                     ct2=clock;
-                    %disp(['    theta_r update ended in ',stem_time(etime(ct2,ct1))]);
+                    disp(['    theta_r update ended in ',stem_time(etime(ct2,ct1))]);
                 end
             end
             
@@ -1315,7 +1315,7 @@ classdef stem_EM < EM
             %          alpha_g               %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(data.X_g))
-                %disp('    alpha_g update started...');
+                disp('    alpha_g update started...');
                 for s=1:K
                     for r=1:obj.stem_model.stem_data.stem_varset_g.nvar
                         [aj_g_rs,j_r] = obj.stem_model.get_jg(r,s);
@@ -1389,10 +1389,10 @@ classdef stem_EM < EM
                 end
                 st_par_em_step.alpha_g=alpha_g;
                 ct2=clock;
-                %disp(['    alpha_g update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    alpha_g update ended in ',stem_time(etime(ct2,ct1))]);
                 
                 %indices are permutated in order to avoid deadlock
-                %disp('    v_g and theta_g update started...');
+                disp('    v_g and theta_g update started...');
                 ct1=clock;
                 r = symamd(sum_Var_wg_y1{1}); %note that sum_Var_wg_y1{1} and sigma_W_g{k} have the same sparseness structure
                 for z=1:K
@@ -1456,12 +1456,12 @@ classdef stem_EM < EM
                         end
                     end
                     ct2=clock;
-                    %disp(['    v_g and theta_g update ended in ',stem_time(etime(ct2,ct1))]);
+                    disp(['    v_g and theta_g update ended in ',stem_time(etime(ct2,ct1))]);
                 end
             end
             obj.stem_model.stem_par=st_par_em_step;
             ct2_mstep=clock;
-            %disp(['  M step ended in ',stem_time(etime(ct2_mstep,ct1_mstep))]);
+            disp(['  M step ended in ',stem_time(etime(ct2_mstep,ct1_mstep))]);
         end
             
         function [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,cb] = E_step_parallel(obj,time_steps,st_kalmansmoother_result)
@@ -1486,7 +1486,7 @@ classdef stem_EM < EM
             
             fts=time_steps(1);
 
-            %disp('  E step started...');
+            disp('  E step started...');
             ct1_estep=clock;
             
             [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
@@ -1513,7 +1513,7 @@ classdef stem_EM < EM
             res=data.Y(:,time_steps);
             res(isnan(res))=0;
             if not(isempty(data.X_beta))
-                %disp('    Xbeta evaluation started...');
+                disp('    Xbeta evaluation started...');
                 ct1=clock;
                 Xbeta=zeros(N,T);
                 if data.X_beta_tv
@@ -1524,7 +1524,7 @@ classdef stem_EM < EM
                     Xbeta=repmat(data.X_beta(:,:,1)*par.beta,1,T);
                 end
                 ct2=clock;
-                %disp(['    Xbeta evaluation ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    Xbeta evaluation ended in ',stem_time(etime(ct2,ct1))]);
                 res=res-Xbeta;
             else
                 Xbeta=[];
@@ -1537,7 +1537,7 @@ classdef stem_EM < EM
             %sigma_Z=Var(Zt)
             %var_Zt=Var(X_time*Zt*X_time')
 
-            %disp('    Conditional E, Var, Cov evaluation started...');
+            disp('    Conditional E, Var, Cov evaluation started...');
             ct1=clock;
             %cov_wr_yz time invariant case
             if not(isempty(data.X_rg))
@@ -1880,14 +1880,14 @@ classdef stem_EM < EM
                 disp(['      Time step ',num2str(t),' evaluated in ',stem_time(etime(t_partial2,t_partial1))]);
             end
             ct2=clock;
-            %disp(['    Conditional E, Var, Cov evaluation ended in ',stem_time(etime(ct2,ct1))]);
+            disp(['    Conditional E, Var, Cov evaluation ended in ',stem_time(etime(ct2,ct1))]);
             ct2_estep=clock;
-            %disp(['  E step ended in ',stem_time(etime(ct2_estep,ct1_estep))]);
+            disp(['  E step ended in ',stem_time(etime(ct2_estep,ct1_estep))]);
             disp('');
         end
          
         function logL = M_step_parallel(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index)
-            %disp('  M step started...');
+            disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                 Nr=obj.stem_model.stem_data.stem_varset_r.N;
@@ -1912,7 +1912,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(data.X_beta))
                 ct1=clock;
-                %disp('    beta update started...');
+                disp('    beta update started...');
                 temp1=zeros(size(data.X_beta,2));
                 temp2=zeros(size(data.X_beta,2),1);
                 d=diag(inv_sigma_eps);
@@ -1928,12 +1928,12 @@ classdef stem_EM < EM
                 end
                 st_par_em_step.beta=temp1\temp2;
                 ct2=clock;
-                %disp(['    beta update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    beta update ended in ',stem_time(etime(ct2,ct1))]);
             end
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %              sigma_eps                 %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %disp('    sigma_eps update started...');
+            disp('    sigma_eps update started...');
             ct1=clock;
             temp=zeros(N,1);
             temp1=zeros(N,1);
@@ -1951,14 +1951,14 @@ classdef stem_EM < EM
                st_par_em_step.sigma_eps(i,i)=mean(temp(blocks(i)+1:blocks(i+1)));
             end
             ct2=clock;
-            %disp(['    sigma_eps update ended in ',stem_time(etime(ct2,ct1))]);
+            disp(['    sigma_eps update ended in ',stem_time(etime(ct2,ct1))]);
            
 
             %%%%%%%%%%%%%%%%%%%%%%%%%
             %    G and sigma_eta    %
             %%%%%%%%%%%%%%%%%%%%%%%%%
             if par.p>0
-                %disp('    G and sigma_eta update started...');
+                disp('    G and sigma_eta update started...');
                 ct1=clock;
                 if not(obj.stem_model.stem_par.time_diagonal)
                     S11=st_kalmansmoother_result.zk_s(:,2:end)*st_kalmansmoother_result.zk_s(:,2:end)'+sum(st_kalmansmoother_result.Pk_s(:,:,2:end),3);
@@ -1986,7 +1986,7 @@ classdef stem_EM < EM
                     warning('Sigma eta is not s.d.p. The last s.d.p. solution is retained');
                 end
                 ct2=clock;
-                %disp(['    G and sigma_eta ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    G and sigma_eta ended in ',stem_time(etime(ct2,ct1))]);
             end
             
             [aj_rg,aj_g]=obj.stem_model.get_aj();
@@ -1994,7 +1994,7 @@ classdef stem_EM < EM
             %          alpha_rg, theta_r and v_r            %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(data.X_rg))
-                %disp('    alpha_rg update started...');
+                disp('    alpha_rg update started...');
                 ct1=clock;
                 for r=1:obj.stem_model.stem_data.nvar
                     [aj_rg_r,j_r] = obj.stem_model.get_jrg(r);
@@ -2051,9 +2051,9 @@ classdef stem_EM < EM
                 end
                 st_par_em_step.alpha_rg=alpha_rg';
                 ct2=clock;
-                %disp(['    alpha_rg update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    alpha_rg update ended in ',stem_time(etime(ct2,ct1))]);
 
-                %disp('    v_r update started...');
+                disp('    v_r update started...');
                 ct1=clock;
                 if Nr<=obj.mstep_system_size
                     temp=zeros(size(sum_Var_wr_y1));
@@ -2083,10 +2083,10 @@ classdef stem_EM < EM
                         end
                     end
                     ct2=clock;
-                    %disp(['    v_r update ended in ',stem_time(etime(ct2,ct1))]);
+                    disp(['    v_r update ended in ',stem_time(etime(ct2,ct1))]);
                 end
 
-                %disp('    theta_r updating started...');
+                disp('    theta_r updating started...');
                 ct1=clock;
                 initial=par.theta_r;
                 
@@ -2123,14 +2123,14 @@ classdef stem_EM < EM
                     end
                 end
                 ct2=clock;
-                %disp(['    theta_r update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    theta_r update ended in ',stem_time(etime(ct2,ct1))]);
             end
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %          alpha_g               %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(data.X_g))
-                %disp('    alpha_g update started...');
+                disp('    alpha_g update started...');
                 for s=1:K
                     for r=1:obj.stem_model.stem_data.stem_varset_g.nvar
                         [aj_g_rs,j_r] = obj.stem_model.get_jg(r,s);
@@ -2204,9 +2204,9 @@ classdef stem_EM < EM
                 end
                 st_par_em_step.alpha_g=alpha_g;
                 ct2=clock;
-                %disp(['    alpha_g update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    alpha_g update ended in ',stem_time(etime(ct2,ct1))]);
                 %indices are permutated in order to avoid deadlock
-                %disp('    v_g and theta_g update started...');
+                disp('    v_g and theta_g update started...');
                 ct1=clock;
                 
                 %LA DIFFERENZA TRA M-STEP E M-STEP_PARALLEL E' QUESTO CICLO FOR!!! CHE NON VA 1:K MA SU INDEX
@@ -2273,13 +2273,13 @@ classdef stem_EM < EM
                     end
                 end
                 ct2=clock;
-                %disp(['    v_g and theta_g update ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['    v_g and theta_g update ended in ',stem_time(etime(ct2,ct1))]);
             end
             
             logL=0;
             obj.stem_model.stem_par=st_par_em_step;
             ct2_mstep=clock;
-            %disp(['  M step ended in ',stem_time(etime(ct2_mstep,ct1_mstep))]);
+            disp(['  M step ended in ',stem_time(etime(ct2_mstep,ct1_mstep))]);
         end 
         
         function st_par_em_step = M_step_vg_and_theta(obj,E_wg_y1,sum_Var_wg_y1,index,r)
