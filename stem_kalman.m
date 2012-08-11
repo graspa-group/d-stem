@@ -200,7 +200,7 @@ classdef stem_kalman < handle
                         clear temp2
                         clear temp3
                     else
-                        sigma_geo_inv=1./temp;
+                        sigma_geo_inv=diag(1./diag(temp));
                     end
                 else
                     if not(isdiagonal(temp))

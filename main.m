@@ -14,16 +14,17 @@ clear all
 
 %% ground level data
 flag_parallel=0;
-flag_remote_data=0;
+flag_remote_data=1;
 
 flag_time_ground=1;
-flag_time_remote=0;
-flag_beta_ground=0;
+flag_time_remote=1;
+flag_beta_ground=1;
 flag_beta_remote=0;
 flag_w_ground=0;
+flag_w_remote=0;
 
-flag_crossval=1;
-flag_tapering=0;
+flag_crossval=0;
+flag_tapering=1;
 flag_kriging=0;
 pathparallel='/opt/matNfs/';
 
@@ -37,7 +38,7 @@ if 1
     T=size(sd_g.Y{1},2);
     
     %X_rg
-    if flag_remote_data
+    if flag_w_remote
         sd_g.X_rg{1}=ones(size(sd_g.Y{1},1),1);
         sd_g.X_rg_name{1}={'constant'};
     else
@@ -67,8 +68,8 @@ if 1
     clear X_population_point
     
     if flag_beta_ground
-        sd_g.X_beta_name{1}={'wind'}; %'pressure','temperature','wind speed','elevation','emission','population','lat','lon'
-        sd_g.X_beta{1}=X(:,5,:);
+        sd_g.X_beta_name{1}={'pressure','temperature','wind speed','elevation','emission','population','lat','lon'};
+        sd_g.X_beta{1}=X(:,3:end,:);
     else
         sd_g.X_beta_name=[];
         sd_g.X_beta=[];
@@ -76,8 +77,8 @@ if 1
     
     %X_time
     if flag_time_ground
-        sd_g.X_time{1}=X(:,5,:);
-        sd_g.X_time_name{1}={'wind'};
+        sd_g.X_time{1}=X(:,6:end,:);
+        sd_g.X_time_name{1}={'elevation','emission','population','lat','lon'};
     else
         sd_g.X_time=[];
         sd_g.X_time_name=[];
@@ -127,8 +128,13 @@ if 1
         N=size(sd_r.Y{1},1);
         
         %X_rg
-        sd_r.X_rg{1}=ones(N,1,1);
-        sd_r.X_rg_name{1}={'constant'};
+        if flag_w_remote
+            sd_r.X_rg{1}=ones(N,1,1);
+            sd_r.X_rg_name{1}={'constant'};
+        else
+            sd_r.X_rg=[];
+            sd_r.X_rg_name{1}=[];
+        end
         
         %X_beta
         if flag_beta_remote
@@ -177,11 +183,11 @@ if 1
     st_data=stem_data(st_varset_g,st_gridlist_g,st_varset_r,st_gridlist_r,st_datestamp,[],[],st_crossval);
     %par
     if flag_remote_data
-        remote_correlated=1;
+        remote_correlated=0;
     else
         remote_correlated=[];
     end
-    time_diagonal=1;
+    time_diagonal=0;
     st_par=stem_par(st_data,'exponential',remote_correlated,time_diagonal);
     
     st_model=stem_model(st_data,st_par);
@@ -214,11 +220,11 @@ if 1
     end
     
     if flag_time_ground||flag_time_remote
-        st_par.sigma_eta=diag(repmat(0.1,1,1));
-        st_par.G=diag(repmat(0.7,1,1));
+        st_par.sigma_eta=diag(repmat(0.1,6,1));
+        st_par.G=diag(repmat(0.7,6,1));
     end
     
-    st_par.sigma_eps=diag([0.3]);
+    st_par.sigma_eps=diag([0.3 0.3]);
     st_model.stem_par_initial=st_par;
 else
     if flag_tapering

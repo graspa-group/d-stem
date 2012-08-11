@@ -584,7 +584,7 @@ classdef stem_krig < handle
                 st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
-                        var_Zt=sparse(data.X_time(:,:,1))*sigma_Z*sparse(data.X_time(:,:,1)'); 
+                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)'); 
                     else
                         var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)'; 
                     end
@@ -709,7 +709,7 @@ classdef stem_krig < handle
                     if not(isempty(data.X_time))
                         if data.X_time_tv
                             if obj.stem_model.tapering
-                                var_Zt=sparse(data.X_time(:,:,tT))*sigma_Z*sparse(data.X_time(:,:,tT)');
+                                var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
                             else
                                 var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
                             end
@@ -723,7 +723,7 @@ classdef stem_krig < handle
                 %check if the temporal loadings are time variant
                 if not(isempty(data.X_time))
                     if obj.stem_model.tapering
-                        temp=sparse(data.X_time(:,:,tT))*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                        temp=sparse(data.X_time(:,:,tT))*sparse(st_kalmansmoother_result.Pk_s(:,:,t+1));
                     else
                         temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
                     end

@@ -763,7 +763,9 @@ classdef stem_data < handle
                             obj.stem_gridlist_r.grid{i}.grid_size=[length(grid_lat),length(grid_lon)];
                         end
                         obj.stem_varset_r.Y{i}=obj.stem_varset_r.Y{i}(indices,:);
-                        obj.stem_varset_r.X_rg{i}=obj.stem_varset_r.X_rg{i}(indices,:,:);
+                        if not(isempty(obj.stem_varset_r.X_rg))
+                            obj.stem_varset_r.X_rg{i}=obj.stem_varset_r.X_rg{i}(indices,:,:);
+                        end
                         if not(isempty(obj.stem_varset_r.X_beta))
                             obj.stem_varset_r.X_beta{i}=obj.stem_varset_r.X_beta{i}(indices,:,:);
                         end

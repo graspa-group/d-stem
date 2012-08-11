@@ -654,7 +654,7 @@ classdef stem_EM < EM
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
-                        var_Zt=sparse(data.X_time(:,:,1))*sigma_Z*sparse(data.X_time(:,:,1)'); 
+                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)'); 
                     else
                         var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)';
                     end
@@ -696,357 +696,369 @@ classdef stem_EM < EM
                 Xbeta=[];
             end
             E_e_y1=res;
-            
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %   Conditional expectation, conditional variance and conditional covariance evaluation  %
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %sigma_Z=Var(Zt)
-            %var_Zt=Var(X_time*Zt*X_time')
-
-            disp('    Conditional E, Var, Cov evaluation started...');
-            ct1=clock;
-            %cov_wr_yz time invariant case
-            if not(isempty(data.X_rg))
-                if (obj.stem_model.tapering)
-                    Lr=find(sigma_W_r);
-                    [Ir,Jr]=ind2sub(size(sigma_W_r),Lr);
-                    nnz_r=length(Ir);
-                end
-                
-                if not(data.X_rg_tv)
-                    cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
-                end
-                E_wr_y1=zeros(Nr,T);
-                if (obj.stem_model.tapering)
-                   sum_Var_wr_y1=spalloc(size(sigma_W_r,1),size(sigma_W_r,2),nnz_r);
-                else
-                   sum_Var_wr_y1=zeros(Nr); 
-                end
-                diag_Var_wr_y1=zeros(Nr,T);
-                cov_wr_z_y1=zeros(Nr,p,T);
-            end
-            %cov_wg_yz time invariant case
-            if not(isempty(data.X_g))
-                if obj.stem_model.tapering
-                    Lg=find(sigma_W_g{1});
-                    [Ig,Jg]=ind2sub(size(sigma_W_g{1}),Lg);
-                    nnz_g=length(Ig);
-                end
-                if not(data.X_g_tv)
-                    for k=1:K
-                        cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
-                    end
-                end
-                for h=1:K
-                    for k=h+1:K
-                        %VERIFICARE SE PU� ESSERE SPARSA!!!
-                        cov_wgk_wgh_y1{k,h}=zeros(Ng,T);
-                    end
-                end
-                E_wg_y1=zeros(Ng,T,K);
-                for k=1:K
-                    if obj.stem_model.tapering
-                        sum_Var_wg_y1{k}=spalloc(size(sigma_W_g{k},1),size(sigma_W_g{k},2),nnz_g);
-                    else
-                        sum_Var_wg_y1{k}=zeros(Ng,Ng);
-                    end
-                end
-                diag_Var_wg_y1=zeros(Ng,T,K);
-                cov_wg_z_y1=zeros(Ng,p,T,K);
-            end
-            
-            if not(isempty(data.X_rg)) && not(isempty(data.X_g))
-                M_cov_wr_wg_y1=zeros(N,T,K);
-            else
-                M_cov_wr_wg_y1=[];
-            end
-            
             diag_Var_e_y1=zeros(N,T);
             
-            for t=1:T
-                %missing at time t
-                Lt=not(isnan(data.Y(:,t)));
+            if not(isempty(data.X_rg))&&not(isempty(data.X_g))
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %   Conditional expectation, conditional variance and conditional covariance evaluation  %
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %sigma_Z=Var(Zt)
+                %var_Zt=Var(X_time*Zt*X_time')
                 
-                if data.X_rg_tv
-                    tRG=t;
-                else
-                    tRG=1;
-                end
-                if data.X_time_tv
-                    tT=t;
-                else
-                    tT=1;
-                end
-                if data.X_g_tv
-                    tG=t;
-                else
-                    tG=1;
-                end       
-                
-                %evaluate var_yt in the time variant case
-                if data.X_tv
-                    if not(isempty(data.X_rg))
-                        sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
-                    end
-                    
-                    if not(isempty(data.X_g))
-                        if isempty(data.X_rg)
-                            if obj.stem_model.tapering
-                                sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
-                            else
-                                sigma_geo=zeros(N);
-                            end
-                        end
-                        for k=1:size(data.X_g,4)
-                            sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
-                        end
-                    end
-                    if isempty(data.X_g)&&isempty(data.X_rg)
-                        sigma_geo=sigma_eps;
-                    else
-                        sigma_geo=sigma_geo+sigma_eps;
-                    end
-                    
-                    if not(isempty(data.X_time))
-                        if data.X_time_tv
-                            if obj.stem_model.tapering
-                                var_Zt=sparse(data.X_time(:,:,tT))*sigma_Z*sparse(data.X_time(:,:,tT)'); 
-                            else
-                                var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
-                            end
-                        end
-                        var_Yt=sigma_geo+var_Zt;
-                    else
-                        var_Yt=sigma_geo;
-                    end
-                end
-                
-                %check if the temporal loadings are time variant
-                if not(isempty(data.X_time))
-                    if obj.stem_model.tapering
-                        temp=sparse(data.X_time(:,:,tT))*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                    else
-                        temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                    end
-                    if N>obj.stem_model.system_size
-                        for i=1:size(diag_Var_e_y1,1)
-                            %update diag(Var(e|y1))
-                            diag_Var_e_y1(i,t)=temp(i,:)*data.X_time(i,:,tT)';
-                        end
-                    else
-                        if obj.stem_model.tapering
-                            diag_Var_e_y1(:,t)=diag(sparse(temp)*sparse(data.X_time(:,:,tT)'));
-                        else
-                            diag_Var_e_y1(:,t)=diag(temp*data.X_time(:,:,tT)');
-                        end
-                    end
-                end
-                
-                %build the Ht matrix
-                if not(isempty(var_Zt))
-                    H1t=[var_Yt(Lt,Lt), data.X_time(Lt,:,tT)*sigma_Z; sigma_Z*data.X_time(Lt,:,tT)', sigma_Z];
-                    if obj.stem_model.tapering
-                        if not(issparse(H1t))
-                            disp('H1t non sparse!!!!');
-                        end
-                    end
-                    %update E(e|y1)
-                    temp=st_kalmansmoother_result.zk_s(:,t+1);
-                    E_e_y1(:,t)=E_e_y1(:,t)-data.X_time(:,:,tT)*temp;
-                else
-                    H1t=var_Yt(Lt,Lt);
-                    temp=[];
-                end   
-                
-                if obj.stem_model.tapering
-                    cs=[];
-                    r = symamd(H1t);
-                    chol_H1t=chol(H1t(r,r));
-                    temp2=[res(Lt,t);temp];
-                    cs(r,1)=chol_solve(chol_H1t,temp2(r));
-                else
-                    chol_H1t=chol(H1t);
-                    cs=chol_solve(chol_H1t,[res(Lt,t);temp]);
-                end
-                
+                disp('    Conditional E, Var, Cov evaluation started...');
+                ct1=clock;
+                %cov_wr_yz time invariant case
                 if not(isempty(data.X_rg))
-                    %check if the remote loadings are time variant
-                    if data.X_rg_tv
-                        %cov_wr_yz time variant case
-                        cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                    if (obj.stem_model.tapering)
+                        Lr=find(sigma_W_r);
+                        [Ir,Jr]=ind2sub(size(sigma_W_r),Lr);
+                        nnz_r=length(Ir);
                     end
-                    cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
-                    %compute E(w_r|y1);
-                    E_wr_y1(:,t)=cov_wr_y1z*cs;
-                    %compute Var(w_r|y1)
-                    if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
-                        temp_r2=cov_wr_y1z*temp_r;
-                        temp_r3=temp_r2(Lr);
-                        temp_r3=sparse(Ir,Jr,temp_r3);
-                        clear temp_r2
-                        Var_wr_y1=sigma_W_r-temp_r3;
-                        clear temp_r3
+                    
+                    if not(data.X_rg_tv)
+                        cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
+                    end
+                    E_wr_y1=zeros(Nr,T);
+                    if (obj.stem_model.tapering)
+                        sum_Var_wr_y1=spalloc(size(sigma_W_r,1),size(sigma_W_r,2),nnz_r);
                     else
-                        temp_r=chol_solve(chol_H1t,cov_wr_y1z');
-                        Var_wr_y1=sigma_W_r-cov_wr_y1z*temp_r;
+                        sum_Var_wr_y1=zeros(Nr);
                     end
-
-                    if p>0
-                        %compute cov(w_r,z|y1)
-                        cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                        Var_wr_y1=Var_wr_y1+cov_wr_z_y1(:,:,t)*temp_r(end-p+1:end,:);
-                        %update diag(Var(e|y1))
-                        temp=D_apply(D_apply(M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                        if N>obj.stem_model.system_size
-                            for i=1:size(temp,1)
-                                diag_Var_e_y1(i,t)=diag_Var_e_y1(i,t)+2*temp(i,:)*data.X_time(i,:,tT)'; %notare 2*
-                            end
-                        else
-                            %faster for N small
-                            if obj.stem_model.tapering
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(sparse(temp)*sparse(data.X_time(:,:,tT))');
-                            else
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
-                            end
-                        end
-                    else
-                        cov_wr_z_y1=[];    
-                    end
-                    %compute diag(Var(w_r|y1))
-                    diag_Var_wr_y1(:,t)=diag(Var_wr_y1);
-                    %compute sum(Var(w_r|y1))
-                    sum_Var_wr_y1=sum_Var_wr_y1+Var_wr_y1;
-                    %update E(e|y1)
-                    E_e_y1(:,t)=E_e_y1(:,t)-D_apply(D_apply(M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                    %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
-                else
-                    E_wr_y1=[];
-                    diag_Var_wr_y1=[];
-                    sum_Var_wr_y1=[];
-                    cov_wr_z_y1=[]; 
+                    diag_Var_wr_y1=zeros(Nr,T);
+                    cov_wr_z_y1=zeros(Nr,p,T);
                 end
-                clear temp_r
+                %cov_wg_yz time invariant case
                 if not(isempty(data.X_g))
-                    %check if the ground loadings are time variant
-                    if data.X_g_tv    
-                        %cov_wg_yz time invariant case
+                    if obj.stem_model.tapering
+                        Lg=find(sigma_W_g{1});
+                        [Ig,Jg]=ind2sub(size(sigma_W_g{1}),Lg);
+                        nnz_g=length(Ig);
+                    end
+                    if not(data.X_g_tv)
                         for k=1:K
-                            cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                            cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
                         end
                     end
+                    for h=1:K
+                        for k=h+1:K
+                            %VERIFICARE SE PU� ESSERE SPARSA!!!
+                            cov_wgk_wgh_y1{k,h}=zeros(Ng,T);
+                        end
+                    end
+                    E_wg_y1=zeros(Ng,T,K);
                     for k=1:K
-                        cov_wg_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
-                        %compute E(w_g_k|y1);
-                        E_wg_y1(:,t,k)=cov_wg_y1z*cs;
-                        %compute Var(w_g_k|y1)
                         if obj.stem_model.tapering
-                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
-                            temp_g2=cov_wg_y1z*temp_g{k};
-                            temp_g3=temp_g2(Lg);
-                            temp_g3=sparse(Ig,Jg,temp_g3);
-                            clear temp_g2
-                            Var_wg_y1=sigma_W_g{k}-temp_g3;
-                            clear temp_g3
+                            sum_Var_wg_y1{k}=spalloc(size(sigma_W_g{k},1),size(sigma_W_g{k},2),nnz_g);
                         else
-                            temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
-                            Var_wg_y1=sigma_W_g{k}-cov_wg_y1z*temp_g{k};
+                            sum_Var_wg_y1{k}=zeros(Ng,Ng);
+                        end
+                    end
+                    diag_Var_wg_y1=zeros(Ng,T,K);
+                    cov_wg_z_y1=zeros(Ng,p,T,K);
+                end
+                
+                if not(isempty(data.X_rg)) && not(isempty(data.X_g))
+                    M_cov_wr_wg_y1=zeros(N,T,K);
+                else
+                    M_cov_wr_wg_y1=[];
+                end
+                
+                for t=1:T
+                    %missing at time t
+                    Lt=not(isnan(data.Y(:,t)));
+                    
+                    if data.X_rg_tv
+                        tRG=t;
+                    else
+                        tRG=1;
+                    end
+                    if data.X_time_tv
+                        tT=t;
+                    else
+                        tT=1;
+                    end
+                    if data.X_g_tv
+                        tG=t;
+                    else
+                        tG=1;
+                    end
+                    
+                    %evaluate var_yt in the time variant case
+                    if data.X_tv
+                        if not(isempty(data.X_rg))
+                            sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                         end
                         
-                        %VALUTARE SE ANCHE TEMP_G{K} VA TRIMMATA E APPORTARE LA MODIFICA AGLI ALTRI METODI!!!!
-
+                        if not(isempty(data.X_g))
+                            if isempty(data.X_rg)
+                                if obj.stem_model.tapering
+                                    sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
+                                else
+                                    sigma_geo=zeros(N);
+                                end
+                            end
+                            for k=1:size(data.X_g,4)
+                                sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                            end
+                        end
+                        if isempty(data.X_g)&&isempty(data.X_rg)
+                            sigma_geo=sigma_eps;
+                        else
+                            sigma_geo=sigma_geo+sigma_eps;
+                        end
+                        
+                        if not(isempty(data.X_time))
+                            if data.X_time_tv
+                                if obj.stem_model.tapering
+                                    var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
+                                else
+                                    var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
+                                end
+                            end
+                            var_Yt=sigma_geo+var_Zt;
+                        else
+                            var_Yt=sigma_geo;
+                        end
+                    end
+                    
+                    %check if the temporal loadings are time variant
+                    if not(isempty(data.X_time))
+                        if obj.stem_model.tapering
+                            temp=sparse(data.X_time(:,:,tT))*sparse(st_kalmansmoother_result.Pk_s(:,:,t+1));
+                        else
+                            temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                        end
+                        if N>obj.stem_model.system_size
+                            for i=1:size(diag_Var_e_y1,1)
+                                %update diag(Var(e|y1))
+                                diag_Var_e_y1(i,t)=temp(i,:)*data.X_time(i,:,tT)';
+                            end
+                        else
+                            if obj.stem_model.tapering
+                                diag_Var_e_y1(:,t)=diag(sparse(temp)*sparse(data.X_time(:,:,tT)'));
+                            else
+                                diag_Var_e_y1(:,t)=diag(temp*data.X_time(:,:,tT)');
+                            end
+                        end
+                    end
+                    
+                    %build the Ht matrix
+                    if not(isempty(var_Zt))
+                        H1t=[var_Yt(Lt,Lt), data.X_time(Lt,:,tT)*sigma_Z; sigma_Z*data.X_time(Lt,:,tT)', sigma_Z];
+                        if obj.stem_model.tapering
+                            if not(issparse(H1t))
+                                disp('H1t non sparse!!!!');
+                            end
+                        end
+                        %update E(e|y1)
+                        temp=st_kalmansmoother_result.zk_s(:,t+1);
+                        E_e_y1(:,t)=E_e_y1(:,t)-data.X_time(:,:,tT)*temp;
+                    else
+                        H1t=var_Yt(Lt,Lt);
+                        temp=[];
+                    end
+                    
+                    if obj.stem_model.tapering
+                        cs=[];
+                        r = symamd(H1t);
+                        chol_H1t=chol(H1t(r,r));
+                        temp2=[res(Lt,t);temp];
+                        cs(r,1)=chol_solve(chol_H1t,temp2(r));
+                    else
+                        chol_H1t=chol(H1t);
+                        cs=chol_solve(chol_H1t,[res(Lt,t);temp]);
+                    end
+                    
+                    if not(isempty(data.X_rg))
+                        %check if the remote loadings are time variant
+                        if data.X_rg_tv
+                            %cov_wr_yz time variant case
+                            cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                        end
+                        cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
+                        %compute E(w_r|y1);
+                        E_wr_y1(:,t)=cov_wr_y1z*cs;
+                        %compute Var(w_r|y1)
+                        if obj.stem_model.tapering
+                            temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
+                            temp_r2=cov_wr_y1z*temp_r;
+                            temp_r3=temp_r2(Lr);
+                            temp_r3=sparse(Ir,Jr,temp_r3);
+                            clear temp_r2
+                            Var_wr_y1=sigma_W_r-temp_r3;
+                            clear temp_r3
+                        else
+                            temp_r=chol_solve(chol_H1t,cov_wr_y1z');
+                            Var_wr_y1=sigma_W_r-cov_wr_y1z*temp_r;
+                        end
+                        
                         if p>0
-                            %compute cov(w_g,z|y1)
-                            cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                            Var_wg_y1=Var_wg_y1+cov_wg_z_y1(:,:,t,k)*temp_g{k}(end-p+1:end,:);
+                            %compute cov(w_r,z|y1)
+                            cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                            Var_wr_y1=Var_wr_y1+cov_wr_z_y1(:,:,t)*temp_r(end-p+1:end,:);
                             %update diag(Var(e|y1))
-                            temp=D_apply(D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                            temp=D_apply(D_apply(M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                             if N>obj.stem_model.system_size
                                 for i=1:size(temp,1)
                                     diag_Var_e_y1(i,t)=diag_Var_e_y1(i,t)+2*temp(i,:)*data.X_time(i,:,tT)'; %notare 2*
                                 end
                             else
+                                %faster for N small
                                 if obj.stem_model.tapering
-                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(sparse(temp)*sparse(data.X_time(:,:,tT)'));    
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(sparse(temp)*sparse(data.X_time(:,:,tT))');
                                 else
-                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');    
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
                                 end
                             end
                         else
-                            cov_wg_z_y1=[];
+                            cov_wr_z_y1=[];
                         end
-                        diag_Var_wg_y1(:,t,k)=diag(Var_wg_y1);
-                        sum_Var_wg_y1{k}=sum_Var_wg_y1{k}+Var_wg_y1;
+                        %compute diag(Var(w_r|y1))
+                        diag_Var_wr_y1(:,t)=diag(Var_wr_y1);
+                        %compute sum(Var(w_r|y1))
+                        sum_Var_wr_y1=sum_Var_wr_y1+Var_wr_y1;
                         %update E(e|y1)
-                        E_e_y1(:,t)=E_e_y1(:,t)-D_apply(D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                        E_e_y1(:,t)=E_e_y1(:,t)-D_apply(D_apply(M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                         %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze                        
-                        
-                        if not(isempty(data.X_rg))
-                            %compute M_cov(w_r,w_g|y1); cio� M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
-                            if length(M)>obj.stem_model.system_size
-                                for i=1:length(M)
-                                    %tested
-                                    if p>0
-                                        M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i)+cov_wr_z_y1(M(i),:,t)*temp_g{k}(end-p+1:end,i); %ha gi� l'M_apply su left!!
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    else
+                        E_wr_y1=[];
+                        diag_Var_wr_y1=[];
+                        sum_Var_wr_y1=[];
+                        cov_wr_z_y1=[];
+                    end
+                    clear temp_r
+                    if not(isempty(data.X_g))
+                        %check if the ground loadings are time variant
+                        if data.X_g_tv
+                            %cov_wg_yz time invariant case
+                            for k=1:K
+                                cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                            end
+                        end
+                        for k=1:K
+                            cov_wg_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
+                            %compute E(w_g_k|y1);
+                            E_wg_y1(:,t,k)=cov_wg_y1z*cs;
+                            %compute Var(w_g_k|y1)
+                            if obj.stem_model.tapering
+                                temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
+                                temp_g2=cov_wg_y1z*temp_g{k};
+                                temp_g3=temp_g2(Lg);
+                                temp_g3=sparse(Ig,Jg,temp_g3);
+                                clear temp_g2
+                                Var_wg_y1=sigma_W_g{k}-temp_g3;
+                                clear temp_g3
+                            else
+                                temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
+                                Var_wg_y1=sigma_W_g{k}-cov_wg_y1z*temp_g{k};
+                            end
+                            
+                            %VALUTARE SE ANCHE TEMP_G{K} VA TRIMMATA E APPORTARE LA MODIFICA AGLI ALTRI METODI!!!!
+                            
+                            if p>0
+                                %compute cov(w_g,z|y1)
+                                cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                                Var_wg_y1=Var_wg_y1+cov_wg_z_y1(:,:,t,k)*temp_g{k}(end-p+1:end,:);
+                                %update diag(Var(e|y1))
+                                temp=D_apply(D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                if N>obj.stem_model.system_size
+                                    for i=1:size(temp,1)
+                                        diag_Var_e_y1(i,t)=diag_Var_e_y1(i,t)+2*temp(i,:)*data.X_time(i,:,tT)'; %notare 2*
+                                    end
+                                else
+                                    if obj.stem_model.tapering
+                                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(sparse(temp)*sparse(data.X_time(:,:,tT)'));
                                     else
-                                        M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i);
+                                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
                                     end
                                 end
                             else
-                                if p>0
-                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha gi� l'M_apply su left!!
-                                else
-                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
-                                end
+                                cov_wg_z_y1=[];
                             end
-                            %update diag(Var(e|y1)) - tested
-                            temp=D_apply(D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                            temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
-                        end
-                    end
-                    
-                    if K>1
-                        %compute cov(w_gk,w_gh|y1);
-                        for h=1:K
-                            for k=h+1:K
-                                cov_wgk_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
-                                if N>obj.stem_model.system_size
-                                    for i=1:size(cov_wgk_y1z,1)
-                                        if not(isempty(cov_wg_z_y1))
-                                            cov_wgk_wgh_y1{k,h}(i,t)=-cov_wgk_y1z(i,:)*temp_g{h}(:,i)+cov_wg_z_y1(i,:,t,k)*temp_g{h}(end-p+1:end,i);
+                            diag_Var_wg_y1(:,t,k)=diag(Var_wg_y1);
+                            sum_Var_wg_y1{k}=sum_Var_wg_y1{k}+Var_wg_y1;
+                            %update E(e|y1)
+                            E_e_y1(:,t)=E_e_y1(:,t)-D_apply(D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                            %update diag(Var(e|y1))
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                            
+                            if not(isempty(data.X_rg))
+                                %compute M_cov(w_r,w_g|y1); cio� M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                                if length(M)>obj.stem_model.system_size
+                                    for i=1:length(M)
+                                        %tested
+                                        if p>0
+                                            M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i)+cov_wr_z_y1(M(i),:,t)*temp_g{k}(end-p+1:end,i); %ha gi� l'M_apply su left!!
                                         else
-                                            cov_wgk_wgh_y1{k,h}(i,t)=-cov_wgk_y1z(i,:)*temp_g{h}(:,i);
+                                            M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i);
                                         end
                                     end
                                 else
-                                    if not(isempty(cov_wg_z_y1))
-                                        cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h}+cov_wg_z_y1(:,:,t,k)*temp_g{h}(end-p+1:end,:));
+                                    if p>0
+                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha gi� l'M_apply su left!!
                                     else
-                                        cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
+                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
                                     end
                                 end
-                                temp=D_apply(D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
-                                %update diag(Var(e|y1))
+                                %update diag(Var(e|y1)) - tested
+                                temp=D_apply(D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                                temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
                         end
+                        
+                        if K>1
+                            %compute cov(w_gk,w_gh|y1);
+                            for h=1:K
+                                for k=h+1:K
+                                    cov_wgk_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
+                                    if N>obj.stem_model.system_size
+                                        for i=1:size(cov_wgk_y1z,1)
+                                            if not(isempty(cov_wg_z_y1))
+                                                cov_wgk_wgh_y1{k,h}(i,t)=-cov_wgk_y1z(i,:)*temp_g{h}(:,i)+cov_wg_z_y1(i,:,t,k)*temp_g{h}(end-p+1:end,i);
+                                            else
+                                                cov_wgk_wgh_y1{k,h}(i,t)=-cov_wgk_y1z(i,:)*temp_g{h}(:,i);
+                                            end
+                                        end
+                                    else
+                                        if not(isempty(cov_wg_z_y1))
+                                            cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h}+cov_wg_z_y1(:,:,t,k)*temp_g{h}(end-p+1:end,:));
+                                        else
+                                            cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
+                                        end
+                                    end
+                                    temp=D_apply(D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                    temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
+                                    %update diag(Var(e|y1))
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
+                                end
+                            end
+                        else
+                            cov_wgk_wgh_y1=[];
+                        end
                     else
+                        E_wg_y1=[];
+                        diag_Var_wg_y1=[];
+                        sum_Var_wg_y1=[];
+                        M_cov_wr_wg_y1=[];
+                        cov_wg_z_y1=[];
                         cov_wgk_wgh_y1=[];
                     end
-                else
-                    E_wg_y1=[];
-                    diag_Var_wg_y1=[];
-                    sum_Var_wg_y1=[];
-                    M_cov_wr_wg_y1=[];
-                    cov_wg_z_y1=[];
-                    cov_wgk_wgh_y1=[];    
+                    %delete the variables the dimension of which changes every t
+                    clear temp_g
                 end
-                %delete the variables the dimension of which changes every t
-                clear temp_g
+            else
+                E_wr_y1=[];
+                diag_Var_wr_y1=[];
+                sum_Var_wr_y1=[];
+                cov_wr_z_y1=[];
+                E_wg_y1=[];
+                diag_Var_wg_y1=[];
+                sum_Var_wg_y1=[];
+                M_cov_wr_wg_y1=[];
+                cov_wg_z_y1=[];
+                cov_wgk_wgh_y1=[];
             end
             ct2=clock;
             disp(['    Conditional E, Var, Cov evaluation ended in ',stem_time(etime(ct2,ct1))]);
@@ -1483,7 +1495,7 @@ classdef stem_EM < EM
             if p>0
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
-                        var_Zt=sparse(data.X_time(:,:,1))*sigma_Z*sparse(data.X_time(:,:,1)'); 
+                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)'); 
                     else
                         var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)'; 
                     end
@@ -1636,7 +1648,7 @@ classdef stem_EM < EM
                     if not(isempty(data.X_time))
                         if data.X_time_tv
                             if obj.stem_model.tapering
-                                var_Zt=sparse(data.X_time(:,:,tT))*sigma_Z*sparse(data.X_time(:,:,tT)');
+                                var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
                             else
                                 var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
                             end
@@ -1650,7 +1662,7 @@ classdef stem_EM < EM
                 %check if the temporal loadings are time variant
                 if not(isempty(data.X_time))
                     if obj.stem_model.tapering
-                        temp=sparse(data.X_time(:,:,tT))*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
+                        temp=sparse(data.X_time(:,:,tT))*sparse(st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1));
                     else
                         temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
                     end

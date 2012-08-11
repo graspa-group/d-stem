@@ -194,74 +194,76 @@ classdef stem_model < handle
             
             %sigma_W_r
             if not(isempty(obj.stem_data.stem_varset_r))
-                if (nargin==1)||isempty(sigma_W_r)
-                    if not(obj.tapering_r)
-                        sigma_W_r=zeros(obj.stem_data.stem_varset_r.N);
-                    end
-                    blocks=[0 cumsum(obj.stem_data.stem_varset_r.dim)];
-                    if obj.stem_par.remote_correlated
-                        if obj.tapering_r
-                            I=zeros(nnz(obj.stem_data.DistMat_r),1);
-                            J=zeros(nnz(obj.stem_data.DistMat_r),1);
-                            elements=zeros(nnz(obj.stem_data.DistMat_r),1);
+                if not(isempty(obj.stem_data.stem_varset_r.X_rg))
+                    if (nargin==1)||isempty(sigma_W_r)
+                        if not(obj.tapering_r)
+                            sigma_W_r=zeros(obj.stem_data.stem_varset_r.N);
                         end
-                        idx=0;
-                        for j=1:obj.stem_data.stem_varset_r.nvar
-                            for i=j:obj.stem_data.stem_varset_r.nvar
-                                idx_r=blocks(i)+1:blocks(i+1);
-                                idx_c=blocks(j)+1:blocks(j+1);
-                                if not(obj.tapering_r)
-                                    sigma_W_r(idx_r,idx_c)=obj.stem_par.v_r(i,j)*stem_correlation_function(...
-                                        obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
-                                    if not(i==j)
-                                        sigma_W_r(idx_c,idx_r)=sigma_W_r(idx_r,idx_c)';
-                                    end
-                                else
-                                    corr_result=stem_correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
-                                    weights=stem_wendland(obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_data.stem_gridlist_r.tap);                                    
-                                    corr_result.correlation=obj.stem_par.v_r(i,j)*corr_result.correlation.*weights;
-                                    size=length(corr_result.I);
-                                    I(idx+1:idx+size)=corr_result.I+blocks(i);
-                                    J(idx+1:idx+size)=corr_result.J+blocks(j);
-                                    elements(idx+1:idx+size)=corr_result.correlation;
-                                    idx=idx+size;
-                                    if not(i==j)                                        
-                                        I(idx+1:idx+size)=corr_result.J+blocks(j);
-                                        J(idx+1:idx+size)=corr_result.I+blocks(i);
+                        blocks=[0 cumsum(obj.stem_data.stem_varset_r.dim)];
+                        if obj.stem_par.remote_correlated
+                            if obj.tapering_r
+                                I=zeros(nnz(obj.stem_data.DistMat_r),1);
+                                J=zeros(nnz(obj.stem_data.DistMat_r),1);
+                                elements=zeros(nnz(obj.stem_data.DistMat_r),1);
+                            end
+                            idx=0;
+                            for j=1:obj.stem_data.stem_varset_r.nvar
+                                for i=j:obj.stem_data.stem_varset_r.nvar
+                                    idx_r=blocks(i)+1:blocks(i+1);
+                                    idx_c=blocks(j)+1:blocks(j+1);
+                                    if not(obj.tapering_r)
+                                        sigma_W_r(idx_r,idx_c)=obj.stem_par.v_r(i,j)*stem_correlation_function(...
+                                            obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
+                                        if not(i==j)
+                                            sigma_W_r(idx_c,idx_r)=sigma_W_r(idx_r,idx_c)';
+                                        end
+                                    else
+                                        corr_result=stem_correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
+                                        weights=stem_wendland(obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_data.stem_gridlist_r.tap);
+                                        corr_result.correlation=obj.stem_par.v_r(i,j)*corr_result.correlation.*weights;
+                                        size=length(corr_result.I);
+                                        I(idx+1:idx+size)=corr_result.I+blocks(i);
+                                        J(idx+1:idx+size)=corr_result.J+blocks(j);
                                         elements(idx+1:idx+size)=corr_result.correlation;
                                         idx=idx+size;
+                                        if not(i==j)
+                                            I(idx+1:idx+size)=corr_result.J+blocks(j);
+                                            J(idx+1:idx+size)=corr_result.I+blocks(i);
+                                            elements(idx+1:idx+size)=corr_result.correlation;
+                                            idx=idx+size;
+                                        end
                                     end
                                 end
                             end
-                        end
-                        if obj.tapering_r
-                            sigma_W_r=sparse(I,J,elements);
-                        end
-                    else
-                        if obj.tapering_r
-                            nonzeros=0;
+                            if obj.tapering_r
+                                sigma_W_r=sparse(I,J,elements);
+                            end
+                        else
+                            if obj.tapering_r
+                                nonzeros=0;
+                                for i=1:obj.stem_data.stem_varset_r.nvar
+                                    nonzeros=nonzeros+nnz(obj.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
+                                end
+                                I=zeros(nonzeros,1);
+                                elements=zeros(nonzeros,1);
+                            end
                             for i=1:obj.stem_data.stem_varset_r.nvar
-                                nonzeros=nonzeros+nnz(obj.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
+                                idx_rc=blocks(i)+1:blocks(i+1);
+                                if not(obj.tapering_r)
+                                    sigma_W_r(idx_rc,idx_rc)=stem_correlation_function(obj.stem_par.theta_r(i,:),obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                else
+                                    corr_result=stem_correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                    weights=stem_wendland(obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_data.stem_gridlist_r.tap);
+                                    corr_result.correlation=obj.stem_par.v_r(i,i)*corr_result.correlation.*weights;
+                                    size=length(corr_result.I);
+                                    I(idx+1:idx+size)=corr_result.I+blocks(i);
+                                    elements(idx+1:idx+size)=corr_result.correlation;
+                                    idx=idx+size;
+                                end
                             end
-                            I=zeros(nonzeros,1);
-                            elements=zeros(nonzeros,1);
-                        end
-                        for i=1:obj.stem_data.stem_varset_r.nvar
-                            idx_rc=blocks(i)+1:blocks(i+1);
-                            if not(obj.tapering_r)
-                                sigma_W_r(idx_rc,idx_rc)=stem_correlation_function(obj.stem_par.theta_r(i,:),obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
-                            else
-                                corr_result=stem_correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
-                                weights=stem_wendland(obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_data.stem_gridlist_r.tap);
-                                corr_result.correlation=obj.stem_par.v_r(i,i)*corr_result.correlation.*weights;
-                                size=length(corr_result.I);
-                                I(idx+1:idx+size)=corr_result.I+blocks(i);
-                                elements(idx+1:idx+size)=corr_result.correlation;
-                                idx=idx+size;
+                            if obj.tapering_r
+                                sigma_W_r=sparse(I,I,elements);
                             end
-                        end
-                        if obj.tapering_r
-                            sigma_W_r=sparse(I,I,elements);
                         end
                     end
                 end
