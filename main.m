@@ -196,7 +196,7 @@ if 1
     clear sd_r
     
     %% data modification
-    st_model.stem_data.space_crop([44,53,-2,14]);
+    %st_model.stem_data.space_crop([44,53,-2,14]);
     st_model.stem_data.log_transform;
     st_model.stem_data.standardize;
     
@@ -246,7 +246,7 @@ end
 st_model.EM_estimate(st_EM_options);
 
 %st_model.set_Hessian;
-st_model.set_logL;
+%st_model.set_logL;
 
 save(['st_model_',datestr(now,'yyyymmdd_HHMMSS')],'st_model');
 

@@ -187,7 +187,7 @@ classdef stem_kalman < handle
                     tX=t; %time variant
                 end
                 Lt=not(isnan(Y(:,t-1))); %note the t-1
-                
+                [t sum(Lt)]
                 temp=sigma_geo(Lt,Lt);
                 if tapering
                     if not(isdiagonal(temp))
@@ -200,7 +200,8 @@ classdef stem_kalman < handle
                         clear temp2
                         clear temp3
                     else
-                        sigma_geo_inv=diag(1./diag(temp));
+                        d=1./diag(temp);
+                        sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                     end
                 else
                     if not(isdiagonal(temp))
@@ -217,11 +218,20 @@ classdef stem_kalman < handle
                     Pk_f(:,:,t)=G*Pk_u(:,:,t-1)*G'+sigma_eta; %(6.20) Stoffer
                     
                     %update
+                    %original formula
+                    %J(i,Lt,t)=Pk_f(i,i,t)*X_time(Lt,i,tK-1)'/(X_time(Lt,i,tK-1)*Pk_f(i,i,t)*X_time(Lt,i,tK-1)'+sigma_geo(Lt,Lt)); %(6.23) Stoffer
+                    %Sherman-Morrison-Woodbury formula: (B*P*B+D)^-1=D^-1-D^-1*B(P^-1+B*D^-1*B)^-1*B*D^-1
+                    %J(i,Lt,t)=Pk_f(i,i,t)*X_time(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_time(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_time(Lt,i,tK-1)'*sigma_geo_inv*X_time(Lt,i,tK-1))*(X_time(Lt,i,tK-1)'*sigma_geo_inv));
+                    
                     temp=X_time(Lt,:,tK-1)'*sigma_geo_inv; %note that temp can be computed in a distributed way before the KF is started
                     temp2=temp*X_time(Lt,:,tK-1);
-                    sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
-                    J(:,Lt,t)=(Pk_f(:,:,t)*X_time(Lt,:,tK-1)')*sigma_t_inv;
+                    if compute_logL
+                        sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
+                    end
                     
+                    temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                    J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
+                         
                     if not(isempty(X_beta))
                         innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                     else
@@ -245,9 +255,12 @@ classdef stem_kalman < handle
                     temp=X_time(Lt,:,tK-1)'*sigma_geo_inv; %note that temp can be computed in a distributed way before the KF is started
                     temp2=temp*X_time(Lt,:,tK-1);
                     P=diag(1./diag(Pk_f(:,:,t)));
-                    sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
-                    J(:,Lt,t)=(Pk_f(:,:,t)*X_time(Lt,:,tK-1)')*sigma_t_inv;
-
+                    if compute_logL
+                        sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
+                    end
+                    temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                    J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(P+temp2)*temp);
+                    
                     if not(isempty(X_beta))
                         innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                     else
@@ -395,7 +408,8 @@ classdef stem_kalman < handle
                                 clear temp2
                                 clear temp3
                             else
-                                sigma_geo_inv=1./temp;
+                                d=1./diag(temp);
+                                sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                             end
                         else
                             if not(isdiagonal(temp))
@@ -446,8 +460,11 @@ classdef stem_kalman < handle
                         else
                             %temp and temp2 has been already reader from the file
                         end
-                        sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
-                        J(:,Lt,t)=(Pk_f(:,:,t)*X_time(Lt,:,tK-1)')*sigma_t_inv;
+                        if compute_logL
+                            sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
+                        end
+                        temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                        J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
                         
                         if not(isempty(X_beta))
                             innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
@@ -476,8 +493,11 @@ classdef stem_kalman < handle
                             %temp and temp2 has been already reader from the file
                         end
                         P=diag(1./diag(Pk_f(:,:,t)));
-                        sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
-                        J(:,Lt,t)=(Pk_f(:,:,t)*X_time(Lt,:,tK-1)')*sigma_t_inv;
+                        if compute_logL
+                            sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
+                        end
+                        temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                        J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(P+temp2)*temp);      
                         
                         if not(isempty(X_beta))
                             innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
@@ -551,7 +571,8 @@ classdef stem_kalman < handle
                             clear temp2
                             clear temp3
                         else
-                            sigma_geo_inv=1./temp;
+                            d=1./diag(temp);
+                            sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                         end
                     else
                         if not(isdiagonal(temp))
