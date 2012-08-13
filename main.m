@@ -237,14 +237,13 @@ end
 %% model estimation
 
 
-st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
+st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
 
 if flag_parallel
     st_EM_options.pathparallel=pathparallel;
 end
 
 st_model.EM_estimate(st_EM_options);
-
 %st_model.set_Hessian;
 %st_model.set_logL;
 

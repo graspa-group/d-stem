@@ -187,7 +187,6 @@ classdef stem_kalman < handle
                     tX=t; %time variant
                 end
                 Lt=not(isnan(Y(:,t-1))); %note the t-1
-                [t sum(Lt)]
                 temp=sigma_geo(Lt,Lt);
                 if tapering
                     if not(isdiagonal(temp))
@@ -229,7 +228,7 @@ classdef stem_kalman < handle
                         sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
                     end
                     
-                    temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                    temp3=sparse(Pk_f(:,:,t)*X_time(Lt,:,tK-1)');
                     J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
                          
                     if not(isempty(X_beta))

@@ -482,10 +482,12 @@ classdef stem_data < handle
             end
             
             if strcmp(type,'ground')||strcmp(type,'both')
-                obj.DistMat_g=obj.stem_gridlist_g.get_distance_matrix();
+                if not(isempty(obj.stem_varset_g.X_g))
+                    obj.DistMat_g=obj.stem_gridlist_g.get_distance_matrix();
+                end
             end
             if strcmp(type,'remote')||strcmp(type,'both')
-                if not(isempty(obj.stem_gridlist_r))
+                if not(isempty(obj.stem_gridlist_r))&&not(isempty(obj.stem_varset_r.X_rg))
                     obj.DistMat_r=obj.stem_gridlist_r.get_distance_matrix();
                 end
             end
@@ -660,7 +662,7 @@ classdef stem_data < handle
             end
             if changed
                 disp('    Updating ground distance matrix after time crop...');
-                obj.update_distance('ground');
+                obj.update_distance('ground'); %only ground because the remote data are not deleted from the data matrix even if they are NaN for all th time steps
                 disp('    Update ended.');
                 if not(isempty(obj.stem_varset_r))
                     disp('    Updating M replication vector after time crop...');
