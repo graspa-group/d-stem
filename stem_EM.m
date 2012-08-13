@@ -1470,11 +1470,6 @@ classdef stem_EM < EM
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
-            if obj.stem_model.tapering
-                %in the case of tapering system_size is increased to avoid the computation of only the diagonal
-                obj.stem_model.set_system_size(1e10);
-            end
-            
             fts=time_steps(1);
 
             disp('  E step started...');
