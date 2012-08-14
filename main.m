@@ -16,24 +16,32 @@ clear all
 flag_parallel=0;
 flag_remote_data=1;
 
-flag_time_ground=1;
-flag_time_remote=1;
-flag_beta_ground=1;
+flag_time_ground=0;
+flag_time_remote=0;
+flag_beta_ground=0;
 flag_beta_remote=0;
-flag_w_ground=0;
-flag_w_remote=0;
+flag_w_ground=1;
+flag_w_remote=1;
 
 flag_crossval=0;
 flag_tapering=1;
 flag_kriging=0;
+flag_residuals=1;
 pathparallel='/opt/matNfs/';
+
 
 if 1
     %Y
-    load ../Data/no2_ground.mat
-    sd_g.Y{1}=no2_ground.data;
+    if not(flag_residuals)
+        load ../Data/no2_ground.mat
+        sd_g.Y{1}=no2_ground.data;
+    else
+        load ../Data/no2_ground.mat
+        load ../Data/res_ground.mat
+        sd_g.Y{1}=res_ground;
+        clear res_ground
+    end
     sd_g.Y_name={'no2'};
-    
     N=size(sd_g.Y{1},1);
     T=size(sd_g.Y{1},2);
     
@@ -61,6 +69,10 @@ if 1
     X_lon_point=repmat(no2_ground.lon,[1,1,T]);
     X=cat(2,X_meteo_point,X_elevation_point,X_emission_point,X_population_point,X_lat_point,X_lon_point);
     X=double(X);
+    
+    if flag_residuals
+        X([2328,2592],:,:)=[];
+    end
     
     clear X_emission_point
     clear X_meteo_point
@@ -90,8 +102,8 @@ if 1
             temp=reshape(temp,size(temp,1),1,1,size(temp,2));
             X_new(:,1,t,:)=temp;
         end
-        sd_g.X_g{1}=X_new(:,1,:,5);
-        sd_g.X_g_name{1}={'wind'}; %'pressure','temperature','wind speed','elevation','emission','population'
+        sd_g.X_g{1}=X_new(:,1,:,3:8);
+        sd_g.X_g_name{1}={'pressure','temperature','wind speed','elevation','emission','population'}; %'pressure','temperature','wind speed','elevation','emission','population'
         clear X_new
         clear temp
     else
@@ -110,6 +122,10 @@ if 1
         tapering_r=[];
     end
     st_gridlist_g=stem_gridlist(tapering_g);
+    if flag_residuals
+        no2_ground.lat([2328,2592])=[];
+        no2_ground.lon([2328,2592])=[];
+    end
     st_grid=stem_grid([no2_ground.lat,no2_ground.lon],'deg','sparse','point');
     st_gridlist_g.add(st_grid);
     clear no2_ground
@@ -119,10 +135,17 @@ if 1
     
     if flag_remote_data
         %Y
-        load ../Data/no2_remote_025.mat
-        no2_remote.data(no2_remote.data<1e+14)=NaN;
-        no2_remote.data=reshape(no2_remote.data,size(no2_remote.data,1)*size(no2_remote.data,2),size(no2_remote.data,3));
-        sd_r.Y{1}=no2_remote.data;
+        if not(flag_residuals)
+            load ../Data/no2_remote_025.mat
+            no2_remote.data(no2_remote.data<1e+14)=NaN;
+            no2_remote.data=reshape(no2_remote.data,size(no2_remote.data,1)*size(no2_remote.data,2),size(no2_remote.data,3));
+            sd_r.Y{1}=no2_remote.data;
+        else
+            load ../Data/no2_remote_025.mat
+            load ../Data/res_remote
+            sd_r.Y{1}=res_remote;
+            clear res_remote
+        end
         sd_r.Y_name={'no2'};
         
         N=size(sd_r.Y{1},1);
@@ -197,23 +220,24 @@ if 1
     
     %% data modification
     %st_model.stem_data.space_crop([44,53,-2,14]);
-    st_model.stem_data.log_transform;
-    st_model.stem_data.standardize;
+    %st_model.stem_data.time_crop(1:90);
+    %st_model.stem_data.log_transform;
+    %st_model.stem_data.standardize;
     
     %% st_par initialization
     
     if flag_remote_data
         st_par.alpha_rg=[0.5 0.8]';
-        st_par.theta_r=150;
+        st_par.theta_r=1500;
         st_par.v_r=1;
     end
     if flag_beta_ground
         st_par.beta=st_model.get_beta0();
     end
     if flag_w_ground
-        st_par.alpha_g=[0.47];
-        st_par.theta_g=[250]';
-        for i=1:1
+        st_par.alpha_g=[0.3 0.3 0.3 0.3 0.3 0.3];
+        st_par.theta_g=[250 250 250 250 250 250]';
+        for i=1:6
             v_g(:,:,i)=1;
         end
         st_par.v_g=v_g;

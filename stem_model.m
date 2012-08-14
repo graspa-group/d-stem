@@ -174,6 +174,8 @@ classdef stem_model < handle
             %
             %NOTE
             %sigma_geo is provided only if it is time-invariant otherwise it is evaluated at each step of the EM algorithm
+            disp('    Marginal variance-covariance matrices evaluation started...');
+            ct1=clock;
             if nargin==1
                 sigma_W_r=[];
             end
@@ -191,6 +193,8 @@ classdef stem_model < handle
             
             I=1:length(d);
             sigma_eps=sparse(I,I,d);
+            
+            %CONTROLLARE LA CREAZIONE DI SIGMA_W_R NEL CASO REMOTE_CORRELATED = FALSE!!!
             
             %sigma_W_r
             if not(isempty(obj.stem_data.stem_varset_r))
@@ -240,6 +244,7 @@ classdef stem_model < handle
                             end
                         else
                             if obj.tapering_r
+                                idx=0;
                                 nonzeros=0;
                                 for i=1:obj.stem_data.stem_varset_r.nvar
                                     nonzeros=nonzeros+nnz(obj.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
@@ -257,12 +262,13 @@ classdef stem_model < handle
                                     corr_result.correlation=obj.stem_par.v_r(i,i)*corr_result.correlation.*weights;
                                     size=length(corr_result.I);
                                     I(idx+1:idx+size)=corr_result.I+blocks(i);
+                                    J(idx+1:idx+size)=corr_result.J+blocks(i);
                                     elements(idx+1:idx+size)=corr_result.correlation;
                                     idx=idx+size;
                                 end
                             end
                             if obj.tapering_r
-                                sigma_W_r=sparse(I,I,elements);
+                                sigma_W_r=sparse(I,J,elements);
                             end
                         end
                     end
@@ -352,7 +358,9 @@ classdef stem_model < handle
                sigma_Z=reshape(sigma_Z,obj.stem_par.p,obj.stem_par.p);
            else
                sigma_Z=[];
-           end           
+           end   
+           ct2=clock;
+           disp(['    Marginal variance-covariance matrices evaluation ended in ',stem_time(etime(ct2,ct1))]);
         end
         
         function simulate(obj,nan_rate,nan_pattern_par)
@@ -594,19 +602,11 @@ classdef stem_model < handle
             
             if p>0
                 %kalman filter
-                disp('    Kalman filter started...');
-                ct1=clock;
                 st_kalman=stem_kalman(obj);
                 [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,~,aj_rg,aj_g,M,sigma_geo] = st_kalman.filter();
-                ct2=clock;
-                disp(['    Kalman filter ended in ',stem_time(etime(ct2,ct1))]);
             else
-                disp('    sigma matrices evaluation started...');
-                ct1=clock;
                 [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,~,aj_rg,aj_g,M] = obj.get_sigma();
                 st_kalmanfilter_result=stem_kalmanfilter_result([],[],[],[],[]);
-                ct2=clock;
-                disp(['    sigma matrices evaluation ended in ',stem_time(etime(ct2,ct1))]);
             end            
             J=st_kalmanfilter_result.J(:,:,2:end); %J for t=0 is deleted
             st_kalmanfilter_result.J=st_kalmanfilter_result.J(:,:,2:end);

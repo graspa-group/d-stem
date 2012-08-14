@@ -291,20 +291,12 @@ classdef stem_EM < EM
                                 movefile([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'kalman_parallel_',num2str(hosts(i).IPaddress),'.mat']);
                             end
                             %local Kalman Smoother computation
-                            disp('    Kalman smoother started...');
-                            ct1=clock;
                             st_kalman=stem_kalman(obj.stem_model);
                             [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,time_steps,pathparallel);
-                            ct2=clock;
-                            disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                         else
                             %The computation is only local. The standard Kalman smoother is considered
-                            disp('    Kalman smoother started...');
-                            ct1=clock;
                             st_kalman=stem_kalman(obj.stem_model);
                             [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
-                            ct2=clock;
-                            disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                             time_steps=1:T;
                         end
                     else
@@ -333,11 +325,9 @@ classdef stem_EM < EM
 
                     %local E-step computation
                     ct1_local=clock;
-                    [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,cb] = obj.E_step_parallel(time_steps,st_kalmansmoother_result);
+                    [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1] = obj.E_step_parallel(time_steps,st_kalmansmoother_result);
                     ct2_local=clock;
-                    %local_efficiency=cb/etime(ct2_local,ct1_local);
                     local_efficiency=length(time_steps)/etime(ct2_local,ct1_local);
-                    disp(['    Local computation burden: ',num2str(cb)]);
                     disp(['    Local computation time: ',num2str(etime(ct2_local,ct1_local))]);
                     disp(['    Local efficiency: ',num2str(local_efficiency)]);
                     
@@ -360,9 +350,7 @@ classdef stem_EM < EM
                                     end
                                     if not(isempty(idx))
                                         disp('    The data from the client was expected');
-                                        %hosts(idx).efficiency=output.cb/output.ct;
                                         hosts(idx).efficiency=length(output.time_steps)/output.ct;
-                                        disp(['    Computational burden of client ',num2str(hosts(idx).IPaddress),': ',num2str(output.cb)]);
                                         disp(['    Computational time of client ',num2str(hosts(idx).IPaddress),': ',num2str(output.ct)]);
                                         disp(['    Efficiency of client ',num2str(hosts(idx).IPaddress),': ',num2str(hosts(idx).efficiency)]);
                                         tsteps=output.time_steps;
@@ -460,7 +448,7 @@ classdef stem_EM < EM
                 clear data
                 if (K<=1)
                     %run the non parallel version of the M-step
-                    logL = obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result);
+                    obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result);
                     %send the message to the other machine that they don't have to run the M-step
                     for i=1:nhosts
                         data.iteration=iteration;
@@ -500,7 +488,7 @@ classdef stem_EM < EM
                         disp(['     M-Step data sent.']);
                     end
                     %M-step locale
-                    logL = obj.M_step_parallel(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index_local);
+                    obj.M_step_parallel(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index_local);
                 end
                 
                 %Attende la ricezione dagli altri nodi
@@ -638,12 +626,8 @@ classdef stem_EM < EM
             
             if p>0
                 %Kalman smoother
-                disp('    Kalman smoother started...');
-                ct1=clock;
                 st_kalman=stem_kalman(obj.stem_model);
                 [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
-                ct2=clock;
-                disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
@@ -656,17 +640,13 @@ classdef stem_EM < EM
                     var_Yt=sigma_geo+var_Zt;
                 end
             else
-                disp('    sigma matrices evaluation started...');
-                ct1=clock;
                 [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,~,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
-                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[]);
+                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);
                 var_Zt=[];
                 %variance of Y
                 if not(isempty(sigma_geo))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
                 end
-                ct2=clock;
-                disp(['    sigma matrices evaluation ended in ',stem_time(etime(ct2,ct1))]);
             end
             
             res=data.Y;
@@ -757,6 +737,7 @@ classdef stem_EM < EM
             end
             
             for t=1:T
+                t_partial1=clock;
                 %missing at time t
                 Lt=not(isnan(data.Y(:,t)));
                 
@@ -1040,6 +1021,9 @@ classdef stem_EM < EM
                 end
                 %delete the variables the dimension of which changes every t
                 clear temp_g
+                clear temp
+                t_partial2=clock;
+                disp(['      Time step ',num2str(t),' evaluated in ',stem_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
             ct2=clock;
             disp(['    Conditional E, Var, Cov evaluation ended in ',stem_time(etime(ct2,ct1))]);
@@ -1455,7 +1439,7 @@ classdef stem_EM < EM
             disp(['  M step ended in ',stem_time(etime(ct2_mstep,ct1_mstep))]);
         end
             
-        function [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,cb] = E_step_parallel(obj,time_steps,st_kalmansmoother_result)
+        function [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1] = E_step_parallel(obj,time_steps,st_kalmansmoother_result)
             %E-Step
             N=obj.stem_model.stem_data.N;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
@@ -1488,7 +1472,7 @@ classdef stem_EM < EM
                     var_Yt=sigma_geo+var_Zt;
                 end                
             else
-                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[]);    
+                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);    
                 var_Zt=[];
                 %variance of Y
                 if not(isempty(sigma_geo))
@@ -1583,7 +1567,6 @@ classdef stem_EM < EM
                 M_cov_wr_wg_y1=[];
             end
             
-            cb=0; %computational burden
             for t=1:T
                 t_partial1=clock;
                 %missing at time t
@@ -1675,7 +1658,6 @@ classdef stem_EM < EM
                         H1t=var_Yt(Lt,Lt);
                         temp=[];
                     end
-                    cb=cb+size(H1t,1)^3;
                     
                     if obj.stem_model.tapering
                         cs=[];
@@ -1869,7 +1851,7 @@ classdef stem_EM < EM
                 end
                 clear temp_g
                 t_partial2=clock;
-                disp(['      Time step ',num2str(t),' evaluated in ',stem_time(etime(t_partial2,t_partial1))]);
+                disp(['      Time step ',num2str(t),' evaluated in ',stem_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
             
             ct2=clock;

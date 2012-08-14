@@ -34,6 +34,9 @@ classdef stem_kalman < handle
             if nargin==4
                 error('The pathparallel input argument must be provided');
             end
+            disp('    Kalman filter started...');
+            ct1=clock;
+            
             z0=zeros(obj.stem_model.stem_par.p,1);
             P0=eye(obj.stem_model.stem_par.p);
             time_diagonal=obj.stem_model.stem_par.time_diagonal;
@@ -49,8 +52,10 @@ classdef stem_kalman < handle
             else
                 [zk_f,zk_u,Pk_f,Pk_u,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
             end
-
             st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J,logL);
+            
+            ct2=clock;
+            disp(['    Kalman filter ended in ',stem_time(etime(ct2,ct1))]);
         end
         
         function [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = smoother(obj,compute_logL,time_steps,pathparallel)
@@ -64,6 +69,8 @@ classdef stem_kalman < handle
             if nargin==4
                 error('The pathparallel input argument must be provided');
             end
+            disp('    Kalman smoother started...');
+            ct1=clock;
             z0=zeros(obj.stem_model.stem_par.p,1);
             P0=eye(obj.stem_model.stem_par.p);
             time_diagonal=obj.stem_model.stem_par.time_diagonal;
@@ -75,11 +82,13 @@ classdef stem_kalman < handle
             
             tapering=obj.stem_model.tapering;
             [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_rg,data.X_beta,data.X_time,...
-                                                   data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,...
-                                                   sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,...
-                                                   time_diagonal,time_steps,pathparallel,tapering,compute_logL);
+                data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,...
+                sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,...
+                time_diagonal,time_steps,pathparallel,tapering,compute_logL);
             st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL);
-        end        
+            ct2=clock;
+            disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
+        end
     end
     
     methods (Static)

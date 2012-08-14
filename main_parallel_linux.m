@@ -248,12 +248,14 @@ while(1)
             deleted=1;
         end
     end
-
-    st_EM=stem_EM(st_model);
+    
+    
+    st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
+    st_EM=stem_EM(st_model,st_EM_options);
     ct1=clock;
     [output.E_wr_y1,output.sum_Var_wr_y1,output.diag_Var_wr_y1,output.cov_wr_z_y1,output.E_wg_y1,...
         output.sum_Var_wg_y1,output.diag_Var_wg_y1,output.cov_wg_z_y1,output.M_cov_wr_wg_y1,...
-        output.cov_wgk_wgh_y1,output.diag_Var_e_y1,output.E_e_y1,cb] = st_EM.E_step_parallel(data.time_steps,data.st_kalmansmoother_result);
+        output.cov_wgk_wgh_y1,output.diag_Var_e_y1,output.E_e_y1] = st_EM.E_step_parallel(data.time_steps,data.st_kalmansmoother_result);
     output.sum_Var_wr_y1=triu(output.sum_Var_wr_y1);
     for k=1:length(output.sum_Var_wg_y1)
         output.sum_Var_wg_y1{k}=triu(output.sum_Var_wg_y1{k});
@@ -262,7 +264,6 @@ while(1)
     output.ct=etime(ct2,ct1);
     output.iteration=data.iteration;
     output.time_steps=data.time_steps;
-    output.cb=cb;
     output.IPaddress=IPaddress;
     disp([datestr(now),' - saving output...']);
     save([pathparallel,'temp/output_',num2str(IPaddress),'.mat'],'output');
