@@ -45,6 +45,7 @@ while(1)
     end
 
     save([pathparallel,'temp/machine_',num2str(IPaddress),'.mat'],'machine');
+    pause(0.5);
     movefile([pathparallel,'temp/machine_',num2str(IPaddress),'.mat'],[pathparallel,'machine_',num2str(IPaddress),'.mat']);
     disp([datestr(now),' - Replied to whois.']);
     
@@ -267,6 +268,7 @@ while(1)
     output.IPaddress=IPaddress;
     disp([datestr(now),' - saving output...']);
     save([pathparallel,'temp/output_',num2str(IPaddress),'.mat'],'output');
+    pause(0.5);
     movefile([pathparallel,'temp/output_',num2str(IPaddress),'.mat'],[pathparallel,'output_',num2str(IPaddress),'.mat']);
     disp([datestr(now),' - output saved.']);
     clear data
@@ -335,6 +337,7 @@ while(1)
         disp([datestr(now),' - saving output_mstep empty...']);
     end
     save([pathparallel,'temp/output_mstep_',num2str(IPaddress),'.mat'],'output');
+    pause(0.5);
     movefile([pathparallel,'temp/output_mstep_',num2str(IPaddress),'.mat'],[pathparallel,'output_mstep_',num2str(IPaddress),'.mat']);
     disp([datestr(now),' - output_mstep saved.']);
     clear data

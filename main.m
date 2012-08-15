@@ -13,7 +13,7 @@ clc
 clear all
 
 %% ground level data
-flag_parallel=1;
+flag_parallel=0;
 flag_remote_data=1;
 
 flag_time_ground=0;
