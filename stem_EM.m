@@ -1215,9 +1215,9 @@ classdef stem_EM < EM
                     temp=temp+sum_Var_wr_y1;
                 end
                 
+                r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
                 if par.remote_correlated
                     %indices are permutated in order to avoid deadlock
-                    r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
                     kindex=randperm(size(par.v_r,1));
                     for k=kindex
                         hindex=randperm(size(par.v_r,1)-k)+k;

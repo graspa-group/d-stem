@@ -13,7 +13,7 @@ clc
 clear all
 
 %% ground level data
-flag_parallel=0;
+flag_parallel=1;
 flag_remote_data=1;
 
 flag_time_ground=0;
@@ -219,10 +219,10 @@ if 1
     clear sd_r
     
     %% data modification
-    %st_model.stem_data.space_crop([44,53,-2,14]);
-    %st_model.stem_data.time_crop(1:90);
+    %st_model.stem_data.space_crop([44,54,0,14]);
+    st_model.stem_data.time_crop(1:90);
     %st_model.stem_data.log_transform;
-    %st_model.stem_data.standardize;
+    st_model.stem_data.standardize;
     
     %% st_par initialization
     
@@ -251,18 +251,11 @@ if 1
     st_par.sigma_eps=diag([0.3 0.3]);
     st_model.stem_par_initial=st_par;
 else
-    if flag_tapering
-        load ../Data/st_model_small_area.mat
-    else
-        load ../Data/st_model_small_area_notapering.mat
-    end
+    load ../Data/st_model_small_area_residuals.mat
 end
 
 %% model estimation
-
-
-st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
-
+st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
 if flag_parallel
     st_EM_options.pathparallel=pathparallel;
 end
