@@ -13,7 +13,7 @@ clc
 clear all
 
 %% ground level data
-flag_parallel=0;
+flag_parallel=1;
 flag_remote_data=1;
 
 flag_time_ground=0;
@@ -227,16 +227,16 @@ if 1
     %% st_par initialization
     
     if flag_remote_data
-        st_par.alpha_rg=[0.5 0.8]';
-        st_par.theta_r=1500;
+        st_par.alpha_rg=[0.38701 0.74018]';
+        st_par.theta_r=2169.9763;
         st_par.v_r=1;
     end
     if flag_beta_ground
         st_par.beta=st_model.get_beta0();
     end
     if flag_w_ground
-        st_par.alpha_g=[0.3 0.3 0.3 0.3 0.3 0.3];
-        st_par.theta_g=[250 250 250 250 250 250]';
+        st_par.alpha_g=[0.33332 0.36711 0.35129 0.36936 0.27823 0.3722];
+        st_par.theta_g=[249.0917 252.7977 250.9961 242.8473 251.5217 240.0855]';
         for i=1:6
             v_g(:,:,i)=1;
         end
@@ -248,7 +248,7 @@ if 1
         st_par.G=diag(repmat(0.7,6,1));
     end
     
-    st_par.sigma_eps=diag([0.3 0.3]);
+    st_par.sigma_eps=diag([0.44911 0.14626]);
     st_model.stem_par_initial=st_par;
 else
     load ../Data/st_model_small_area_residuals.mat

@@ -263,6 +263,7 @@ while(1)
     end
     ct2=clock;
     output.ct=etime(ct2,ct1);
+    output.cb=data.cb;
     output.iteration=data.iteration;
     output.time_steps=data.time_steps;
     output.IPaddress=IPaddress;

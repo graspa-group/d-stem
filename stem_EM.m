@@ -266,6 +266,9 @@ classdef stem_EM < EM
                         clear st_par
                     end
                     
+                    Lt_all=sum(not(isnan(obj.stem_model.stem_data.Y)));
+                    Lt_sum=sum(Lt_all);
+                    Lt_csum=cumsum(Lt_all);
                     veff=local_efficiency;
                     for i=1:nhosts
                         veff=[veff hosts(i).efficiency];
@@ -273,7 +276,12 @@ classdef stem_EM < EM
                     veff=veff/sum(veff);
                     veff=[0 cumsum(veff)];
                     %compute the time_steps for the server
-                    time_steps=1:round(veff(2)*T);
+                    l1=Lt_sum*veff(1);
+                    l2=Lt_sum*veff(2);
+                    t1=find(Lt_csum>l1,1);
+                    t2=find(Lt_csum>=l2,1);
+                    time_steps=t1:t2;
+                    local_cb=sum(Lt_all(time_steps));
                     disp(['    ',num2str(length(time_steps)),' time will be assigned to the server machine']);                    
                     
                     %Kalman smoother
@@ -283,9 +291,21 @@ classdef stem_EM < EM
                             disp('    Saving the Kalman data structure to distribute')
                             %send the information for the computation of the parallel kalman
                             data.iteration=iteration;
+                            last_t2=t2;
                             for i=1:nhosts
                                 %compute the time_steps for the clients
-                                data.time_steps=round(veff(i+1)*T)+1:round(veff(i+2)*T);
+                                l1=Lt_sum*veff(i+1);
+                                l2=Lt_sum*veff(i+2);
+                                t1=find(Lt_csum>l1,1);
+                                if t1<=last_t2
+                                    t1=last_t2+1;
+                                end
+                                t2=find(Lt_csum>=l2,1);
+                                if t2<t1
+                                    t2=t1;
+                                end
+                                data.time_steps=t1:t2;
+                                last_t2=t2;
                                 disp(['    ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).IPaddress)]);
                                 save([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).IPaddress),'.mat'],'data');
                                 movefile([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'kalman_parallel_',num2str(hosts(i).IPaddress),'.mat']);
@@ -314,9 +334,25 @@ classdef stem_EM < EM
                     disp('    Saving the E-step data structure to distribute')
                     data.st_kalmansmoother_result=st_kalmansmoother_result;
                     data.iteration=iteration;
+                    
+                    l2=Lt_sum*veff(2);
+                    t2=find(Lt_csum>=l2,1);
+                    last_t2=t2;
                     for i=1:nhosts
                         %compute the time_steps for the clients
-                        data.time_steps=round(veff(i+1)*T)+1:round(veff(i+2)*T);
+                        l1=Lt_sum*veff(i+1);
+                        l2=Lt_sum*veff(i+2);
+                        t1=find(Lt_csum>l1,1);
+                        if t1<=last_t2
+                            t1=last_t2+1;
+                        end
+                        t2=find(Lt_csum>=l2,1);
+                        if t2<t1
+                            t2=t1;
+                        end
+                        data.time_steps=t1:t2;
+                        data.cb=sum(Lt_all(data.time_steps));
+                        last_t2=t2;
                         disp(['    ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).IPaddress)]);
                         save([pathparallel,'temp/data_parallel_',num2str(hosts(i).IPaddress),'.mat'],'data');
                         movefile([pathparallel,'temp/data_parallel_',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'data_parallel_',num2str(hosts(i).IPaddress),'.mat']);
@@ -327,7 +363,7 @@ classdef stem_EM < EM
                     ct1_local=clock;
                     [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1] = obj.E_step_parallel(time_steps,st_kalmansmoother_result);
                     ct2_local=clock;
-                    local_efficiency=length(time_steps)/etime(ct2_local,ct1_local);
+                    local_efficiency=local_cb/etime(ct2_local,ct1_local);
                     disp(['    Local computation time: ',num2str(etime(ct2_local,ct1_local))]);
                     disp(['    Local efficiency: ',num2str(local_efficiency)]);
                     
@@ -350,7 +386,7 @@ classdef stem_EM < EM
                                     end
                                     if not(isempty(idx))
                                         disp('    The data from the client was expected');
-                                        hosts(idx).efficiency=length(output.time_steps)/output.ct;
+                                        hosts(idx).efficiency=output.cb/output.ct;
                                         disp(['    Computational time of client ',num2str(hosts(idx).IPaddress),': ',num2str(output.ct)]);
                                         disp(['    Efficiency of client ',num2str(hosts(idx).IPaddress),': ',num2str(hosts(idx).efficiency)]);
                                         tsteps=output.time_steps;
