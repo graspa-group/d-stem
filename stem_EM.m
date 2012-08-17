@@ -275,6 +275,9 @@ classdef stem_EM < EM
                     end
                     veff=veff/sum(veff);
                     veff=[0 cumsum(veff)];
+                    if not(veff(end)==1)
+                        veff(end)=1;
+                    end
                     %compute the time_steps for the server
                     l1=Lt_sum*veff(1);
                     l2=Lt_sum*veff(2);
@@ -736,6 +739,7 @@ classdef stem_EM < EM
                 diag_Var_wr_y1=zeros(Nr,T);
                 cov_wr_z_y1=zeros(Nr,p,T);
             end
+            
             %cov_wg_yz time invariant case
             if not(isempty(data.X_g))
                 if obj.stem_model.tapering
@@ -990,14 +994,18 @@ classdef stem_EM < EM
                         diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
                         
                         if not(isempty(data.X_rg))
-                            %compute M_cov(w_r,w_g|y1); cio� M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                            %compute M_cov(w_r,w_g|y1); cioe' M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
                             if length(M)>obj.stem_model.system_size
-                                for i=1:length(M)
+                                blocks=0:80:length(M);
+                                if not(blocks(end)==length(M))
+                                    blocks=[blocks length(M)];
+                                end
+                                for i=1:length(blocks)-1
                                     %tested
                                     if p>0
-                                        M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i)+cov_wr_z_y1(M(i),:,t)*temp_g{k}(end-p+1:end,i); %ha gi� l'M_apply su left!!
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)); %ha gia' l'M_apply su left!!
                                     else
-                                        M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i);
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1));
                                     end
                                 end
                             else

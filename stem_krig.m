@@ -573,34 +573,30 @@ classdef stem_krig < handle
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
-            if obj.stem_model.tapering
-                %in the case of tapering system_size is increased to avoid the computation of only the diagonal
-                obj.stem_model.set_system_size(1e10);
-            end
-            
             [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
             if p>0
                 st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
-                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)'); 
+                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
                     else
-                        var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)'; 
+                        var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)';
                     end
                 end
                 if not(isempty(sigma_geo))
                     var_Yt=sigma_geo+var_Zt;
-                end                
+                end
             else
-                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[]);    
+                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[]);
                 var_Zt=[];
                 %variance of Y
                 if not(isempty(sigma_geo))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
-                end                
+                end
             end
-           
+            
             res=data.Y;
+            res(isnan(res))=0;
             if not(isempty(data.X_beta))
                 Xbeta=zeros(N,T);
                 if data.X_beta_tv
@@ -617,95 +613,93 @@ classdef stem_krig < handle
             end
             diag_Var_e_y1=zeros(N,T);
             
-            if not(isempty(data.X_rg))&&not(isempty(data.X_g))
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %   Conditional expectation, conditional variance and conditional covariance evaluation  %
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                
-                %cov_wr_yz time invariant case
-                if not(isempty(data.X_rg))
-                    if not(data.X_rg_tv)
-                        cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
-                    end
-                    E_wr_y1=zeros(Nr,T);
-                    diag_Var_wr_y1=zeros(Nr,T);
-                    cov_wr_z_y1=zeros(Nr,p,T);
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %   Conditional expectation, conditional variance and conditional covariance evaluation  %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            %cov_wr_yz time invariant case
+            if not(isempty(data.X_rg))
+                if not(data.X_rg_tv)
+                    cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
                 end
+                E_wr_y1=zeros(Nr,T);
+                diag_Var_wr_y1=zeros(Nr,T);
+                cov_wr_z_y1=zeros(Nr,p,T);
+            end
+            
+            
+            %cov_wg_yz time invariant case
+            if not(isempty(data.X_g))
+                if not(data.X_g_tv)
+                    for k=1:K
+                        cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
+                    end
+                end
+                for h=1:K
+                    for k=h+1:K
+                        cov_wgk_wgh_y1{k,h}=zeros(Ng,T);
+                    end
+                end
+                E_wg_y1=zeros(Ng,T,K);
+                diag_Var_wg_y1=zeros(Ng,T,K);
+                cov_wg_z_y1=zeros(Ng,p,T,K);
+            else
+                E_wg_y1=[];
+            end
+            
+            if not(isempty(data.X_rg)) && not(isempty(data.X_g))
+                M_cov_wr_wg_y1=zeros(N,T,K);
+            else
+                M_cov_wr_wg_y1=[];
+            end
+            
+            for t=1:T
+                %missing at time t
+                Lt=not(isnan(data.Y(:,t)));
                 
-                %cov_wg_yz time invariant case
-                if not(isempty(data.X_g))
-                    if obj.stem_model.tapering
-                        Lg=find(sigma_W_g{1});
-                        [Ig,Jg]=ind2sub(size(sigma_W_g{1}),Lg);
-                    end
-                    if not(data.X_g_tv)
-                        for k=1:K
-                            cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
-                        end
-                    end
-                    for h=1:K
-                        for k=h+1:K
-                            cov_wgk_wgh_y1{k,h}=zeros(Ng,T);
-                        end
-                    end
-                    E_wg_y1=zeros(Ng,T,K);
-                    diag_Var_wg_y1=zeros(Ng,T,K);
-                    cov_wg_z_y1=zeros(Ng,p,T,K);
+                if data.X_rg_tv
+                    tRG=t;
                 else
-                    E_wg_y1=[];
+                    tRG=1;
                 end
-                
-                if not(isempty(data.X_rg)) && not(isempty(data.X_g))
-                    M_cov_wr_wg_y1=zeros(N,T,K);
+                if data.X_time_tv
+                    tT=t;
                 else
-                    M_cov_wr_wg_y1=[];
+                    tT=1;
+                end
+                if data.X_g_tv
+                    tG=t;
+                else
+                    tG=1;
                 end
                 
-                for t=1:T
-                    %missing at time t
-                    Lt=not(isnan(data.Y(:,t)));
-                    
-                    if data.X_rg_tv
-                        tRG=t;
-                    else
-                        tRG=1;
-                    end
-                    if data.X_time_tv
-                        tT=t;
-                    else
-                        tT=1;
-                    end
-                    if data.X_g_tv
-                        tG=t;
-                    else
-                        tG=1;
+                %evaluate var_yt in the time variant case
+                if data.X_tv
+                    if not(isempty(data.X_rg))
+                        sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                     end
                     
-                    %evaluate var_yt in the time variant case
-                    if data.X_tv
-                        if not(isempty(data.X_rg))
-                            sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
-                        end
-                        
-                        if not(isempty(data.X_g))
-                            if isempty(data.X_rg)
-                                if obj.stem_model.tapering
-                                    sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
-                                else
-                                    sigma_geo=zeros(N);
-                                end
-                            end
-                            for k=1:size(data.X_g,4)
-                                sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                    if not(isempty(data.X_g))
+                        if isempty(data.X_rg)
+                            if obj.stem_model.tapering
+                                sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
+                            else
+                                sigma_geo=zeros(N);
                             end
                         end
-                        if isempty(data.X_g)&&isempty(data.X_rg)
-                            sigma_geo=sigma_eps;
-                        else
-                            sigma_geo=sigma_geo+sigma_eps;
+                        for k=1:size(data.X_g,4)
+                            sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
                         end
-                        
-                        if not(isempty(data.X_time))
+                    end
+                    if isempty(data.X_g)&&isempty(data.X_rg)
+                        sigma_geo=sigma_eps;
+                    else
+                        sigma_geo=sigma_geo+sigma_eps;
+                    end
+                    
+                    if not(isempty(data.X_time))
+                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
                             if data.X_time_tv
                                 if obj.stem_model.tapering
                                     var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
@@ -714,37 +708,37 @@ classdef stem_krig < handle
                                 end
                             end
                             var_Yt=sigma_geo+var_Zt;
-                        else
+                        end
+                    else
+                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
                             var_Yt=sigma_geo;
                         end
                     end
-                    
-                    %check if the temporal loadings are time variant
-                    if not(isempty(data.X_time))
-                        if obj.stem_model.tapering
-                            temp=sparse(data.X_time(:,:,tT))*sparse(st_kalmansmoother_result.Pk_s(:,:,t+1));
-                        else
-                            temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                end
+                
+                %check if the temporal loadings are time variant
+                if not(isempty(data.X_time))
+                    temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                    if N>obj.stem_model.system_size
+                        blocks=0:80:size(diag_Var_e_y1,1);
+                        if not(blocks(end)==size(diag_Var_e_y1,1))
+                            blocks=[blocks size(diag_Var_e_y1,1)];
                         end
-                        if N>obj.stem_model.system_size
-                            blocks=0:80:size(diag_Var_e_y1,1);
-                            if not(blocks(end)==size(diag_Var_e_y1,1))
-                                blocks=[blocks size(diag_Var_e_y1,1)];
-                            end
-                            for i=1:length(blocks)-1
-                                %update diag(Var(e|y1))
-                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
-                            end
-                        else
-                            diag_Var_e_y1(:,t)=diag(temp*data.X_time(:,:,tT)');
+                        for i=1:length(blocks)-1
+                            %update diag(Var(e|y1))
+                            diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
                         end
+                    else
+                        diag_Var_e_y1(:,t)=diag(temp*data.X_time(:,:,tT)');
                     end
-                    
+                    temp=st_kalmansmoother_result.zk_s(:,t+1);
+                    y_hat(:,t)=y_hat(:,t)+data.X_time(:,:,tT)*temp;
+                end
+                
+                if not(isempty(data.X_rg))||not(isempty(data.X_g))
                     %build the Ht matrix
                     if not(isempty(var_Zt))
-                        temp=st_kalmansmoother_result.zk_s(:,t+1);
                         H1t=[var_Yt(Lt,Lt), data.X_time(Lt,:,tT)*sigma_Z; sigma_Z*data.X_time(Lt,:,tT)', sigma_Z];
-                        y_hat(:,t)=y_hat(:,t)+data.X_time(:,:,tT)*temp;
                     else
                         H1t=var_Yt(Lt,Lt);
                         temp=[];
@@ -756,41 +750,110 @@ classdef stem_krig < handle
                         chol_H1t=chol(H1t(r,r));
                         temp2=[res(Lt,t);temp];
                         cs(r,1)=chol_solve(chol_H1t,temp2(r));
+                        clear temp2
                     else
                         chol_H1t=chol(H1t);
                         cs=chol_solve(chol_H1t,[res(Lt,t);temp]);
                     end
+                end
+                
+                if not(isempty(data.X_rg))
+                    %check if the remote loadings are time variant
+                    if data.X_rg_tv
+                        %cov_wr_yz time variant case
+                        cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                    end
+                    cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
                     
-                    if not(isempty(data.X_rg))
-                        %check if the remote loadings are time variant
-                        if data.X_rg_tv
-                            %cov_wr_yz time variant case
-                            cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                    %compute E(w_r|y1);
+                    E_wr_y1(:,t)=cov_wr_y1z*cs;
+                    %compute diag(Var(w_r|y1))
+                    if obj.stem_model.tapering
+                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                    else
+                        temp_r=chol_solve(chol_H1t,cov_wr_y1z');
+                    end
+                    
+                    blocks=0:80:size(diag_Var_wr_y1,1);
+                    if not(blocks(end)==size(diag_Var_wr_y1,1))
+                        blocks=[blocks size(diag_Var_wr_y1,1)];
+                    end
+                    for i=1:length(blocks)-1
+                        diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)=diag(sigma_W_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r(:,blocks(i)+1:blocks(i+1)));
+                    end
+                    
+                    if p>0
+                        %compute cov(w_r,z|y1)
+                        cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                        blocks=0:80:size(diag_Var_wr_y1,1);
+                        if not(blocks(end)==size(diag_Var_wr_y1,1))
+                            blocks=[blocks size(diag_Var_wr_y1,1)];
                         end
-                        cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
-                        
-                        %compute E(w_r|y1);
-                        E_wr_y1(:,t)=cov_wr_y1z*cs;
-                        %compute diag(Var(w_r|y1))
-                        if obj.stem_model.tapering
-                            temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                        for i=1:length(blocks)-1
+                            diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)+diag(cov_wr_z_y1(blocks(i)+1:blocks(i+1),:,t)*temp_r(end-p+1:end,blocks(i)+1:blocks(i+1)));
+                        end
+                        clear temp_r
+                        %update diag(Var(e|y1))
+                        temp=D_apply(D_apply(M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                        if N>obj.stem_model.system_size
+                            blocks=0:80:size(diag_Var_e_y1,1);
+                            if not(blocks(end)==size(diag_Var_e_y1,1))
+                                blocks=[blocks size(diag_Var_e_y1,1)];
+                            end
+                            for i=1:length(blocks)-1
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                            end
                         else
-                            temp_r=chol_solve(chol_H1t,cov_wr_y1z');
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
                         end
-                        
-                        %DIVERSO RISPETTO A E-STEP DI STEM_EM IN QUANTO SERVE SOLO LA DIAGONALE!!
-                        for i=1:size(temp_r,2)
-                            diag_Var_wr_y1(i,t)=sigma_W_r(i,i)-cov_wr_y1z(i,:)*temp_r(:,i);
+                    else
+                        cov_wr_z_y1=[];
+                    end
+                    %update y_hat
+                    y_hat(:,t)=y_hat(:,t)+D_apply(D_apply(M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                    %update diag(Var(e|y1))
+                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                end
+                
+                if not(isempty(data.X_g))
+                    %check if the ground loadings are time variant
+                    if data.X_g_tv
+                        %cov_wg_yz time invariant case
+                        for k=1:K
+                            cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                        end
+                    end
+                    for k=1:K
+                        cov_wg_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
+                        %compute E(w_g_k|y1);
+                        E_wg_y1(:,t,k)=cov_wg_y1z*cs;
+                        %compute diag(Var(w_g_k|y1))
+                        if obj.stem_model.tapering
+                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)');
+                        else
+                            temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
+                        end
+
+                        blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
+                        if not(blocks(end)==size(diag_Var_wg_y1(:,t,k),1))
+                            blocks=[blocks size(diag_Var_wg_y1(:,t,k),1)];
+                        end
+                        for i=1:length(blocks)-1
+                            diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(sigma_W_g{k}(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
                         end
                         
                         if p>0
-                            %compute cov(w_r,z|y1)
-                            cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                            for i=1:size(temp_r,2)
-                                diag_Var_wr_y1(i,t)=diag_Var_wr_y1(i,t)+cov_wr_z_y1(i,:,t)*temp_r(end-p+1:end,i);
+                            %compute cov(w_g,z|y1)
+                            cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                            blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
+                            if not(blocks(end)==size(diag_Var_wg_y1(:,t,k),1))
+                                blocks=[blocks size(diag_Var_wg_y1(:,t,k),1)];
+                            end
+                            for i=1:length(blocks)-1
+                                diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)+diag(cov_wg_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)));
                             end
                             %update diag(Var(e|y1))
-                            temp=D_apply(D_apply(M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                            temp=D_apply(D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(diag_Var_e_y1,1);
                                 if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -803,430 +866,79 @@ classdef stem_krig < handle
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
                             end
                         else
-                            cov_wr_z_y1=[];
+                            cov_wg_z_y1=[];
                         end
-                        %update y_hat
-                        y_hat(:,t)=y_hat(:,t)+D_apply(D_apply(M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                        %y_hat
+                        y_hat(:,t)=y_hat(:,t)+D_apply(D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                         %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                        
+                        if not(isempty(data.X_rg))
+                            %compute M_cov(w_r,w_g|y1); cioè M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                            if length(M)>obj.stem_model.system_size
+                                blocks=0:80:length(M);
+                                if not(blocks(end)==length(M))
+                                    blocks=[blocks length(M)];
+                                end
+                                for i=1:length(blocks)-1
+                                    %tested
+                                    if p>0
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)); %ha gia' l'M_apply su left!!
+                                    else
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1));
+                                    end
+                                end
+                            else
+                                if p>0
+                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'M_apply su left!!
+                                else
+                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
+                                end
+                            end
+                            %update diag(Var(e|y1)) - tested
+                            temp=D_apply(D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                            temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
+                        end
                     end
                     
-                    if not(isempty(data.X_g))
-                        %check if the ground loadings are time variant
-                        if data.X_g_tv
-                            %cov_wg_yz time invariant case
-                            for k=1:K
-                                cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
-                            end
-                        end
-                        for k=1:K
-                            cov_wg_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
-                            %compute E(w_g_k|y1);
-                            E_wg_y1(:,t,k)=cov_wg_y1z*cs;
-                            %compute diag(Var(w_g_k|y1))
-                            if obj.stem_model.tapering
-                                temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)');
-                            else
-                                temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
-                            end
-                            %DIVERSO RISPETTO A E-STEP DI STEM_EM IN QUANTO SERVE SOLO LA DIAGONALE!!
-                            for i=1:size(temp_g{k},2)
-                                %VERIFICARE SE E' NECESSARIO TRIMMARE TEMP_G{K} IN QUANTO DIVERSO DA E_STEP DI STEM_EM!!
-                                diag_Var_wg_y1(:,t,k)=sigma_W_g{k}(i,i)-cov_wg_y1z(i,:)*temp_g{k}(:,i);
-                            end
-                            
-                            if p>0
-                                %compute cov(w_g,z|y1)
-                                cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                                for i=1:size(temp_g,2)
-                                    diag_Var_wg_y1(:,t,k)=diag_Var_wg_y1(:,t,k)+cov_wg_z_y1(i,:,t,k)*temp_g{k}(end-p+1:end,i);
-                                end
-                                %update diag(Var(e|y1))
-                                temp=D_apply(D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                    if K>1
+                        %compute cov(w_gk,w_gh|y1);
+                        for h=1:K
+                            for k=h+1:K
+                                cov_wgk_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
                                 if N>obj.stem_model.system_size
-                                    blocks=0:80:size(diag_Var_e_y1,1);
-                                    if not(blocks(end)==size(diag_Var_e_y1,1))
-                                        blocks=[blocks size(diag_Var_e_y1,1)];
+                                    blocks=0:80:size(cov_wgk_y1z,1);
+                                    if not(blocks(end)==size(cov_wgk_y1z,1))
+                                        blocks=[blocks size(cov_wgk_y1z,1)];
                                     end
                                     for i=1:length(blocks)-1
-                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
-                                    end
-                                else
-                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
-                                end
-                            else
-                                cov_wg_z_y1=[];
-                            end
-                            %y_hat
-                            y_hat(:,t)=y_hat(:,t)+D_apply(D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                            %update diag(Var(e|y1))
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
-                            
-                            if not(isempty(data.X_rg))
-                                %compute M_cov(w_r,w_g|y1); cioè M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
-                                if length(M)>obj.stem_model.system_size
-                                    for i=1:length(M)
-                                        %tested
-                                        if p>0
-                                            M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i)+cov_wr_z_y1(M(i),:,t)*temp_g{k}(end-p+1:end,i); %ha già l'M_apply su left!!
-                                        else
-                                            M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i);
-                                        end
-                                    end
-                                else
-                                    if p>0
-                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'M_apply su left!!
-                                    else
-                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
-                                    end
-                                end
-                                %update diag(Var(e|y1)) - tested
-                                temp=D_apply(D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                                temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
-                            end
-                        end
-                        
-                        if K>1
-                            %compute cov(w_gk,w_gh|y1);
-                            for h=1:K
-                                for k=h+1:K
-                                    cov_wgk_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
-                                    if N>obj.stem_model.system_size
-                                        blocks=0:80:size(cov_wgk_y1z,1);
-                                        if not(blocks(end)==size(cov_wgk_y1z,1))
-                                            blocks=[blocks size(cov_wgk_y1z,1)];
-                                        end
-                                        for i=1:length(blocks)-1
-                                            if not(isempty(cov_wg_z_y1))
-                                                cov_wgk_wgh_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wgk_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{h}(:,blocks(i)+1:blocks(i+1))+cov_wg_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_g{h}(end-p+1:end,blocks(i)+1:blocks(i+1)));
-                                            else
-                                                cov_wgk_wgh_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wgk_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{h}(:,blocks(i)+1:blocks(i+1)));
-                                            end
-                                        end
-                                    else
                                         if not(isempty(cov_wg_z_y1))
-                                            cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h}+cov_wg_z_y1(:,:,t,k)*temp_g{h}(end-p+1:end,:));
+                                            cov_wgk_wgh_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wgk_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{h}(:,blocks(i)+1:blocks(i+1))+cov_wg_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_g{h}(end-p+1:end,blocks(i)+1:blocks(i+1)));
                                         else
-                                            cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
+                                            cov_wgk_wgh_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wgk_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{h}(:,blocks(i)+1:blocks(i+1)));
                                         end
                                     end
-                                    temp=D_apply(D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                    temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
-                                    %update diag(Var(e|y1))
-                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
+                                else
+                                    if not(isempty(cov_wg_z_y1))
+                                        cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h}+cov_wg_z_y1(:,:,t,k)*temp_g{h}(end-p+1:end,:));
+                                    else
+                                        cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
+                                    end
                                 end
+                                temp=D_apply(D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
+                                %update diag(Var(e|y1))
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
                         end
                     end
                     clear temp_g
                 end
-            else
-                E_wg_y1=[];
             end
             var_y_hat=diag_Var_e_y1;
         end
            
-%         function st_bootkrig_result = rndpar_kriging(obj,block_size,variable_name,X,sub,mask,back_transform,replications,directory,no_varcov)
-%             if nargin<3
-%                 error('The variable name to be kriged must be provided');
-%             end
-%             if nargin<4
-%                 X=[];
-%             end
-%             if nargin<5
-%                 sub=1;
-%             end
-%             if isempty(sub)==0
-%                 sub=1;
-%             end
-%             if nargin<6
-%                 mask=[];
-%                 obj.idx_notnan=ones(length(obj.Grid),1);
-%             else
-%                 obj.idx_notnan=find(isnotnan(mask(:)));
-%             end
-%             if (nargin<7)||isempty(back_transform)
-%                 back_transform=1;
-%             end
-%             if nargin<8
-%                 replications=100;
-%             end
-%             
-%             if (nargin>=9)&&not(isempty(directory))
-%                 savetofile=1;
-%                 if not(strcmp(directory(end),'/'))
-%                     directory=[directory,'/'];
-%                 end
-%             else
-%                 savetofile=0;
-%             end
-%             
-%             if nargin<10
-%                 no_varcov=0;
-%             end
-% 
-%             if isempty(obj.stem_model)
-%                 error('The stem_model property is not setted');
-%             end
-%             if not(isempty(obj.stem_model.stem_data.X))&&isempty(X)
-%                 error('Covariates must be provided for this model');
-%             end
-%             
-%             index=obj.stem_model.stem_data.stem_varset.get_index(variable_name);
-%             if isempty(index)
-%                 error('The variable name is incorrect');
-%             end
-%             
-%             if block_size==0
-%                 blocks_krig=[0 size(obj.idx_notnan,1)];
-%             else
-%                 blocks_krig=0:block_size:size(obj.idx_notnan,1);
-%                 if blocks_krig(end)~=size(obj.idx_notnan,1)
-%                     blocks_krig=[blocks_krig size(obj.idx_notnan,1)];
-%                 end
-%             end
-%             
-%             if replications<1
-%                 error('Replications must be > 0');
-%             end
-%             
-%             T=obj.stem_model.T;
-%             if savetofile
-%                 for t=1:T
-%                     %create the destination directories
-%                     mkdir([directory,'t',num2str(t)]);
-%                 end
-%                 st_bootkrig_result=[];
-%             else
-%                 st_bootkrig_result=stem_bootkrig_result(variable_name,obj.stem_grid,obj.stem_model.stem_data.shape);
-%             end
-%             
-%             
-%             for b=1:replications
-%                 cdisp('Kriging replication ',num2str(b),' started...');
-%                 if (b==1)&&not(savetofile)
-%                     st_bootkrig_result.Y_hat=nan(obj.Grid_size(1),obj.Grid_size(2),T,rep);
-%                 end
-%                 
-%                 st_par_original=obj.stem_model.stem_par;            
-%                 %generate a new st_par randomly
-%                 disp('Generating st_par randomly');
-%                 st_par_rnd=st_par_original.random(obj.stem_model.stem_EM_result.Hessian);
-%                 disp('Generation completed');
-%                 obj.stem_model.stem_par=st_par_rnd;
-%                 
-%                 %do the kriging
-%                 st_krig_result = obj.kriging(block_size,variable_name,X,sub,mask,back_transform,no_varcov);
-%                
-%                 %set the original parameter value
-%                 obj.stem_model.stem_par=st_par_original;
-%                  
-%                 
-%                 if not(savetofile)
-%                     st_bootkrig_result.Y_hat(:,:,:,b)=st_krig_result.Y_hat;
-%                     if not(no_varcov)
-%                         st_bootkrig_result.Var_Y_hat(:,:,:,b)=st_krig_result.Var_Y_hat;
-%                     end
-%                 else
-%                     disp('Saving kriging results on HD');
-%                     for t=1:T
-%                         boot_krig_fixtime.Y_hat=squeeze(st_krig_result.Y_hat(:,:,t));
-%                         if not(no_varcov)
-%                             boot_krig_fixtime.Var_Y_hat=squeeze(st_krig_result.Var_Y_hat(:,:,t));
-%                         end
-%                         boot_krig_fixtime.variable_name=variable_name;
-%                         boot_krig_fixtime.temporal_index=t;
-%                         boot_krig_fixtime.bootstrap_replica_index=b;
-%                         boot_krig_fixtime.readme='The actual mask and grid are contained in the file related with t=1 and the first boostrap replica';
-%                         if (t==1)&&(b==1)
-%                             boot_krig_fixtime.stem_grid=obj.stem_grid;
-%                             boot_krig_fixtime.mask=mask;
-%                             boot_krig_fixtime.Y=obj.stem_model.stem_data.Y;
-%                         else
-%                            boot_krig_fixtime.stem_grid=[];
-%                            boot_krig_fixtime.mask=[];
-%                            boot_krig_fixtime.Y=[];
-%                         end
-%                         code=num2str(b);
-%                         while length(code)<5
-%                             code=['0',code];
-%                         end
-%                         save([directory,'t',num2str(t),'/boot_krig_fixtime_',code],'boot_krig_fixtime');
-%                     end
-%                     disp('Results saved.');
-%                 end
-%             end
-%          end
-        
-%         function st_bootkrig_result = bootstrap_kriging(obj,block_krig_size,boot_method,rep,variable_name,X,sub,mask,directory)
-%             if nargin<5
-%                 error('Not enough input parameters');
-%             end
-%             if nargin<6
-%                 X=[];
-%             end
-%             if nargin<7
-%                 sub=1;
-%             end
-%             if isempty(sub)==0
-%                 sub=1;
-%             end
-%             if nargin<8
-%                 mask=[];
-%             else
-%                 temp=mask(:);
-%                 temp=isnotnan(temp);
-%                 obj.idx_notnan=find(isnotnan(temp));
-%             end
-%             if nargin>8
-%                 savetofile=1;
-%                 if not(strcmp(directory(end),'/'))
-%                     directory=[directory,'/'];
-%                 end
-%             else
-%                 savetofile=0;
-%             end
-%             
-%             if (block_krig_size<0)
-%                 error('block_size must be >=0');
-%             end
-%             if (boot_method<0)||(boot_method>1)
-%                 error('boot_method must be either zero or one');
-%             end
-%             if rep<1
-%                 error('rep must be greater than one');
-%             end
-%             index=obj.stem_model.stem_data.stem_varset.get_index(variable_name);
-%             if isempty(index)
-%                 error('The variable name is incorrect');
-%             end
-%             if sub<=0
-%                 error('sub must be greater than zero');
-%             end
-%             
-%             Y_original=obj.stem_model.stem_data.Y;
-%             residuals=obj.stem_model.stem_EM_result.Y_hat-obj.stem_model.stem_data.Y;
-%             %residuals are considered with respect to each site if T>1
-%             T=obj.stem_model.T;
-%             if savetofile
-%                 for t=1:T
-%                     %create the destination directories
-%                     mkdir([directory,'t',num2str(t)]);
-%                 end
-%                 st_bootkrig_result=[];
-%             else
-%                 st_bootkrig_result=stem_bootkrig_result(variable_name,obj.stem_grid,obj.stem_model.stem_data.shape);
-%             end
-%             if (boot_method==0)&&(T==1)
-%                 warning('Not enough temporal steps for site by site bootstrap. Switching to global bootstrap');
-%                 boot_method=1;
-%             end
-%             disp('Residual evaluation...');
-%             if boot_method==0
-%                 for i=1:size(residuals,1)
-%                     L=isnotnan(residuals(i,:));
-%                     if T<20
-%                         %classic bootstrap
-%                         res{i}=residuals(i,L);
-%                     else
-%                         %block-bootstrap with trend estimation
-%                         [a,b]=obj.ma(residuals(i,:),10);
-%                         trend{i}=a; %the trend is not restricted to the non-NaN data because it is in a 1:1 relationship with time
-%                         res{i}=b(L);
-%                     end
-%                 end
-%             else
-%                 L=isnotnan(residuals);
-%                 res=residuals(L);
-%                 res=res(:);
-%             end
-%             disp('Residual evaluation ended.');
-%             estimated_par=obj.stem_model.stem_par;
-%             for b=1:rep
-%                 disp(['Bootstrap iteration ',num2str(b),'/',num2str(rep)]);
-%                 disp('New data generation...');
-%                 if boot_method==0
-%                     for i=1:size(obj.stem_model.N,1)
-%                         if T<20
-%                             %classic bootstrap
-%                             indices=round(unifrnd(1,length(res{i}),T,1));
-%                             e=res{i}(indices);
-%                             %nan are preserved
-%                             row=Y_original(i,:)+e;
-%                             obj.stem_model.stem_data.set_Y_row(i,row);
-%                         else
-%                             %block-bootstrap with trend
-%                             lres=length(res{i});
-%                             if lres<20
-%                                 %if the number of actual residuals is less
-%                                 %than 20 the block size is defined
-%                                 %accordingly
-%                                 block_size=floor(lres/2);
-%                             else
-%                                 %otherwise block_size is 10
-%                                 block_size=10;
-%                             end
-%                             e=[];
-%                             while length(e)<T
-%                                 %build the residual vector
-%                                 idx=round(unifrnd(1,length(res{i})-block_size+1,1,1));
-%                                 e=[e res{i}(idx:idx+block_size-1)];
-%                             end
-%                             if length(e)>T
-%                                 %cut the residual vector if it is too long
-%                                 e=e(1:T);
-%                             end
-%                             row=Y_original(i,:)+trend{i}+e; %note the trend
-%                             obj.stem_model.stem_data.set_Y_row(i,row);
-%                         end
-%                     end
-%                 else
-%                     indices=round(unifrnd(1,length(res),size(obj.stem_model.stem_data.Y,1)*size(obj.stem_model.stem_data.Y,2)));
-%                     e=res(indices);
-%                     e=reshape(e,size(obj.stem_model.stem_data.Y,1),size(obj.stem_model.stem_data.Y,2));
-%                     obj.stem_model.stem_data.set_Y(Y_original+e);
-%                     %obj.stem_model.stem_data.Y=obj.stem_model.stem_data.Y+e;
-%                 end
-%                 %estimation start here
-%                 disp('EM estimation');
-%                 obj.stem_model.stem_par_initial=estimated_par;
-%                 obj.stem_model.EM_estimate(0.001,300,'single');
-%                 st_krig_result = obj.kriging(block_krig_size,variable_name,X,sub,mask);
-%                 if (b==1)&&not(savetofile)
-%                     st_bootkrig_result.Y_hat=nan(obj.Grid_size(1),obj.Grid_size(2),T,rep);
-%                 end
-%                 %save results
-%                 if not(savetofile)
-%                     st_bootkrig_result.Y_hat(:,:,:,b)=st_krig_result.Y_hat;
-%                     st_bootkrig_result.Var_Y_hat(:,:,:,b)=st_krig_result.Var_Y_hat;
-%                 else
-%                     for t=1:T
-%                         boot_krig_fixtime.Y_hat=squeeze(st_krig_result.Y_hat(:,:,t));
-%                         boot_krig_fixtime.Var_Y_hat=squeeze(st_krig_result.Var_Y_hat(:,:,t));
-%                         boot_krig_fixtime.Grid_size=obj.Grid_size;
-%                         boot_krig_fixtime.variable_name=variable_name;
-%                         boot_krig_fixtime.temporal_index=t;
-%                         boot_krig_fixtime.bootstrap_replica_index=b;
-%                         boot_krig_fixtime.readme='The actual mask and grid are contained in the file related with t=1 and the first boostrap replica';
-%                         if (t==1)&&(b==1)
-%                             boot_krig_fixtime.Grid=obj.Grid;
-%                             boot_krig_fixtime.mask=mask;
-%                             boot_krig_fixtime.Y=obj.stem_model.stem_data.Y;
-%                         end
-%                         code=num2str(b);
-%                         while length(code)<5
-%                             code=['0',code];
-%                         end
-%                         save([directory,'t',num2str(t),'/boot_krig_fixtime_',code],'boot_krig_fixtime');
-%                     end
-%                 end
-%                 %reset original data
-%                 obj.stem_model.stem_data.update_Y();
-%                 delete(st_krig_result);
-%             end
-%         end
-        
         function set.stem_model(obj,stem_model)
             if isa(stem_model,'stem_model')
                 obj.stem_model=stem_model;
@@ -1234,7 +946,6 @@ classdef stem_krig < handle
                 error('stem_model must be of class stem_model');
             end
         end
-        
         
         function set.X_all(obj,X_all)
             if size(obj.idx_notnan,1)~=size(X_all,1)
