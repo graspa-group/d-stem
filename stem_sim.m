@@ -72,7 +72,7 @@ classdef stem_sim < handle
             if obj.stem_model.stem_par.p>0
                 mu0=zeros(obj.stem_model.stem_par.p,1);
                 sigma_0=0.01*eye(obj.stem_model.stem_par.p);
-                Z=ar1_sim(obj.stem_model.stem_par.G,obj.stem_model.stem_par.sigma_eta,T,mu0,sigma_0);
+                Z=stem_sim.ar1_sim(obj.stem_model.stem_par.G,obj.stem_model.stem_par.sigma_eta,T,mu0,sigma_0);
             end
             
             Y=zeros(N,T);
@@ -205,6 +205,18 @@ classdef stem_sim < handle
                 end
             end
             obj.nan_pattern_par=nan_pattern_par;
+        end
+    end
+    
+    methods (Static)
+        function Z = ar1_sim(G,sigma_eta,T,mu0,sigma_0)
+            Z=zeros(length(G),T+1);
+            Z0=mvnrnd(mu0,sigma_0)';
+            Z(:,1)=Z0;
+            for t=2:T+1
+                Z(:,t)=G*Z(:,t-1)+mvnrnd(zeros(length(G),1),sigma_eta)';
+            end
+            Z=Z(:,2:T+1);
         end
     end
     

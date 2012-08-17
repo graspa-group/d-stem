@@ -587,7 +587,7 @@ classdef stem_krig < handle
                     var_Yt=sigma_geo+var_Zt;
                 end
             else
-                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[]);
+                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);
                 var_Zt=[];
                 %variance of Y
                 if not(isempty(sigma_geo))
@@ -883,9 +883,9 @@ classdef stem_krig < handle
                                 for i=1:length(blocks)-1
                                     %tested
                                     if p>0
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)); %ha gia' l'M_apply su left!!
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'M_apply su left!!
                                     else
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1));
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
                                     end
                                 end
                             else

@@ -890,13 +890,25 @@ classdef stem_EM < EM
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
                     %compute Var(w_r|y1)
                     if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
-                        temp_r2=cov_wr_y1z*temp_r;
-                        temp_r3=temp_r2(Lr);
-                        temp_r3=sparse(Ir,Jr,temp_r3);
-                        clear temp_r2
-                        Var_wr_y1=sigma_W_r-temp_r3;
-                        clear temp_r3
+                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                        blocks=0:200:size(cov_wr_y1z,1);
+                        if not(blocks(end)==size(cov_wr_y1z,1))
+                            blocks=[blocks size(cov_wr_y1z,1)];
+                        end
+                        Id=[];
+                        Jd=[];
+                        elements=[];
+                        for i=1:length(blocks)-1
+                            temp_r2=cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r;  
+                            %VERIFICARE APPLICAZIONE WENDLAND E SISTEMARE STEM_KRIG!!
+                            temp_r2=temp_r2.*stem_wendland(obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_r.tap,1);
+                            idx=find(temp_r2);
+                            [idx_I,idx_J]=ind2sub(size(temp_r2),idx);
+                            Id=[Id;idx_I+blocks(i)];
+                            Jd=[Jd;idx_J];
+                            elements=[elements;temp_r2(idx)];
+                        end
+                        Var_wr_y1=sigma_W_r-sparse(Id,Jd,elements);
                     else
                         temp_r=chol_solve(chol_H1t,cov_wr_y1z');
                         Var_wr_y1=sigma_W_r-cov_wr_y1z*temp_r;
@@ -952,19 +964,29 @@ classdef stem_EM < EM
                         E_wg_y1(:,t,k)=cov_wg_y1z*cs;
                         %compute Var(w_g_k|y1)
                         if obj.stem_model.tapering
-                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
-                            temp_g2=cov_wg_y1z*temp_g{k};
-                            temp_g3=temp_g2(Lg);
-                            temp_g3=sparse(Ig,Jg,temp_g3);
-                            clear temp_g2
-                            Var_wg_y1=sigma_W_g{k}-temp_g3;
-                            clear temp_g3
+                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)');
+                            blocks=0:200:size(cov_wg_y1z,1);
+                            if not(blocks(end)==size(cov_wg_y1z,1))
+                                blocks=[blocks size(cov_wg_y1z,1)];
+                            end
+                            Id=[];
+                            Jd=[];
+                            elements=[];
+                            for i=1:length(blocks)-1
+                                temp_g2=cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k};
+                                %VERIFICARE APPLICAZIONE WENDLAND E SISTEMARE STEM_KRIG!!
+                                temp_g2=temp_g2.*stem_wendland(obj.stem_model.stem_data.DistMat_g(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_g.tap,1);
+                                idx=find(temp_g2);
+                                [idx_I,idx_J]=ind2sub(size(temp_g2),idx);
+                                Id=[Id;idx_I+blocks(i)];
+                                Jd=[Jd;idx_J];
+                                elements=[elements;temp_g2(idx)];
+                            end
+                            Var_wg_y1=sigma_W_g{k}-sparse(Id,Jd,elements);
                         else
                             temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
                             Var_wg_y1=sigma_W_g{k}-cov_wg_y1z*temp_g{k};
                         end
-                        
-                        %VALUTARE SE ANCHE TEMP_G{K} VA TRIMMATA E APPORTARE LA MODIFICA AGLI ALTRI METODI!!!!
                         
                         if p>0
                             %compute cov(w_g,z|y1)
@@ -1003,9 +1025,9 @@ classdef stem_EM < EM
                                 for i=1:length(blocks)-1
                                     %tested
                                     if p>0
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)); %ha gia' l'M_apply su left!!
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'M_apply su left!!
                                     else
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1));
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
                                     end
                                 end
                             else
@@ -1726,13 +1748,25 @@ classdef stem_EM < EM
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
                     %compute Var(w_r|y1)
                     if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
-                        temp_r2=cov_wr_y1z*temp_r;
-                        temp_r3=temp_r2(Lr);
-                        temp_r3=sparse(Ir,Jr,temp_r3);
-                        clear temp_r2
-                        Var_wr_y1=sigma_W_r-temp_r3;
-                        clear temp_r3
+                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                        blocks=0:200:size(cov_wr_y1z,1);
+                        if not(blocks(end)==size(cov_wr_y1z,1))
+                            blocks=[blocks size(cov_wr_y1z,1)];
+                        end
+                        Id=[];
+                        Jd=[];
+                        elements=[];
+                        for i=1:length(blocks)-1
+                            temp_r2=cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r;  
+                            %VERIFICARE APPLICAZIONE WENDLAND!!
+                            temp_r2=temp_r2.*stem_wendland(obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_r.tap,1);
+                            idx=find(temp_r2);
+                            [idx_I,idx_J]=ind2sub(size(temp_r2),idx);
+                            Id=[Id;idx_I+blocks(i)];
+                            Jd=[Jd;idx_J];
+                            elements=[elements;temp_r2(idx)];
+                        end
+                        Var_wr_y1=sigma_W_r-sparse(Id,Jd,elements);
                     else
                         temp_r=chol_solve(chol_H1t,cov_wr_y1z');
                         Var_wr_y1=sigma_W_r-cov_wr_y1z*temp_r;
@@ -1789,12 +1823,24 @@ classdef stem_EM < EM
                         %compute Var(w_g_k|y1)
                         if obj.stem_model.tapering
                             temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
-                            temp_g2=cov_wg_y1z*temp_g{k};
-                            temp_g3=temp_g2(Lg);
-                            temp_g3=sparse(Ig,Jg,temp_g3);
-                            clear temp_g2
-                            Var_wg_y1=sigma_W_g{k}-temp_g3;
-                            clear temp_g3
+                            blocks=0:200:size(cov_wg_y1z,1);
+                            if not(blocks(end)==size(cov_wg_y1z,1))
+                                blocks=[blocks size(cov_wg_y1z,1)];
+                            end
+                            Id=[];
+                            Jd=[];
+                            elements=[];
+                            for i=1:length(blocks)-1
+                                temp_g2=cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k};
+                                %VERIFICARE APPLICAZIONE WENDLAND E SISTEMARE STEM_KRIG!!
+                                temp_g2=temp_g2.*stem_wendland(obj.stem_model.stem_data.DistMat_g(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_g.tap,1);
+                                idx=find(temp_g2);
+                                [idx_I,idx_J]=ind2sub(size(temp_g2),idx);
+                                Id=[Id;idx_I+blocks(i)];
+                                Jd=[Jd;idx_J];
+                                elements=[elements;temp_g2(idx)];
+                            end
+                            Var_wg_y1=sigma_W_g{k}-sparse(Id,Jd,elements);
                         else
                             temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
                             Var_wg_y1=sigma_W_g{k}-cov_wg_y1z*temp_g{k};

@@ -187,7 +187,7 @@ classdef stem_par
                 all_par=[all_par; obj.theta_r(:)];
             end
             if obj.remote_correlated
-                all_par=[all_par; from_upper_triangular_to_vector(obj.v_r)];
+                all_par=[all_par; stem_par.from_upper_triangular_to_vector(obj.v_r)];
             end
 
             all_par=[all_par; obj.alpha_g(:)];
@@ -197,7 +197,7 @@ classdef stem_par
                 all_par=[all_par;obj.theta_g(:)];
             end
             for i=1:obj.k
-                all_par=[all_par; from_upper_triangular_to_vector(obj.v_g(:,:,i))];
+                all_par=[all_par; stem_par.from_upper_triangular_to_vector(obj.v_g(:,:,i))];
             end
             
             if obj.p>0
@@ -362,6 +362,22 @@ classdef stem_par
                 error('sigma_eps must be square');
             end        
             obj.sigma_eps=sigma_eps;
+        end
+    end
+    
+    methods (Static)
+        function vec = from_upper_triangular_to_vector(mat)
+            d=size(mat,1);
+            vec=zeros(d*(d-1)/2,1);
+            
+            counter=1;
+            for i=1:d-1
+                for j=i+1:d
+                    vec(counter)=mat(i,j);
+                    counter=counter+1;
+                end
+            end
+            
         end
     end
 end
