@@ -37,9 +37,13 @@ classdef stem_sim < handle
             N=obj.stem_model.stem_data.N;
             if nargin>=2
                 obj.nan_rate=nan_rate;
+            else
+                obj.nan_rate=[];
             end
             if nargin>=3
                 obj.nan_pattern_par=nan_pattern_par;
+            else
+                obj.nan_pattern_par=[];
             end
             
             if not(isempty(obj.nan_rate))

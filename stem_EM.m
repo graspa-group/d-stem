@@ -900,8 +900,6 @@ classdef stem_EM < EM
                         elements=[];
                         for i=1:length(blocks)-1
                             temp_r2=cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r;  
-                            %VERIFICARE APPLICAZIONE WENDLAND E SISTEMARE STEM_KRIG!!
-                            temp_r2=temp_r2.*stem_wendland(obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_r.tap,1);
                             idx=find(temp_r2);
                             [idx_I,idx_J]=ind2sub(size(temp_r2),idx);
                             Id=[Id;idx_I+blocks(i)];
@@ -974,8 +972,6 @@ classdef stem_EM < EM
                             elements=[];
                             for i=1:length(blocks)-1
                                 temp_g2=cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k};
-                                %VERIFICARE APPLICAZIONE WENDLAND E SISTEMARE STEM_KRIG!!
-                                temp_g2=temp_g2.*stem_wendland(obj.stem_model.stem_data.DistMat_g(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_g.tap,1);
                                 idx=find(temp_g2);
                                 [idx_I,idx_J]=ind2sub(size(temp_g2),idx);
                                 Id=[Id;idx_I+blocks(i)];
@@ -1758,8 +1754,6 @@ classdef stem_EM < EM
                         elements=[];
                         for i=1:length(blocks)-1
                             temp_r2=cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r;  
-                            %VERIFICARE APPLICAZIONE WENDLAND!!
-                            temp_r2=temp_r2.*stem_wendland(obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_r.tap,1);
                             idx=find(temp_r2);
                             [idx_I,idx_J]=ind2sub(size(temp_r2),idx);
                             Id=[Id;idx_I+blocks(i)];
@@ -1832,8 +1826,6 @@ classdef stem_EM < EM
                             elements=[];
                             for i=1:length(blocks)-1
                                 temp_g2=cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k};
-                                %VERIFICARE APPLICAZIONE WENDLAND E SISTEMARE STEM_KRIG!!
-                                temp_g2=temp_g2.*stem_wendland(obj.stem_model.stem_data.DistMat_g(blocks(i)+1:blocks(i+1),:),obj.stem_model.stem_data.stem_gridlist_g.tap,1);
                                 idx=find(temp_g2);
                                 [idx_I,idx_J]=ind2sub(size(temp_g2),idx);
                                 Id=[Id;idx_I+blocks(i)];

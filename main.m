@@ -13,22 +13,21 @@ clc
 clear all
 
 %% ground level data
-flag_parallel=1;
-flag_remote_data=1;
+flag_parallel=0;
+flag_remote_data=0;
 
 flag_time_ground=0;
 flag_time_remote=0;
 flag_beta_ground=0;
 flag_beta_remote=0;
 flag_w_ground=1;
-flag_w_remote=1;
+flag_w_remote=0;
 
 flag_crossval=0;
 flag_tapering=1;
 flag_kriging=0;
 flag_residuals=1;
 pathparallel='/opt/matNfs/';
-
 
 if 1
     %Y
@@ -116,7 +115,7 @@ if 1
     
     if flag_tapering
         tapering_g=300; %km
-        tapering_r=150; %km
+        tapering_r=100; %km
     else
         tapering_g=[];
         tapering_r=[];
@@ -219,8 +218,8 @@ if 1
     clear sd_r
     
     %% data modification
-    %st_model.stem_data.space_crop([44,54,0,14]);
-    st_model.stem_data.time_crop(1:90);
+    st_model.stem_data.space_crop([44,47,6,14]);
+    st_model.stem_data.time_crop(1:10);
     %st_model.stem_data.log_transform;
     st_model.stem_data.standardize;
     
@@ -228,7 +227,7 @@ if 1
     
     if flag_remote_data
         st_par.alpha_rg=[0.4 0.7]';
-        st_par.theta_r=2600;
+        st_par.theta_r=400;
         st_par.v_r=1;
     end
     if flag_beta_ground
@@ -259,6 +258,10 @@ st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
 if flag_parallel
     st_EM_options.pathparallel=pathparallel;
 end
+
+%st_model.stem_par=st_model.stem_par_initial;
+%st_sim=stem_sim(st_model);
+%st_sim.simulate;
 
 st_model.EM_estimate(st_EM_options);
 %st_model.set_Hessian;
