@@ -503,7 +503,7 @@ classdef stem_krig < handle
                 obj.stem_model.stem_data.update_data(); %verificare se conviene salvare invece di ricalcolare
                 obj.stem_model.stem_data.update_distance(); %verificare se conviene salvare invece di ricalcolare
                 ct2=clock;
-                disp(['Kriging block ended in ',stem_time(etime(ct2,ct1))]);
+                disp(['Kriging block ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
 
 
@@ -621,7 +621,7 @@ classdef stem_krig < handle
             %cov_wr_yz time invariant case
             if not(isempty(data.X_rg))
                 if not(data.X_rg_tv)
-                    cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
+                    cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
                 end
                 E_wr_y1=zeros(Nr,T);
                 diag_Var_wr_y1=zeros(Nr,T);
@@ -633,7 +633,7 @@ classdef stem_krig < handle
             if not(isempty(data.X_g))
                 if not(data.X_g_tv)
                     for k=1:K
-                        cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
+                        cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
                     end
                 end
                 for h=1:K
@@ -677,7 +677,7 @@ classdef stem_krig < handle
                 %evaluate var_yt in the time variant case
                 if data.X_tv
                     if not(isempty(data.X_rg))
-                        sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
+                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                     end
                     
                     if not(isempty(data.X_g))
@@ -689,7 +689,7 @@ classdef stem_krig < handle
                             end
                         end
                         for k=1:size(data.X_g,4)
-                            sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
                         end
                     end
                     if isempty(data.X_g)&&isempty(data.X_rg)
@@ -749,11 +749,11 @@ classdef stem_krig < handle
                         r = symamd(H1t);
                         chol_H1t=chol(H1t(r,r));
                         temp2=[res(Lt,t);temp];
-                        cs(r,1)=chol_solve(chol_H1t,temp2(r));
+                        cs(r,1)=stem_misc.chol_solve(chol_H1t,temp2(r));
                         clear temp2
                     else
                         chol_H1t=chol(H1t);
-                        cs=chol_solve(chol_H1t,[res(Lt,t);temp]);
+                        cs=stem_misc.chol_solve(chol_H1t,[res(Lt,t);temp]);
                     end
                 end
                 
@@ -761,7 +761,7 @@ classdef stem_krig < handle
                     %check if the remote loadings are time variant
                     if data.X_rg_tv
                         %cov_wr_yz time variant case
-                        cov_wr_y=D_apply(D_apply(M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                        cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
                     end
                     cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
                     
@@ -769,9 +769,9 @@ classdef stem_krig < handle
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
                     %compute diag(Var(w_r|y1))
                     if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
+                        temp_r(r,:)=stem_misc.chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
                     else
-                        temp_r=chol_solve(chol_H1t,cov_wr_y1z');
+                        temp_r=stem_misc.chol_solve(chol_H1t,cov_wr_y1z');
                     end
                     
                     blocks=0:80:size(diag_Var_wr_y1,1);
@@ -794,7 +794,7 @@ classdef stem_krig < handle
                         end
                         clear temp_r
                         %update diag(Var(e|y1))
-                        temp=D_apply(D_apply(M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                         if N>obj.stem_model.system_size
                             blocks=0:80:size(diag_Var_e_y1,1);
                             if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -810,9 +810,9 @@ classdef stem_krig < handle
                         cov_wr_z_y1=[];
                     end
                     %update y_hat
-                    y_hat(:,t)=y_hat(:,t)+D_apply(D_apply(M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                    y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                     %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
                 end
                 
                 if not(isempty(data.X_g))
@@ -820,7 +820,7 @@ classdef stem_krig < handle
                     if data.X_g_tv
                         %cov_wg_yz time invariant case
                         for k=1:K
-                            cov_wg_y{k}=D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                            cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
                         end
                     end
                     for k=1:K
@@ -829,9 +829,9 @@ classdef stem_krig < handle
                         E_wg_y1(:,t,k)=cov_wg_y1z*cs;
                         %compute diag(Var(w_g_k|y1))
                         if obj.stem_model.tapering
-                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
+                            temp_g{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
                         else
-                            temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
+                            temp_g{k}=stem_misc.chol_solve(chol_H1t,cov_wg_y1z');
                         end
 
                         blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
@@ -853,7 +853,7 @@ classdef stem_krig < handle
                                 diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)+diag(cov_wg_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)));
                             end
                             %update diag(Var(e|y1))
-                            temp=D_apply(D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(diag_Var_e_y1,1);
                                 if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -869,9 +869,9 @@ classdef stem_krig < handle
                             cov_wg_z_y1=[];
                         end
                         %y_hat
-                        y_hat(:,t)=y_hat(:,t)+D_apply(D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                        y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                         %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+D_apply(D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
                         
                         if not(isempty(data.X_rg))
                             %compute M_cov(w_r,w_g|y1); cioè M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
@@ -883,21 +883,21 @@ classdef stem_krig < handle
                                 for i=1:length(blocks)-1
                                     %tested
                                     if p>0
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'M_apply su left!!
+                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'stem_misc.M_apply su left!!
                                     else
                                         M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
                                     end
                                 end
                             else
                                 if p>0
-                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'M_apply su left!!
+                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'stem_misc.M_apply su left!!
                                 else
                                     M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
                                 end
                             end
                             %update diag(Var(e|y1)) - tested
-                            temp=D_apply(D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                            temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
                             diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                         end
                     end
@@ -926,8 +926,8 @@ classdef stem_krig < handle
                                         cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
                                     end
                                 end
-                                temp=D_apply(D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                temp=D_apply(D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
                                 %update diag(Var(e|y1))
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end

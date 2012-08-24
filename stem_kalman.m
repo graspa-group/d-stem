@@ -55,7 +55,7 @@ classdef stem_kalman < handle
             st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J,logL);
             
             ct2=clock;
-            disp(['    Kalman filter ended in ',stem_time(etime(ct2,ct1))]);
+            disp(['    Kalman filter ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
         function [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = smoother(obj,compute_logL,time_steps,pathparallel)
@@ -87,7 +87,7 @@ classdef stem_kalman < handle
                 time_diagonal,time_steps,pathparallel,tapering,compute_logL);
             st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL);
             ct2=clock;
-            disp(['    Kalman smoother ended in ',stem_time(etime(ct2,ct1))]);
+            disp(['    Kalman smoother ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
     end
     
@@ -161,9 +161,9 @@ classdef stem_kalman < handle
                     if not(isempty(X_rg))
                         sigma_geo=zeros(N);
                         if size(X_rg,3)>1
-                            sigma_geo=sigma_geo+D_apply(D_apply(M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
                         else
-                            sigma_geo=sigma_geo+D_apply(D_apply(M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
                         end
                     end
 
@@ -177,9 +177,9 @@ classdef stem_kalman < handle
                         end                        
                         for k=1:size(X_g,4)
                             if size(X_g,3)>1
-                               sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
+                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
                             else
-                               sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
                             end
                         end
                     end
@@ -198,11 +198,11 @@ classdef stem_kalman < handle
                 Lt=not(isnan(Y(:,t-1))); %note the t-1
                 temp=sigma_geo(Lt,Lt);
                 if tapering
-                    if not(isdiagonal(temp))
+                    if not(stem_misc.isdiagonal(temp))
                         r = symamd(temp);
                         c=chol(temp(r,r));
                         temp2=speye(sum(Lt));
-                        temp3=full(chol_solve(c,temp2(r,:)));
+                        temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
                         sigma_geo_inv=zeros(size(temp3));
                         sigma_geo_inv(r,:)=temp3;
                         clear temp2
@@ -212,9 +212,9 @@ classdef stem_kalman < handle
                         sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                     end
                 else
-                    if not(isdiagonal(temp))
+                    if not(stem_misc.isdiagonal(temp))
                         c=chol(sigma_geo(Lt,Lt));
-                        sigma_geo_inv=chol_solve(c,eye(sum(Lt)));
+                        sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
                     else
                         sigma_geo_inv=diag(1./diag(temp));
                     end
@@ -368,9 +368,9 @@ classdef stem_kalman < handle
                         if not(isempty(X_rg))
                             sigma_geo=zeros(N);
                             if size(X_rg,3)>1
-                                sigma_geo=sigma_geo+D_apply(D_apply(M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
                             else
-                                sigma_geo=sigma_geo+D_apply(D_apply(M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
                             end
                         end
                         
@@ -384,9 +384,9 @@ classdef stem_kalman < handle
                             end
                             for k=1:size(X_g,4)
                                 if size(X_g,3)>1
-                                    sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
                                 else
-                                    sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
                                 end
                             end
                         end
@@ -406,11 +406,11 @@ classdef stem_kalman < handle
                     if t<=max_ts 
                         temp=sigma_geo(Lt,Lt);
                         if tapering
-                            if not(isdiagonal(temp))
+                            if not(stem_misc.isdiagonal(temp))
                                 r = symamd(temp);
                                 c=chol(temp(r,r));
                                 temp2=speye(sum(Lt));
-                                temp3=full(chol_solve(c,temp2(r,:)));
+                                temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
                                 sigma_geo_inv=zeros(size(temp3));
                                 sigma_geo_inv(r,:)=temp3;
                                 clear temp2
@@ -420,9 +420,9 @@ classdef stem_kalman < handle
                                 sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                             end
                         else
-                            if not(isdiagonal(temp))
+                            if not(stem_misc.isdiagonal(temp))
                                 c=chol(sigma_geo(Lt,Lt));
-                                sigma_geo_inv=chol_solve(c,eye(sum(Lt)));
+                                sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
                             else
                                 sigma_geo_inv=diag(1./diag(temp));
                             end
@@ -536,9 +536,9 @@ classdef stem_kalman < handle
                         if not(isempty(X_rg))
                             sigma_geo=zeros(N);
                             if size(X_rg,3)>1
-                                sigma_geo=sigma_geo+D_apply(D_apply(M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
                             else
-                                sigma_geo=sigma_geo+D_apply(D_apply(M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
                             end
                         end
                         
@@ -552,9 +552,9 @@ classdef stem_kalman < handle
                             end
                             for k=1:size(X_g,4)
                                 if size(X_g,3)>1
-                                    sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
                                 else
-                                    sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
                                 end
                             end
                         end
@@ -569,11 +569,11 @@ classdef stem_kalman < handle
                     
                     temp=sigma_geo(Lt,Lt);
                     if tapering
-                        if not(isdiagonal(temp))
+                        if not(stem_misc.isdiagonal(temp))
                             r = symamd(temp);
                             c=chol(temp(r,r));
                             temp2=speye(sum(Lt));
-                            temp3=full(chol_solve(c,temp2(r,:)));
+                            temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
                             sigma_geo_inv=zeros(size(temp3));
                             sigma_geo_inv(r,:)=temp3;
                             clear temp2
@@ -583,9 +583,9 @@ classdef stem_kalman < handle
                             sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                         end
                     else
-                        if not(isdiagonal(temp))
+                        if not(stem_misc.isdiagonal(temp))
                             c=chol(sigma_geo(Lt,Lt));
-                            sigma_geo_inv=chol_solve(c,eye(sum(Lt)));
+                            sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
                         else
                             sigma_geo_inv=diag(1./diag(temp));
                         end

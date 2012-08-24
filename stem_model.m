@@ -84,7 +84,7 @@ classdef stem_model < handle
             
             %NOTE
             %The elements of aj_g from Ng+1 to N are all zeros. This allows the
-            %use of D_apply both for the remote sensing data and the ground
+            %use of stem_misc.D_apply both for the remote sensing data and the ground
             %level data avoiding the use of J_rg and J_g
             if not(isempty(obj.stem_data.stem_varset_r))
                 aj_rg=zeros(obj.stem_data.N,1);
@@ -216,14 +216,14 @@ classdef stem_model < handle
                                     idx_r=blocks(i)+1:blocks(i+1);
                                     idx_c=blocks(j)+1:blocks(j+1);
                                     if not(obj.tapering_r)
-                                        sigma_W_r(idx_r,idx_c)=obj.stem_par.v_r(i,j)*stem_correlation_function(...
+                                        sigma_W_r(idx_r,idx_c)=obj.stem_par.v_r(i,j)*stem_misc.correlation_function(...
                                             obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
                                         if not(i==j)
                                             sigma_W_r(idx_c,idx_r)=sigma_W_r(idx_r,idx_c)';
                                         end
                                     else
-                                        corr_result=stem_correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
-                                        weights=stem_wendland(obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_data.stem_gridlist_r.tap);
+                                        corr_result=stem_misc.correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
+                                        weights=stem_misc.wendland(obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_data.stem_gridlist_r.tap);
                                         corr_result.correlation=obj.stem_par.v_r(i,j)*corr_result.correlation.*weights;
                                         size=length(corr_result.I);
                                         I(idx+1:idx+size)=corr_result.I+blocks(i);
@@ -255,10 +255,10 @@ classdef stem_model < handle
                             for i=1:obj.stem_data.stem_varset_r.nvar
                                 idx_rc=blocks(i)+1:blocks(i+1);
                                 if not(obj.tapering_r)
-                                    sigma_W_r(idx_rc,idx_rc)=stem_correlation_function(obj.stem_par.theta_r(i,:),obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                    sigma_W_r(idx_rc,idx_rc)=stem_misc.correlation_function(obj.stem_par.theta_r(i,:),obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
                                 else
-                                    corr_result=stem_correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
-                                    weights=stem_wendland(obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_data.stem_gridlist_r.tap);
+                                    corr_result=stem_misc.correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                    weights=stem_misc.wendland(obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_data.stem_gridlist_r.tap);
                                     corr_result.correlation=obj.stem_par.v_r(i,i)*corr_result.correlation.*weights;
                                     size=length(corr_result.I);
                                     I(idx+1:idx+size)=corr_result.I+blocks(i);
@@ -292,14 +292,14 @@ classdef stem_model < handle
                            idx_r=blocks(i)+1:blocks(i+1);
                            idx_c=blocks(j)+1:blocks(j+1);
                            if not(obj.tapering_g)
-                               sigma_W_g{k}(idx_r,idx_c)=obj.stem_par.v_g(i,j,k)*stem_correlation_function(...
+                               sigma_W_g{k}(idx_r,idx_c)=obj.stem_par.v_g(i,j,k)*stem_misc.correlation_function(...
                                    obj.stem_par.theta_g(k),obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_par.correlation_type);
                                if not(i==j)
                                    sigma_W_g{k}(idx_c,idx_r)=sigma_W_g{k}(idx_r,idx_c)';
                                end
                            else
-                               corr_result=stem_correlation_function(obj.stem_par.theta_g(k),obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_par.correlation_type);
-                               weights=stem_wendland(obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_data.stem_gridlist_g.tap);
+                               corr_result=stem_misc.correlation_function(obj.stem_par.theta_g(k),obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_par.correlation_type);
+                               weights=stem_misc.wendland(obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_data.stem_gridlist_g.tap);
                                corr_result.correlation=obj.stem_par.v_g(i,j,k)*corr_result.correlation.*weights;
                                size=length(corr_result.I);
                                I(idx+1:idx+size)=corr_result.I+blocks(i);
@@ -328,7 +328,7 @@ classdef stem_model < handle
            if not(obj.stem_data.X_tv)
                %time invariant case
                if not(isempty(obj.stem_data.stem_varset_r))
-                   sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),obj.stem_data.X_rg(:,1,1),'b'),aj_rg,'b');
+                   sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),obj.stem_data.X_rg(:,1,1),'b'),aj_rg,'b');
                end
                if obj.stem_par.k>0
                    if isempty(obj.stem_data.stem_varset_r)
@@ -341,7 +341,7 @@ classdef stem_model < handle
                        end
                    end
                    for k=1:obj.stem_par.k
-                       sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},obj.stem_data.X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                       sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_data.X_g(:,1,1,k),'b'),aj_g(:,k),'b');
                    end
                end
                if (obj.stem_par.k==0)&&(isempty(obj.stem_data.stem_varset_r))
@@ -360,7 +360,7 @@ classdef stem_model < handle
                sigma_Z=[];
            end   
            ct2=clock;
-           disp(['    Marginal variance-covariance matrices evaluation ended in ',stem_time(etime(ct2,ct1))]);
+           disp(['    Marginal variance-covariance matrices evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
         function simulate(obj,nan_rate,nan_pattern_par)
@@ -714,7 +714,7 @@ classdef stem_model < handle
             end
             %alpha_rg
             if n_rg_alpha>0
-                result=M_apply(sigma_W_r,M,'b');
+                result=stem_misc.M_apply(sigma_W_r,M,'b');
                 for j=1:n_rg_alpha
                     Id=[];
                     Jd=[];
@@ -751,7 +751,7 @@ classdef stem_model < handle
             end
             %theta_rg
             if n_rg_theta>0
-                d=M_apply(obj.stem_data.DistMat_r,M,'b');
+                d=stem_misc.M_apply(obj.stem_data.DistMat_r,M,'b');
                 if not(par.remote_correlated)
                     for j=1:q
                         Id=[];
@@ -760,7 +760,7 @@ classdef stem_model < handle
                         for i=1:2
                             result1=d(blocks(j*i)+1:blocks(j*i+1),blocks(j*i)+1:blocks(j*i+1));
                             result2=result(blocks(j*i)+1:blocks(j*i+1),blocks(j*i)+1:blocks(j*i+1));
-                            result2=D_apply(result2,aj_rg,'b');
+                            result2=stem_misc.D_apply(result2,aj_rg,'b');
                             result3=result1/(par.theta_r(j)^2).*result2;
                             L=find(result3);
                             [idx_I,idx_J]=ind2sub(size(result3),L);
@@ -777,7 +777,7 @@ classdef stem_model < handle
                         end
                     end
                 else
-                    d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+1}=D_apply(result,aj_rg,'b').*d/(par.theta_r^2);
+                    d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+1}=stem_misc.D_apply(result,aj_rg,'b').*d/(par.theta_r^2);
                 end
             end
             %v_rg
@@ -791,7 +791,7 @@ classdef stem_model < handle
                             elements=[];
                             for h=1:2
                                 result1=result(blocks(j*h)+1:blocks(j*h+1),blocks(i*h)+1:blocks(i*h+1));
-                                result2=D_apply(result1,aj_rg,'b')/par.v_r(i,j);
+                                result2=stem_misc.D_apply(result1,aj_rg,'b')/par.v_r(i,j);
                                 L=find(result2);
                                 [idx_I,idx_J]=ind2sub(size(result2),L);
                                 Id=[Id; idx_I+blocks(j*h)];
@@ -870,7 +870,7 @@ classdef stem_model < handle
                             elements=[];
                             for h=1:2
                                 result1=sigma_W_g{k}(blocks(j*h-1)+1:blocks((j*h+1)-1),blocks(i*h-1)+1:blocks((i*h+1)-1));
-                                result2=D_apply(result1,aj_g(:,k))/par.v_g(i,j,k);
+                                result2=stem_misc.D_apply(result1,aj_g(:,k))/par.v_g(i,j,k);
                                 L=find(result2);
                                 [idx_I,idx_J]=ind2sub(size(result2),L);
                                 Id=[Id; idx_I+blocks(j*h)];
@@ -906,24 +906,24 @@ classdef stem_model < handle
                 end
                 if n_rg_alpha>0
                     for j=1:n_rg_alpha
-                        d_Sgeo{n_beta+n_eps+j}=D_apply(d_Sgeo_prel{n_beta+n_eps+j},obj.stem_data.X_rg(:,1,1),'b');
+                        d_Sgeo{n_beta+n_eps+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+j},obj.stem_data.X_rg(:,1,1),'b');
                     end
                 end
                 if n_rg_theta>0
                     for j=1:n_rg_theta
-                        d_Sgeo{n_beta+n_eps+n_rg_alpha+j}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+j},obj.stem_data.X_rg(:,1,1),'b');   
+                        d_Sgeo{n_beta+n_eps+n_rg_alpha+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+j},obj.stem_data.X_rg(:,1,1),'b');   
                     end
                 end
                 if n_rg_v>0
                     for j=1:n_rg_v
-                        d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+j}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+j},obj.stem_data.X_rg(:,1,1),'b');                           
+                        d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+j},obj.stem_data.X_rg(:,1,1),'b');                           
                     end
                 end
                 if n_g_alpha>0
                     z=1;
                     for k=1:par.k
                         for j=1:p
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z},obj.stem_data.X_g(:,1,1,k),'b');
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z},obj.stem_data.X_g(:,1,1,k),'b');
                             L=find(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z});
                             [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}),L);
                             elements=d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}(L);
@@ -934,14 +934,14 @@ classdef stem_model < handle
                 end
                 if n_g_theta>0
                     for k=1:par.k
-                        d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=D_apply(D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},obj.stem_data.X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                        d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},obj.stem_data.X_g(:,1,1,k),'b'),aj_g(:,k),'b');
                     end
                 end
                 if n_g_v>0
                     z=1;
                     for k=1:par.k
                         for j=1:q*(q-1)
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha_r+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha_r+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta},obj.stem_data.X_g(:,1,1,k),'b');
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha_r+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha_r+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta},obj.stem_data.X_g(:,1,1,k),'b');
                         end
                     end
                 end
@@ -985,7 +985,7 @@ classdef stem_model < handle
                 if data.X_tv
                     %compute sigma_geo in the time-variant case
                     if not(isempty(data.X_rg))
-                        sigma_geo=D_apply(D_apply(M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
+                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                     end
                     if not(isempty(data.X_g))
                         if isempty(data.X_rg)
@@ -996,7 +996,7 @@ classdef stem_model < handle
                             end
                         end
                         for k=1:size(data.X_g,4)
-                            sigma_geo=sigma_geo+D_apply(D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
                         end
                     end
                     if isempty(data.X_g)&&isempty(data.X_rg)
@@ -1011,24 +1011,24 @@ classdef stem_model < handle
                     end
                     if n_rg_alpha>0
                         for j=1:n_rg_alpha
-                            d_Sgeo{n_beta+n_eps+j}=D_apply(d_Sgeo_prel{n_beta+n_eps+j},obj.stem_data.X_rg(:,1,tRG),'b');
+                            d_Sgeo{n_beta+n_eps+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+j},obj.stem_data.X_rg(:,1,tRG),'b');
                         end
                     end
                     if n_rg_theta>0
                         for j=1:n_rg_theta
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha+j}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+j},obj.stem_data.X_rg(:,1,tRG),'b');
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+j},obj.stem_data.X_rg(:,1,tRG),'b');
                         end
                     end
                     if n_rg_v>0
                         for j=1:n_rg_v
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+j}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+j},obj.stem_data.X_rg(:,1,tRG),'b');
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+j},obj.stem_data.X_rg(:,1,tRG),'b');
                         end
                     end
                     if n_g_alpha>0
                         z=1;
                         for k=1:par.k
                             for j=1:q
-                                d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z},obj.stem_data.X_g(:,1,tG,k),'b');
+                                d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z},obj.stem_data.X_g(:,1,tG,k),'b');
                                 L=find(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z});
                                 [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}),L);
                                 elements=d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}(L);
@@ -1039,14 +1039,14 @@ classdef stem_model < handle
                     end
                     if n_g_theta>0
                         for k=1:par.k
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=D_apply(D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},obj.stem_data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},obj.stem_data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
                         end
                     end
                     if n_g_v>0
                         z=1;
                         for k=1:par.k
                             for j=1:q*(q-1)
-                                d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z},obj.stem_data.X_g(:,1,tG,k),'b');
+                                d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z},obj.stem_data.X_g(:,1,tG,k),'b');
                             end
                         end
                     end

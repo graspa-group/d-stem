@@ -202,7 +202,7 @@ classdef stem_par
             
             if obj.p>0
                 all_par=[all_par; obj.G(:)];
-                all_par=[all_par; triuv(obj.sigma_eta)];
+                all_par=[all_par; stem_misc.triuv(obj.sigma_eta)];
             end
         end
         

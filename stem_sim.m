@@ -61,13 +61,13 @@ classdef stem_sim < handle
             nancov_g=[];
             if not(isempty(nanmat_g))
                 for i=1:obj.stem_model.stem_data.stem_varset_g.nvar
-                    nancov_g=blkdiag(nancov_g,get_block(obj.stem_model.stem_data.stem_varset_g.dim,i,obj.stem_model.stem_data.stem_varset_g.dim,i,nanmat_g));
+                    nancov_g=blkdiag(nancov_g,stem_misc.get_block(obj.stem_model.stem_data.stem_varset_g.dim,i,obj.stem_model.stem_data.stem_varset_g.dim,i,nanmat_g));
                 end
             end
             nancov_r=[];
             if not(isempty(nanmat_r))
                 for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
-                    nancov_r=blkdiag(nancov_r,get_block(obj.stem_model.stem_data.stem_varset_r.dim,i,obj.stem_model.stem_data.stem_varset_r.dim,i,nanmat_r));
+                    nancov_r=blkdiag(nancov_r,stem_misc.get_block(obj.stem_model.stem_data.stem_varset_r.dim,i,obj.stem_model.stem_data.stem_varset_r.dim,i,nanmat_r));
                 end
             end            
             
@@ -96,9 +96,9 @@ classdef stem_sim < handle
             for t=1:T
                 if not(isempty(obj.stem_model.stem_data.X_rg))
                     if obj.stem_model.stem_data.X_rg_tv
-                        Y(:,t)=Y(:,t)+D_apply(D_apply(M_apply(W_r(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_rg(:,1,t),'l'),j_rg,'l');
+                        Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(W_r(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_rg(:,1,t),'l'),j_rg,'l');
                     else
-                        Y(:,t)=Y(:,t)+D_apply(D_apply(M_apply(W_r(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_rg(:,1,1),'l'),j_rg,'l');
+                        Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(W_r(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_rg(:,1,1),'l'),j_rg,'l');
                     end
                 end
                 if not(isempty(obj.stem_model.stem_data.X_beta))
@@ -118,11 +118,11 @@ classdef stem_sim < handle
                 if not(isempty(obj.stem_model.stem_data.X_g))
                     if obj.stem_model.stem_data.X_g_tv
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+D_apply(D_apply(W_g(:,t,k),obj.stem_model.stem_data.X_g(:,1,t,k),'l'),j_g(:,k),'l');
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_g(:,t,k),obj.stem_model.stem_data.X_g(:,1,t,k),'l'),j_g(:,k),'l');
                         end
                     else
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+D_apply(D_apply(W_g(:,t,k),obj.stem_model.stem_data.X_g(:,1,1,k),'l'),j_g(:,k),'l');    
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_g(:,t,k),obj.stem_model.stem_data.X_g(:,1,1,k),'l'),j_g(:,k),'l');    
                         end
                     end
                 end
