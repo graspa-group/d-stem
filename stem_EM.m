@@ -890,7 +890,7 @@ classdef stem_EM < EM
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
                     %compute Var(w_r|y1)
                     if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
                         blocks=0:200:size(cov_wr_y1z,1);
                         if not(blocks(end)==size(cov_wr_y1z,1))
                             blocks=[blocks size(cov_wr_y1z,1)];
@@ -906,7 +906,7 @@ classdef stem_EM < EM
                             Jd=[Jd;idx_J];
                             elements=[elements;temp_r2(idx)];
                         end
-                        Var_wr_y1=sigma_W_r-sparse(Id,Jd,elements);
+                        Var_wr_y1=sigma_W_r-sparse(Id,Jd,elements,size(sigma_W_r,1),size(sigma_W_r,2));
                     else
                         temp_r=chol_solve(chol_H1t,cov_wr_y1z');
                         Var_wr_y1=sigma_W_r-cov_wr_y1z*temp_r;
@@ -962,7 +962,7 @@ classdef stem_EM < EM
                         E_wg_y1(:,t,k)=cov_wg_y1z*cs;
                         %compute Var(w_g_k|y1)
                         if obj.stem_model.tapering
-                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)');
+                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
                             blocks=0:200:size(cov_wg_y1z,1);
                             if not(blocks(end)==size(cov_wg_y1z,1))
                                 blocks=[blocks size(cov_wg_y1z,1)];
@@ -978,7 +978,7 @@ classdef stem_EM < EM
                                 Jd=[Jd;idx_J];
                                 elements=[elements;temp_g2(idx)];
                             end
-                            Var_wg_y1=sigma_W_g{k}-sparse(Id,Jd,elements);
+                            Var_wg_y1=sigma_W_g{k}-sparse(Id,Jd,elements,size(sigma_W_g{k},1),size(sigma_W_g{k},2));
                         else
                             temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
                             Var_wg_y1=sigma_W_g{k}-cov_wg_y1z*temp_g{k};
@@ -1744,7 +1744,7 @@ classdef stem_EM < EM
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
                     %compute Var(w_r|y1)
                     if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
                         blocks=0:200:size(cov_wr_y1z,1);
                         if not(blocks(end)==size(cov_wr_y1z,1))
                             blocks=[blocks size(cov_wr_y1z,1)];
@@ -1760,7 +1760,7 @@ classdef stem_EM < EM
                             Jd=[Jd;idx_J];
                             elements=[elements;temp_r2(idx)];
                         end
-                        Var_wr_y1=sigma_W_r-sparse(Id,Jd,elements);
+                        Var_wr_y1=sigma_W_r-sparse(Id,Jd,elements,size(sigma_W_r,1),size(sigma_W_r,2));
                     else
                         temp_r=chol_solve(chol_H1t,cov_wr_y1z');
                         Var_wr_y1=sigma_W_r-cov_wr_y1z*temp_r;
@@ -1832,7 +1832,7 @@ classdef stem_EM < EM
                                 Jd=[Jd;idx_J];
                                 elements=[elements;temp_g2(idx)];
                             end
-                            Var_wg_y1=sigma_W_g{k}-sparse(Id,Jd,elements);
+                            Var_wg_y1=sigma_W_g{k}-sparse(Id,Jd,elements,size(sigma_W_g{k},1),size(sigma_W_g{k},2));
                         else
                             temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
                             Var_wg_y1=sigma_W_g{k}-cov_wg_y1z*temp_g{k};

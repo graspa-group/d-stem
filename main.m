@@ -218,7 +218,7 @@ if 1
     clear sd_r
     
     %% data modification
-    st_model.stem_data.space_crop([44,47,6,14]);
+    st_model.stem_data.space_crop([44,47,7,14]);
     st_model.stem_data.time_crop(1:10);
     %st_model.stem_data.log_transform;
     st_model.stem_data.standardize;
@@ -254,14 +254,14 @@ else
 end
 
 %% model estimation
-st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
+st_EM_options=stem_EM_options(0.0001,100,'single',[],0,[]);
 if flag_parallel
     st_EM_options.pathparallel=pathparallel;
 end
 
-%st_model.stem_par=st_model.stem_par_initial;
-%st_sim=stem_sim(st_model);
-%st_sim.simulate;
+st_model.stem_par=st_model.stem_par_initial;
+st_sim=stem_sim(st_model);
+st_sim.simulate;
 
 st_model.EM_estimate(st_EM_options);
 %st_model.set_Hessian;

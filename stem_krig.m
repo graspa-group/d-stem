@@ -769,7 +769,7 @@ classdef stem_krig < handle
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
                     %compute diag(Var(w_r|y1))
                     if obj.stem_model.tapering
-                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)');
+                        temp_r(r,:)=chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
                     else
                         temp_r=chol_solve(chol_H1t,cov_wr_y1z');
                     end
@@ -829,7 +829,7 @@ classdef stem_krig < handle
                         E_wg_y1(:,t,k)=cov_wg_y1z*cs;
                         %compute diag(Var(w_g_k|y1))
                         if obj.stem_model.tapering
-                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)');
+                            temp_g{k}(r,:)=chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
                         else
                             temp_g{k}=chol_solve(chol_H1t,cov_wg_y1z');
                         end
