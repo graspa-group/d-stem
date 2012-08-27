@@ -247,7 +247,7 @@ if 1
     end
     
     st_par.sigma_eps=diag([0.3 0.15]);
-    st_model.stem_par_initial=st_par;
+    st_model.set_initial_values(st_par);
 else
     load ../Data/st_model_small_area_residuals.mat
 end

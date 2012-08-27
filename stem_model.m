@@ -531,7 +531,7 @@ classdef stem_model < handle
             disp('Log-Likelihood computation ended.');
         end
         
-        function set_Hessian(obj)
+        function set_varcov(obj)
             %parameter order: beta,sigma_eps,alpha_rg,theta_r,v_r,alpha_g,theta_g,v_g,G,sigma_eta
             
             if obj.estimated==0
@@ -1224,7 +1224,14 @@ classdef stem_model < handle
             end
             IM=IM+triu(IM,1)';
             obj.stem_EM_result.varcov=inv(IM);
-        end        
+        end      
+        
+        function set_initial_values(obj,stem_par)
+            if not(isa(stem_par,'stem_par'))
+                error('The input argument must be of class stem_par');
+            end
+            obj.stem_par_initial=stem_par;
+        end
         
         %export functions
         function N = N(obj)
