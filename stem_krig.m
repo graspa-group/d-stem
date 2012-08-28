@@ -125,7 +125,7 @@ classdef stem_krig < handle
                 end
             end
             
-            stem_datestamp=obj.stem_model.stem_data.stem_datestamp.stamp;
+            stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
             
             if not(crossval)
                 %indexes recovering and block test
