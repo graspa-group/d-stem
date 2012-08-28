@@ -43,7 +43,7 @@ classdef stem_EM < EM
         
         function st_EM_result = estimate(obj)
             % EM estimation
-            t1=clock;
+            t1_full=clock;
             if isempty(obj.stem_model)&&(nargin==0)
                 error('You have to set the stem_model property first');
             end
@@ -110,7 +110,7 @@ classdef stem_EM < EM
                 disp(['Iteration ',num2str(iteration),' ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 disp('**********************************************');
             end
-            t2=clock;
+            t2_full=clock;
             st_EM_result.stem_par=obj.stem_model.stem_par;
             st_EM_result.stem_kalmansmoother_result=st_kalmansmoother_result;
             st_EM_result.E_wg_y1=E_wg_y1;
@@ -119,12 +119,12 @@ classdef stem_EM < EM
             st_EM_result.y_hat(isnan(st_EM_result.y_hat))=0;
             st_EM_result.y_hat=st_EM_result.y_hat-E_e_y1;
             st_EM_result.iterations=iteration;
-            st_EM_result.computation_time=etime(t2,t1);
+            st_EM_result.computation_time=etime(t2_full,t1_full);
         end
         
         function st_EM_result = estimate_parallel(obj,pathparallel)
             % EM estimation
-            t1=clock;
+            t1_full=clock;
             if isempty(obj.stem_model)&&(nargin==0)
                 error('You have to set the stem_model property first');
             end
@@ -625,13 +625,13 @@ classdef stem_EM < EM
                 disp(['Iteration ',num2str(iteration),' ended in ',stem_misc.decode_time(etime(ct2_iteration,ct1_iteration))]);
                 disp('**********************************************');
             end
-            t2=clock;
+            t2_full=clock;
             st_EM_result.stem_par=obj.stem_model.stem_par;
             st_EM_result.stem_kalmansmoother_result=st_kalmansmoother_result;
             st_EM_result.E_wg_y1=E_wg_y1;
             st_EM_result.Var_wg_y1=diag_Var_wg_y1;
             st_EM_result.iterations=iteration;
-            st_EM_result.computation_time=etime(t2,t1);
+            st_EM_result.computation_time=etime(t2_full,t1_full);
         end        
         
         function [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,Xbeta,st_kalmansmoother_result] = E_step(obj,T)

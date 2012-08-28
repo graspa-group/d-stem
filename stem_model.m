@@ -22,11 +22,12 @@ classdef stem_model < handle
         stem_par_initial=[];    %[stem_par object]  (1x1) parameter starting values
         stem_par_sim=[];        %[stem_par object]  (1x1) parameter values used to simulate data
         note=[];
+                estimated=0;            %[boolean] (1x1) 0: the model is not estimated; 
     end
     
     properties (SetAccess = private)
         stem_EM_result=[];      %[stem_EM_result object] (1x1) object containing all the results of the EM estimation
-        estimated=0;            %[boolean] (1x1) 0: the model is not estimated; 
+
                                                 %1: the model has been estimated.
         cross_validation=0;     %[boolean] (1x1) 0: the model has been estimated considering all the data; 
                                                 %1: the model has bee estimated excluding the cross-validation data.
@@ -484,7 +485,7 @@ classdef stem_model < handle
                 back_transform=0;
                 no_varcov=1;
                 crossval=1;
-                obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(block_size,obj.stem_data.stem_crossval.variable_name,[],[],[],back_transform,no_varcov,crossval);
+                obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,[],block_size,[],[],back_transform,no_varcov,crossval);
                 res=obj.stem_data.stem_crossval.stem_krig_result.y_hat-obj.stem_data.stem_crossval.stem_varset.Y{1};
                 obj.stem_data.stem_crossval.mse=nanvar(res(:));
             end
@@ -606,7 +607,7 @@ classdef stem_model < handle
                 [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,~,aj_rg,aj_g,M,sigma_geo] = st_kalman.filter();
             else
                 [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,~,aj_rg,aj_g,M] = obj.get_sigma();
-                st_kalmanfilter_result=stem_kalmanfilter_result([],[],[],[],[]);
+                st_kalmanfilter_result=stem_kalmanfilter_result([],[],[],[],[],[]);
             end            
             J=st_kalmanfilter_result.J(:,:,2:end); %J for t=0 is deleted
             st_kalmanfilter_result.J=st_kalmanfilter_result.J(:,:,2:end);
@@ -757,10 +758,11 @@ classdef stem_model < handle
                         Id=[];
                         Jd=[];
                         elements=[];
-                        for i=1:2
-                            result1=d(blocks(j*i)+1:blocks(j*i+1),blocks(j*i)+1:blocks(j*i+1));
-                            result2=result(blocks(j*i)+1:blocks(j*i+1),blocks(j*i)+1:blocks(j*i+1));
-                            result2=stem_misc.D_apply(result2,aj_rg,'b');
+                        for i=1:2 
+                            idx=blocks(j*i)+1:blocks(j*i+1);
+                            result1=d(idx,idx);
+                            result2=result(idx,idx);
+                            result2=stem_misc.D_apply(result2,aj_rg(idx),'b');
                             result3=result1/(par.theta_r(j)^2).*result2;
                             L=find(result3);
                             [idx_I,idx_J]=ind2sub(size(result3),L);
@@ -790,8 +792,9 @@ classdef stem_model < handle
                             Jd=[];
                             elements=[];
                             for h=1:2
-                                result1=result(blocks(j*h)+1:blocks(j*h+1),blocks(i*h)+1:blocks(i*h+1));
-                                result2=stem_misc.D_apply(result1,aj_rg,'b')/par.v_r(i,j);
+                                idx=blocks(j*h)+1:blocks(j*h+1);
+                                result1=result(idx,idx);
+                                result2=stem_misc.D_apply(result1,aj_rg(idx),'b')/par.v_r(i,j);
                                 L=find(result2);
                                 [idx_I,idx_J]=ind2sub(size(result2),L);
                                 Id=[Id; idx_I+blocks(j*h)];
@@ -1195,22 +1198,32 @@ classdef stem_model < handle
                 else
                     sigma_t=sigma_geo;
                 end
+
+                S=sigma_t(Lt,Lt);
+                r = symamd(S);
+                chol_S=chol(S(r,r));
                 
-                inv_sigma_t=sigma_t(Lt,Lt)\eye(sum(Lt));
+                clear temp0
+                clear temp1
+                clear temp2
+                d_e_Lt=d_e(Lt,:);
+                temp0(r,:)=stem_misc.chol_solve(chol_S,d_e_Lt(r,:));
                 for i=1:n_psi
-                    temp1=d_e(Lt,i)'*inv_sigma_t*d_e(Lt,:);
-                    temp2=inv_sigma_t*d_St{i}(Lt,Lt)*inv_sigma_t;
-                    temp3=trace(inv_sigma_t*d_St{i}(Lt,Lt));
+                    tic
+                    temp1{i}=d_e_Lt(:,i)'*temp0;
+                    d_St_i_Lt=d_St{i}(Lt,Lt);
+                    temp2{i}(r,:)=stem_misc.chol_solve(chol_S,d_St_i_Lt(r,r),1);
+                    toc
+                end
+                for i=1:n_psi
                     for j=i:n_psi
-                        IM(i,j)=IM(i,j)+temp1(j);
-                        IM(i,j)=IM(i,j)+0.5*trace(temp2*d_St{j}(Lt,Lt))+0.25*temp3*trace(inv_sigma_t*d_St{j}(Lt,Lt));
+                        IM(i,j)=IM(i,j)+temp1{i}(j);
+                        IM(i,j)=IM(i,j)+0.5*trace(temp2{i}*temp2{j})+0.25*trace(temp2{i})*trace(temp2{j});
                         counter=counter+1;
                         if (mod(counter,100)==0)||(counter==tot)
                             if ((mod(round(counter/tot*100),20)==0)||(round(counter/tot*100)<3)) ...
                                 && c0 ~= round(counter/tot*100);
-
                                 c0 = round(counter/tot*100);
-                                % do i primi e poi salto sulle decine
                                 disp(['Hessian evaluation: ',num2str(round(counter/tot*100)),'% completed']);
                             end
                         end

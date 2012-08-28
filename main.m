@@ -217,8 +217,8 @@ if 1
     clear sd_r
     
     %% data modification
-    st_model.stem_data.space_crop([44,47,7,14]);
-    st_model.stem_data.time_crop(1:10);
+    %st_model.stem_data.space_crop([44,47,7,14]);
+    st_model.stem_data.time_crop(1:90);
     %st_model.stem_data.log_transform;
     st_model.stem_data.standardize;
     
@@ -233,8 +233,8 @@ if 1
         st_par.beta=st_model.get_beta0();
     end
     if flag_w_ground
-        st_par.alpha_g=[0.15 0.15 0.15 0.15 0.15 0.15];
-        st_par.theta_g=[250 250 250 250 250 250]';
+        st_par.alpha_g=[0.265 0.464 0.358 0.531 0.06 0.43];
+        st_par.theta_g=[261 308 273 174 257 160]';
         for i=1:6
             v_g(:,:,i)=1;
         end
@@ -246,21 +246,21 @@ if 1
         st_par.G=diag(repmat(0.7,6,1));
     end
     
-    st_par.sigma_eps=diag([0.3 0.15]);
+    st_par.sigma_eps=diag([0.4]);
     st_model.set_initial_values(st_par);
 else
     load ../Data/st_model_small_area_residuals.mat
 end
 
 %% model estimation
-st_EM_options=stem_EM_options(0.0001,100,'single',[],0,[]);
+st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
 if flag_parallel
     st_EM_options.pathparallel=pathparallel;
 end
 
-st_model.stem_par=st_model.stem_par_initial;
-st_sim=stem_sim(st_model);
-st_sim.simulate;
+%st_model.stem_par=st_model.stem_par_initial;
+%st_sim=stem_sim(st_model);
+%st_sim.simulate;
 
 st_model.EM_estimate(st_EM_options);
 %st_model.set_Hessian;
@@ -269,11 +269,17 @@ st_model.EM_estimate(st_EM_options);
 save(['st_model_',datestr(now,'yyyymmdd_HHMMSS')],'st_model');
 
 if flag_kriging
-    X_krig.name={'constant','elevation','emission','population'};
-    X_krig.date_stamp=st_model.stem_data.stem_datestamp;
+    load ../Data/no2_krig_coordinates_005.mat;
+    load ../Data/no2_krigmask_005.mat
+    st_model.stem_data.time_crop(1:1);
+    st_krig=stem_krig(st_model);
+    st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[640,920],'square',0.05,0.05);
     back_transform=1;
-    no_varcov=1;
-    st_krig_result=st_krig.kriging(block_size,'no2',st_grid_krig,mask_krig,X_krig,back_transform,no_varcov);
+    no_varcov=0;
+    block_size=500;
+    mask=krig_mask;
+    X_krig='../Data/blocks/';
+    st_krig_result=st_krig.kriging('no2',st_krig_grid,block_size,mask,X_krig,back_transform,no_varcov);
     save st_krig_result st_krig_result -v7.3
 end
 

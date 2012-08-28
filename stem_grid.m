@@ -38,9 +38,9 @@ classdef stem_grid
             if nargin==4
                 grid_size=[];
             end
+            obj.grid_type=grid_type; %the other of this two lines is important and cannot change
             obj.coordinate=coordinate;
             obj.unit=unit;
-            obj.grid_type=grid_type;
             obj.site_type=site_type;
             obj.grid_size=grid_size;
             if nargin>5
@@ -75,18 +75,20 @@ classdef stem_grid
                 error('coordinate must be a Nx2 matrix');
             end
             
-            obj.duplicated_sites=[];
-            for i=1:length(coordinate)-1
-                temp=coordinate(i,:);
-                temp2=coordinate((i+1):end,:);
-                temp_lat=temp2(:,1);
-                temp_lon=temp2(:,2);
-                a=temp_lat==temp(1);
-                b=temp_lon==temp(2);
-                c=a&b;
-                if sum(c)>0
-                    obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
-                    disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
+            if not(strcmp(obj.grid_type,'regular'))
+                obj.duplicated_sites=[];
+                for i=1:length(coordinate)-1
+                    temp=coordinate(i,:);
+                    temp2=coordinate((i+1):end,:);
+                    temp_lat=temp2(:,1);
+                    temp_lon=temp2(:,2);
+                    a=temp_lat==temp(1);
+                    b=temp_lon==temp(2);
+                    c=a&b;
+                    if sum(c)>0
+                        obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
+                        disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
+                    end
                 end
             end
 

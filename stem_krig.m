@@ -26,7 +26,7 @@ classdef stem_krig < handle
             obj.stem_model=stem_model;
         end
         
-        function st_krig_result = kriging(obj,block_size,variable_name,grid,mask,X,back_transform,no_varcov,crossval)
+        function st_krig_result = kriging(obj,variable_name,grid,block_size,mask,X,back_transform,no_varcov,crossval)
             %This is the function that actually implements the kriging
             
             %block_size: when the number of kriging sites is large the
@@ -67,25 +67,45 @@ classdef stem_krig < handle
             %AUTOMATICALLY IMPLEMENTED AFTER THE EM-ESTIMATION IN THE CASE
             %THE CROSS-VALIDATION INFORMATION IS PROVIDED!
             
-            if nargin<4
-                error('Not enough input arguments');
-            end
             if isempty(obj.stem_model)
                 error('The stem_model property is not setted');
             end
-            if block_size<0
-                error('block_size cannot be < 0');
+            if block_size<0||isempty(block_size)
+                error('block_size must be >=0');
             end
             index_var=obj.stem_model.stem_data.stem_varset_g.get_Y_index(variable_name);
             if isempty(index_var)
                 error('The variable name is incorrect');
             end
+            if not(isa(grid,'stem_grid'))
+                error('The grid input argument must be of class stem_grid');
+            end
+            
+            if nargin<5
+                mask=[];
+                obj.idx_notnan=[1:length(grid.coordinate)]';
+            else
+                if not(isempty(mask))
+                    obj.idx_notnan=find(not(isnan(mask(:))));
+                else
+                    obj.idx_notnan=[1:length(grid.coordinate)]';
+                end
+            end
+            if nargin<6
+                X_all=[];
+            end
+            if (nargin<7)||isempty(back_transform)
+                back_transform=1;
+            end
+            
             if nargin<9
                 crossval=0;
             end
+            
             if (crossval)&&not(obj.stem_model.cross_validation)
                 error('The stem_model object does not contain cross-validation information');
             end
+            %verificare se corretto e se non è meglio passare grid e X nella chiamata di cross-val in stem_model
             if (crossval)&&(not(isempty(X)))
                 disp('WARNING: the X provided in not considered as the covariates of cross validation are used');
             end
@@ -96,23 +116,6 @@ classdef stem_krig < handle
                 grid=obj.stem_model.stem_data.stem_crossval.stem_gridlist.grid{1};
             end
             
-            if nargin<5
-                mask=[];
-                obj.idx_notnan=[1:length(grid.coordinate)]';
-            else
-                if not(isempty(mask))
-                    obj.idx_notnan=find(isnotnan(mask(:)));
-                else
-                    obj.idx_notnan=[1:length(grid.coordinate)]';
-                end
-            end            
-            if nargin<6
-                X_all=[];
-            end
-            if (nargin<7)||isempty(back_transform)
-                back_transform=1;
-            end
-       
             if block_size==0
                 blocks_krig=[0 size(obj.idx_notnan,1)];
             else
@@ -121,6 +124,8 @@ classdef stem_krig < handle
                     blocks_krig=[blocks_krig size(obj.idx_notnan,1)];
                 end
             end
+            
+            stem_datestamp=obj.stem_model.stem_data.stem_datestamp.stamp;
             
             if not(crossval)
                 %indexes recovering and block test
@@ -141,8 +146,8 @@ classdef stem_krig < handle
                         end
                         
                         idx_datestamp=[];
-                        for j=1:length(obj.stem_model.stem_data.stem_datestamp.stamp)
-                            idx=find(X.date_stamp.stamp==obj.stem_model.stem_data.stem_datestamp.stamp(j),1);
+                        for j=1:length(stem_datestamp.stamp)
+                            idx=find(X.date_stamp.stamp==stem_datestamp.stamp(j),1);
                             if isempty(idx)
                                 error('The kriging block does not contain the correct datestamp');
                             end
@@ -239,8 +244,8 @@ classdef stem_krig < handle
                         for i=1:length(files)
                             load([X,files(i).name]); %load X_krig_block variable
                             idx_datestamp=[];
-                            for j=1:length(obj.stem_model.stem_data.stem_datestamp.stamp)
-                                idx=find(block.date_stamp==obj.stem_model.stem_data.stem_datestamp.stamp(j),1);
+                            for j=1:length(stem_datestamp.stamp)
+                                idx=find(block.date_stamp==stem_datestamp.stamp(j),1);
                                 if isempty(idx)
                                     error('The kriging block does not contain the correct datestamp');
                                 end
@@ -304,7 +309,7 @@ classdef stem_krig < handle
                                 idx_beta=[];
                             end
                             
-                            if not(isempty())
+                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_time_name))
                                 X_time_name=obj.stem_model.stem_data.stem_varset_g.X_time_name{index_var};
                                 if not(isempty(X_time_name))
                                     idx_time=[];
@@ -324,7 +329,7 @@ classdef stem_krig < handle
                             end
                             
                             if not(size(block.data,1)==blocks_krig(i+1)-blocks_krig(i))
-                                error(['Wrong number of rows in kriging block',num2str(i)]);
+                                error(['Wrong number of rows in kriging block ',num2str(i)]);
                             end
                             counter=counter+size(block.data,1);
                         end
@@ -368,7 +373,7 @@ classdef stem_krig < handle
                     if not(isempty(obj.X_all))||loadfromfile
                         if loadfromfile
                             load([folder,files(i).name]);
-                            block.data=block.data(:,:,idx_datestamp);
+                            block.data=double(block.data(:,:,idx_datestamp));
                         else
                             if size(obj.X_all,3)>1
                                 block.data=obj.X_all(block_krig,:,idx_datestamp);
@@ -656,6 +661,7 @@ classdef stem_krig < handle
             
             for t=1:T
                 %missing at time t
+                t_partial1=clock;
                 Lt=not(isnan(data.Y(:,t)));
                 
                 if data.X_rg_tv
@@ -935,6 +941,8 @@ classdef stem_krig < handle
                     end
                     clear temp_g
                 end
+                t_partial2=clock;
+                disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
             var_y_hat=diag_Var_e_y1;
         end
