@@ -610,28 +610,30 @@ classdef stem_data < handle
                 end
             end
             
-            if not(isempty(obj.X_rg))
-                Y=obj.stem_varset_r.Y;
-                for i=1:length(Y)
-                    Y{i}=Y{i}(:,indices);
-                end
-                obj.stem_varset_r.Y=Y;
-                if not(isempty(obj.stem_varset_r.X_beta))
-                    if obj.stem_varset_r.X_beta_tv
-                        X_beta=obj.stem_varset_r.X_beta;
-                        for i=1:length(obj.stem_varset_r.X_beta)
-                            X_beta{i}=X_beta{i}(:,:,indices);
-                        end
-                        obj.stem_varset_r.X_beta=X_beta;
+            if not(isempty(obj.stem_varset_r))
+                if not(isempty(obj.stem_varset_r.Y))
+                    Y=obj.stem_varset_r.Y;
+                    for i=1:length(Y)
+                        Y{i}=Y{i}(:,indices);
                     end
-                end
-                if not(isempty(obj.stem_varset_r.X_time))
-                    if obj.stem_varset_r.X_time_tv
-                        X_time=obj.stem_varset_r.X_time;
-                        for i=1:length(X_time)
-                            X_time{i}=X_time{i}(:,:,indices);
+                    obj.stem_varset_r.Y=Y;
+                    if not(isempty(obj.stem_varset_r.X_beta))
+                        if obj.stem_varset_r.X_beta_tv
+                            X_beta=obj.stem_varset_r.X_beta;
+                            for i=1:length(obj.stem_varset_r.X_beta)
+                                X_beta{i}=X_beta{i}(:,:,indices);
+                            end
+                            obj.stem_varset_r.X_beta=X_beta;
                         end
-                        obj.stem_varset_r.X_time=X_time;
+                    end
+                    if not(isempty(obj.stem_varset_r.X_time))
+                        if obj.stem_varset_r.X_time_tv
+                            X_time=obj.stem_varset_r.X_time;
+                            for i=1:length(X_time)
+                                X_time{i}=X_time{i}(:,:,indices);
+                            end
+                            obj.stem_varset_r.X_time=X_time;
+                        end
                     end
                 end
             end

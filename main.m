@@ -274,7 +274,7 @@ if flag_estimate
 end
 
 if flag_kriging
-    load ../Data/output/st_model_europe_space_ground.mat
+    load ../Data/output/st_model_europe_time_remote_and_ground.mat
     load ../Data/no2_krig_coordinates_005.mat;
     load ../Data/no2_krigmask_005.mat
     st_model.stem_data.time_crop(1:1);

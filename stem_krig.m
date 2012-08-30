@@ -481,13 +481,14 @@ classdef stem_krig < handle
                 end
                 
                 %kriging
-                [y_hat,var_y_hat,E_wg_y1]=obj.E_step();
+                [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1]=obj.E_step();
                 st_krig_result.y_hat(obj.idx_notnan(block_krig),:)=y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
                 if not(no_varcov)
                     st_krig_result.var_y_hat(obj.idx_notnan(block_krig),:)=var_y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
                 end
                 if K>0
                     st_krig_result.E_wg_y1(obj.idx_notnan(block_krig),:,:)=E_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
+                    st_krig_result.diag_Var_wg_y1(obj.idx_notnan(block_krig),:,:)=diag_Var_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
                 end
                 
                 %restore original
@@ -548,7 +549,7 @@ classdef stem_krig < handle
             
             if not(isempty(mask))&&strcmp(grid.grid_type,'regular')
                 disp('Applying mask...');
-                mask(isnotnan(mask))=1;
+                mask(not(isnan(mask)))=1;
                 for t=1:size(st_krig_result.y_hat,3)
                     st_krig_result.y_hat(:,:,t)=st_krig_result.y_hat(:,:,t).*mask;
                     if not(no_varcov)
@@ -564,7 +565,7 @@ classdef stem_krig < handle
             st_krig_result.variable_name=variable_name;
         end
         
-        function [y_hat,var_y_hat,E_wg_y1] = E_step(obj)
+        function [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj)
             N=obj.stem_model.stem_data.N;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                 Nr=obj.stem_model.stem_data.stem_varset_r.N;
@@ -651,6 +652,7 @@ classdef stem_krig < handle
                 cov_wg_z_y1=zeros(Ng,p,T,K);
             else
                 E_wg_y1=[];
+                diag_Var_wg_y1=[];
             end
             
             if not(isempty(data.X_rg)) && not(isempty(data.X_g))

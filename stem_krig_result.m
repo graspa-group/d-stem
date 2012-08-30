@@ -16,6 +16,7 @@ classdef stem_krig_result < handle
         y_hat=[];
         var_y_hat=[];
         E_wg_y1=[];
+        diag_Var_wg_y1=[];
         shape=[];
     end
     
