@@ -12,7 +12,9 @@
 clc
 clear all
 
-pathparallel='/opt/matNfs/';
+%pathparallel='/opt/matNfs/';
+pathparallel='C:/';
+
 %address = java.net.InetAddress.getLocalHost;
 %split=regexp(char(address.getHostAddress),'\.','split');
 h=now;
@@ -198,7 +200,7 @@ while(1)
         end
         
         st_kalman=stem_kalman(st_model);
-        st_kalman.filter(data.time_steps,pathparallel);
+        st_kalman.filter(0,data.time_steps,pathparallel);
         clear data
     end
     

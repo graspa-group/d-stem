@@ -12,25 +12,26 @@ clc
 clear all
 
 %% ground level data
-flag_parallel=0;
+flag_parallel=1;
 flag_remote_data=0;
 
-flag_time_ground=0;
+flag_time_ground=1;
 flag_time_remote=0;
-flag_beta_ground=0;
+flag_beta_ground=1;
 flag_beta_remote=0;
 flag_w_ground=1;
 flag_w_remote=0;
 
 flag_crossval=0;
-flag_tapering=1;
-flag_residuals=1;
+flag_tapering=0;
+flag_residuals=0;
 
-flag_estimate=0;
-flag_kriging=1;
+flag_estimate=1;
+flag_kriging=0;
 
 
-pathparallel='/opt/matNfs/';
+%pathparallel='/opt/matNfs/';
+pathparallel='C:/';
 if flag_estimate
     if 1
         %Y
@@ -222,8 +223,8 @@ if flag_estimate
         
         %% data modification
         %st_model.stem_data.space_crop([44,47,7,14]);
-        st_model.stem_data.time_crop(1:90);
-        %st_model.stem_data.log_transform;
+        st_model.stem_data.time_crop(1:2);
+        st_model.stem_data.log_transform;
         st_model.stem_data.standardize;
         
         %% st_par initialization
@@ -246,8 +247,8 @@ if flag_estimate
         end
         
         if flag_time_ground||flag_time_remote
-            st_par.sigma_eta=diag(repmat(0.1,6,1));
-            st_par.G=diag(repmat(0.7,6,1));
+            st_par.sigma_eta=diag(repmat(0.1,5,1));
+            st_par.G=diag(repmat(0.7,5,1));
         end
         
         st_par.sigma_eps=diag([0.4]);

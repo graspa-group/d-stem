@@ -1233,10 +1233,10 @@ classdef stem_EM < EM
                                     blocks=[blocks size(temp1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    temp2(blocks(i)+1:blocks(i+1))=temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)';
+                                    temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
                                 end
                             else
-                                temp2=temp1*data.X_time(:,:,tT)';
+                                temp2=diag(temp1*data.X_time(:,:,tT)');
                             end
                             sum_num=sum_num-sum(temp2(Lt));
                         end
@@ -1385,10 +1385,10 @@ classdef stem_EM < EM
                                         blocks=[blocks size(temp1,1)];
                                     end
                                     for i=1:length(blocks)-1
-                                        temp2(blocks(i)+1:blocks(i+1))=temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)';
+                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
                                     end
                                 else
-                                    temp2=temp1*data.X_time(:,:,tT)';
+                                    temp2=diag(temp1*data.X_time(:,:,tT)');
                                 end
                                 sum_num=sum_num-sum(temp2(Lt));
                             end
@@ -2075,17 +2075,17 @@ classdef stem_EM < EM
                         
                         if par.p>0
                             temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),j_r,'l');
-                            temp2=zeros(size(temp1,1),1);
+                            temp2=zeros(size(temp1,1));
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(temp1,1);
                                 if not(blocks(end)==size(temp1,1))
                                     blocks=[blocks size(temp1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    temp2(i)=temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)';
+                                    temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
                                 end
                             else
-                                temp2=temp1*data.X_time(:,:,tT)';
+                                temp2=diag(temp1*data.X_time(:,:,tT)');
                             end
                             sum_num=sum_num-sum(temp2(Lt));
                         end
@@ -2228,10 +2228,10 @@ classdef stem_EM < EM
                                         blocks=[blocks size(temp1,1)];
                                     end
                                     for i=1:length(blocks)-1
-                                        temp2(blocks(i)+1:blocks(i+1))=temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)';
+                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
                                     end
                                 else
-                                    temp2=temp1*data.X_time(:,:,tT)';    
+                                    temp2=diag(temp1*data.X_time(:,:,tT)');    
                                 end
                                 sum_num=sum_num-sum(temp2(Lt));
                             end

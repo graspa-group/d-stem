@@ -31,7 +31,7 @@ classdef stem_kalman < handle
                 pathparallel=[];
                 time_steps=[];
             end
-            if nargin==4
+            if nargin==3
                 error('The pathparallel input argument must be provided');
             end
             disp('    Kalman filter started...');
@@ -66,7 +66,7 @@ classdef stem_kalman < handle
                 pathparallel=[];
                 time_steps=[];
             end
-            if nargin==4
+            if nargin==3
                 error('The pathparallel input argument must be provided');
             end
             disp('    Kalman smoother started...');
@@ -238,7 +238,7 @@ classdef stem_kalman < handle
                     end
                     
                     temp3=sparse(Pk_f(:,:,t)*X_time(Lt,:,tK-1)');
-                    J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
+                    J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
                          
                     if not(isempty(X_beta))
                         innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
@@ -267,7 +267,7 @@ classdef stem_kalman < handle
                         sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
                     end
                     temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
-                    J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(P+temp2)*temp);
+                    J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(P+temp2)*temp);
                     
                     if not(isempty(X_beta))
                         innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
@@ -354,9 +354,9 @@ classdef stem_kalman < handle
             
             zk_u(:,1)=z0;
             Pk_u(:,:,1)=P0;
-            
+            logL=0;
+         
             if server
-                logL=0;
                 for t=2:T+1
                     if size(X_time,3)==1
                         tK=2;
@@ -465,15 +465,17 @@ classdef stem_kalman < handle
                         if t<=max_ts %the time steps up to max_ts are computed locally
                             temp=X_time(Lt,:,tK-1)'*sigma_geo_inv;
                             temp2=temp*X_time(Lt,:,tK-1);
+                            temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                            J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
                         else
                             %temp and temp2 has been already reader from the file
+                            temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
+                            J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
                         end
                         if compute_logL
                             sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
                         end
-                        temp3=Pk_f(:,:,t)*X_time(Lt,:,tK-1)';
-                        J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
-                        
+
                         if not(isempty(X_beta))
                             innovation(Lt,t-1)=Y(Lt,t-1)-X_beta(Lt,:,tX-1)*beta-X_time(Lt,:,tK-1)*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                         else
