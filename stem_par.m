@@ -215,10 +215,18 @@ classdef stem_par
             disp('****************');
             disp('PARAMETER VALUES');
             disp('****************');
-            disp(['alpha_rg: ',num2str(obj.alpha_rg')]);
+            if not(isempty(obj.alpha_rg))
+                disp(['alpha_rg: ',num2str(obj.alpha_rg')]);
+            end
+            if not(isempty(obj.alpha_g))
             disp(['alpha_g: ',num2str(obj.alpha_g)]);
+            end
+            if not(isempty(obj.theta_r))
             disp(['theta_r: ',num2str(obj.theta_r')]);
-            disp(['theta_g: ',num2str(obj.theta_g')]);
+            end
+            if not(isempty(obj.theta_g))
+                disp(['theta_g: ',num2str(obj.theta_g')]);
+            end
             if not(isempty(obj.v_r))
                 if (obj.remote_correlated)&&(obj.q>1)
                     disp(['v_r: ']);
@@ -231,16 +239,20 @@ classdef stem_par
                     disp(obj.v_g(:,:,i));
                 end
             end
+            if not(isempty(obj.beta))
             disp(['beta: ',num2str(obj.beta')]);
+            end
             disp(['sigma eps: ',num2str(diag(obj.sigma_eps)')]);
-            if obj.time_diagonal
-                disp(['diag_G: ',num2str(diag(obj.G)')]);
-                disp(['sigma_eta: ',num2str(diag(obj.sigma_eta)')]);
-            else
-                disp(['G: ']);
-                disp(obj.G);
-                disp(['sigma_eta: ']);
-                disp(obj.sigma_eta);
+            if obj.p>0
+                if obj.time_diagonal
+                    disp(['diag_G: ',num2str(diag(obj.G)')]);
+                    disp(['sigma_eta: ',num2str(diag(obj.sigma_eta)')]);
+                else
+                    disp(['G: ']);
+                    disp(obj.G);
+                    disp(['sigma_eta: ']);
+                    disp(obj.sigma_eta);
+                end
             end
         end
 
