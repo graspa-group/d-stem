@@ -1209,16 +1209,24 @@ classdef stem_model < handle
                 d_e_Lt=d_e(Lt,:);
                 temp0(r,:)=stem_misc.chol_solve(chol_S,d_e_Lt(r,:));
                 for i=1:n_psi
-                    tic
                     temp1{i}=d_e_Lt(:,i)'*temp0;
                     d_St_i_Lt=d_St{i}(Lt,Lt);
-                    temp2{i}(r,:)=stem_misc.chol_solve(chol_S,d_St_i_Lt(r,r),1);
-                    toc
+                    if not(sum(abs(d_St_i_Lt(:)))==0)
+                        temp2{i}(r,:)=stem_misc.chol_solve(chol_S,d_St_i_Lt(r,r),1);
+                    else
+                        if issparse(S)
+                            temp2{i}(r,:)=spalloc(size(S,1),size(S,2),0);
+                        else
+                            temp2{i}(r,:)=zeros(size(S));
+                        end
+                    end
                 end
                 for i=1:n_psi
                     for j=i:n_psi
                         IM(i,j)=IM(i,j)+temp1{i}(j);
-                        IM(i,j)=IM(i,j)+0.5*trace(temp2{i}*temp2{j})+0.25*trace(temp2{i})*trace(temp2{j});
+                        if (sum(abs(temp2{i}(:)))>0)&&(sum(abs(temp2{j}(:)))>0)
+                            IM(i,j)=IM(i,j)+0.5*trace(temp2{i}*temp2{j})+0.25*trace(temp2{i})*trace(temp2{j});
+                        end
                         counter=counter+1;
                         if (mod(counter,100)==0)||(counter==tot)
                             if ((mod(round(counter/tot*100),20)==0)||(round(counter/tot*100)<3)) ...
@@ -1244,6 +1252,155 @@ classdef stem_model < handle
                 error('The input argument must be of class stem_par');
             end
             obj.stem_par_initial=stem_par;
+        end
+        
+        function print(obj)
+            stem_misc.disp_star('Data description');
+            disp(['Number of variables: ',num2str(obj.nvar)]);
+            disp('Variable names:');
+            for i=1:length(obj.stem_data.stem_varset_g.Y_name)
+                disp(['  (',num2str(i),') - ',obj.stem_data.stem_varset_g.Y_name{i}]);
+            end
+            disp(' '); 
+            disp('Date and time steps:')
+            disp(['  Stating date  : ',datestr(obj.stem_data.stem_datestamp.date_start)]);
+            disp(['  Ending date   : ',datestr(obj.stem_data.stem_datestamp.date_end)]);
+            disp(['  Temporal steps: ',num2str(obj.T)]);
+            disp(' ');              
+            if isempty(obj.stem_data.stem_varset_r)
+                disp('Data type: point data only');
+                disp(' ');
+                disp('Bounding box of the point data:');
+                disp(['  Latitude min : ',num2str(obj.stem_data.stem_gridlist_g.box(1)),'°'])
+                disp(['  Latitude max : ',num2str(obj.stem_data.stem_gridlist_g.box(2)),'°'])
+                disp(['  Longitude min: ',num2str(obj.stem_data.stem_gridlist_g.box(3)),'°'])
+                disp(['  Longitude max: ',num2str(obj.stem_data.stem_gridlist_g.box(4)),'°'])
+                disp(' ');
+            else
+                disp('Data type: point and pixel data');
+                disp(' ');
+                disp('Bounding box of the point data:');
+                disp(['  Latitude min : ',num2str(obj.stem_data.stem_gridlist_r.box(1)),'°'])
+                disp(['  Latitude max : ',num2str(obj.stem_data.stem_gridlist_r.box(2)),'°'])
+                disp(['  Longitude min: ',num2str(obj.stem_data.stem_gridlist_r.box(3)),'°'])
+                disp(['  Longitude max: ',num2str(obj.stem_data.stem_gridlist_r.box(4)),'°'])
+                disp(' ');
+            end
+            disp('Number of sites:');
+            output{1,1}='Variable name';
+            output{1,2}='Point data';
+            if not(isempty(obj.stem_data.stem_varset_r))
+                output{1,3}='Pixel data';
+            end
+            for i=1:obj.nvar
+                output{i+1,1}=obj.stem_data.stem_varset_g.Y_name{i};
+                output{i+1,2}=num2str(obj.stem_data.stem_varset_g.dim(i));
+                if not(isempty(obj.stem_data.stem_varset_r))
+                    output{i+1,3}=num2str(obj.stem_data.stem_varset_r.dim(i));
+                end
+            end
+            disp(output);
+            for i=1:obj.nvar
+                stem_misc.disp_star(['Details for variable ',obj.stem_data.stem_varset_g.Y_name{i}]);
+                if not(isempty(obj.stem_data.stem_varset_g.X_beta_name))
+                    disp('Point data covariates related to beta:');
+                    for j=1:length(obj.stem_data.stem_varset_g.X_beta_name{i})
+                        disp(['  ',obj.stem_data.stem_varset_g.X_beta_name{i}{j}]);
+                    end
+                    disp(' ');
+                end
+                if not(isempty(obj.stem_data.stem_varset_g.X_time_name))
+                    disp('Point data covariates related to z(t):');
+                    for j=1:length(obj.stem_data.stem_varset_g.X_time_name{i})
+                        disp(['  ',obj.stem_data.stem_varset_g.X_time_name{i}{j}]);
+                    end
+                    disp(' ');
+                end
+                if not(isempty(obj.stem_data.stem_varset_g.X_g_name))
+                    disp('Point data covariates related to the fine scale w(s,t):');
+                    for j=1:length(obj.stem_data.stem_varset_g.X_g_name{i})
+                        disp(['  ',obj.stem_data.stem_varset_g.X_g_name{i}{j}]);
+                    end
+                    disp(' ');
+                end
+                if not(isempty(obj.stem_data.stem_varset_g.X_rg_name))
+                    disp('Point data covariates related to the large scale w(s,t):');
+                    for j=1:length(obj.stem_data.stem_varset_g.X_rg_name{i})
+                        disp(['  ',obj.stem_data.stem_varset_g.X_rg_name{i}{j}]);
+                    end
+                    disp(' ');
+                end
+                
+                if not(isempty(obj.stem_data.stem_varset_r))
+                    if not(isempty(obj.stem_data.stem_varset_rg.X_beta_name))
+                        disp('Pixel data covariates related to beta:');
+                        for j=1:length(obj.stem_data.stem_varset_r.X_beta_name{i})
+                            disp(['  ',obj.stem_data.stem_varset_r.X_beta_name{i}{j}]);
+                        end
+                        disp(' ');
+                    end
+                    if not(isempty(obj.stem_data.stem_varset_r.X_time_name))
+                        disp('Pixel data covariates related to z(t):');
+                        for j=1:length(obj.stem_data.stem_varset_r.X_time_name{i})
+                            disp(['  ',obj.stem_data.stem_varset_r.X_time_name{i}{j}]);
+                        end
+                        disp(' ');
+                    end
+                    if not(isempty(obj.stem_data.stem_varset_r.X_rg_name))
+                        disp('Pixel data covariates related to the large scale w(s,t):');
+                        for j=1:length(obj.stem_data.stem_varset_r.X_rg_name{i})
+                            disp(['  ',obj.stem_data.stem_varset_r.X_rg_name{i}{j}]);
+                        end
+                        disp(' ');
+                    end
+                end
+            end
+            
+            stem_misc.disp_star('Estimation results')   
+            if obj.estimated
+                if obj.tapering
+                    disp('Tapering: Yes');    
+                    if not(isempty(obj.tapering_g))
+                        disp(['  Point data tapering: ',num2str(obj.tapering_g)]);
+                    else
+                        disp('  Point data not tapered');
+                    end
+                    if not(isempty(obj.tapering_r))
+                        disp(['  Pixel data tapering: ',num2str(obj.tapering_r)]);
+                    else
+                        disp('  Pixel data not tapered');
+                    end
+                else
+                    disp('Tapering: No');
+                end
+                disp(' ');
+                counter=1;
+                if not(isempty(obj.stem_par.beta))
+                    for i=1:obj.nvar
+                        disp(['Beta coefficients for point data related to variable ',obj.stem_data.stem_varset_g.Y_name{i}]);
+                        output=[];
+                        output{1,1}='Covariate';
+                        output{1,2}='value';
+                        if not(isempty(obj.stem_EM_result.varcov))
+                            output{1,3}='std';
+                        end
+                        for j=1:length(obj.stem_data.stem_varset_g.X_beta_name{i})
+                            output{j+1,1}=obj.stem_data.stem_varset_g.X_beta_name{i}{j};
+                            output{j+1,2}=num2str(obj.stem_par.beta(counter));
+                            if not(isempty(obj.stem_EM_result.varcov))
+                                output{j+1,3}=num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)));
+                            end
+                            counter=counter+1;
+                        end
+                        disp(output);
+                        disp(' ');
+                    end
+                end
+            else
+                disp('The model is not estimated');
+            end
+           
+            
         end
         
         %export functions

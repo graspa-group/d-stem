@@ -201,8 +201,13 @@ classdef stem_par
             end
             
             if obj.p>0
-                all_par=[all_par; obj.G(:)];
-                all_par=[all_par; stem_misc.triuv(obj.sigma_eta)];
+                if not(obj.time_diagonal)
+                    all_par=[all_par; obj.G(:)];
+                    all_par=[all_par; stem_misc.triuv(obj.sigma_eta)];
+                else
+                    all_par=[all_par; diag(obj.G)];
+                    all_par=[all_par; diag(obj.sigma_eta)];
+                end
             end
         end
         

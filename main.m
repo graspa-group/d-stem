@@ -12,7 +12,7 @@ clc
 clear all
 
 %% ground level data
-flag_parallel=1;
+flag_parallel=0;
 flag_remote_data=0;
 
 flag_time_ground=1;
@@ -26,8 +26,8 @@ flag_crossval=0;
 flag_tapering=0;
 flag_residuals=0;
 
-flag_estimate=1;
-flag_kriging=0;
+flag_estimate=0;
+flag_kriging=1;
 
 
 %pathparallel='/opt/matNfs/';
@@ -213,7 +213,7 @@ if flag_estimate
         else
             remote_correlated=[];
         end
-        time_diagonal=0;
+        time_diagonal=1;
         st_par=stem_par(st_data,'exponential',remote_correlated,time_diagonal);
         
         st_model=stem_model(st_data,st_par);
@@ -223,7 +223,7 @@ if flag_estimate
         
         %% data modification
         %st_model.stem_data.space_crop([44,47,7,14]);
-        st_model.stem_data.time_crop(1:2);
+        st_model.stem_data.time_crop(1:15);
         st_model.stem_data.log_transform;
         st_model.stem_data.standardize;
         
@@ -238,8 +238,8 @@ if flag_estimate
             st_par.beta=st_model.get_beta0();
         end
         if flag_w_ground
-            st_par.alpha_g=[0.265 0.464 0.358 0.531 0.06 0.43];
-            st_par.theta_g=[261 308 273 174 257 160]';
+            st_par.alpha_g=[0.301 0.3817 0.3056 0.4668 0.249 0.408];
+            st_par.theta_g=[250.09 239.38 246.40 214.55 252.45 213.84]';
             for i=1:6
                 v_g(:,:,i)=1;
             end
@@ -247,18 +247,18 @@ if flag_estimate
         end
         
         if flag_time_ground||flag_time_remote
-            st_par.sigma_eta=diag(repmat(0.1,5,1));
-            st_par.G=diag(repmat(0.7,5,1));
+            st_par.sigma_eta=diag([0.00034 0.000733 0.000113 0.0001446 0.00228]);
+            st_par.G=diag([0.91 0.91 0.94 0.59 0.65]);
         end
         
-        st_par.sigma_eps=diag([0.4]);
+        st_par.sigma_eps=diag([0.25297]);
         st_model.set_initial_values(st_par);
     else
         load ../Data/st_model_small_area_residuals.mat
     end
     
     %% model estimation
-    st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
+    st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
     if flag_parallel
         st_EM_options.pathparallel=pathparallel;
     end
@@ -275,17 +275,18 @@ if flag_estimate
 end
 
 if flag_kriging
-    load ../Data/output/st_model_europe_time_remote_and_ground.mat
+    load ../Data/output/st_model_europe_joint.mat
     load ../Data/no2_krig_coordinates_005.mat;
     load ../Data/no2_krigmask_005.mat
-    st_model.stem_data.time_crop(1:1);
+    st_model.stem_data.time_crop(7:7);
     st_krig=stem_krig(st_model);
     st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[640,920],'square',0.05,0.05);
     back_transform=1;
     no_varcov=0;
-    block_size=500;
+    block_size=10000;
     mask=krig_mask;
-    X_krig='../Data/blocks/';
+    %X_krig='../Data/blocks/';
+    X_krig='C:/Users/Nicolis/Desktop/Blocks/';
     st_krig_result=st_krig.kriging('no2',st_krig_grid,block_size,mask,X_krig,back_transform,no_varcov);
     save st_krig_result st_krig_result -v7.3
 end

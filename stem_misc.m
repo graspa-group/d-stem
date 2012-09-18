@@ -275,6 +275,18 @@ classdef stem_misc
             str=[str_h,str_m,str_s];
         end
         
+        function disp_star(string)
+            l=length(string);
+            s=[];
+            for i=1:l+8
+                s=[s,'*'];
+            end
+            disp(' ');
+            disp(s);
+            disp(['*   ',string,'   *']);
+            disp(s);
+        end
+        
         function mat = from_vector_to_symmetric_matrix(vec)
             d=(1+sqrt(1+8*length(vec)))/2;
             mat=eye(d);
