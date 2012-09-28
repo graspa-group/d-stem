@@ -1132,7 +1132,7 @@ classdef stem_EM < EM
                         tB=1;
                     end
                     temp1=temp1+data.X_beta(Lt,:,tB)'*stem_misc.D_apply(data.X_beta(Lt,:,tB),d(Lt),'l');
-                    temp2=temp2+data.X_beta(Lt,:,tB)'*stem_misc.D_apply(E_e_y1(Lt,tB)+data.X_beta(Lt,:,tB)*par.beta,d(Lt),'l');
+                    temp2=temp2+data.X_beta(Lt,:,tB)'*stem_misc.D_apply(E_e_y1(Lt,t)+data.X_beta(Lt,:,tB)*par.beta,d(Lt),'l');
                 end
                 st_par_em_step.beta=temp1\temp2;
                 ct2=clock;
@@ -1981,7 +1981,7 @@ classdef stem_EM < EM
                         tB=1;
                     end
                     temp1=temp1+data.X_beta(Lt,:,tB)'*stem_misc.D_apply(data.X_beta(Lt,:,tB),d(Lt),'l');
-                    temp2=temp2+data.X_beta(Lt,:,tB)'*stem_misc.D_apply(E_e_y1(Lt,tB)+data.X_beta(Lt,:,tB)*par.beta,d(Lt),'l');
+                    temp2=temp2+data.X_beta(Lt,:,tB)'*stem_misc.D_apply(E_e_y1(Lt,t)+data.X_beta(Lt,:,tB)*par.beta,d(Lt),'l');
                 end
                 st_par_em_step.beta=temp1\temp2;
                 ct2=clock;
