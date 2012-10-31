@@ -10,16 +10,16 @@
 
 clc
 clear all
-
+close all
 % ground level data
 flag_parallel=0;
 flag_remote_data=0;
 
 flag_time_ground=1;
 flag_time_remote=0;
-flag_beta_ground=0;
+flag_beta_ground=1;
 flag_beta_remote=0;
-flag_w_ground=0;
+flag_w_ground=1;
 flag_w_remote=0;
 
 flag_crossval=0;
@@ -84,8 +84,10 @@ if flag_estimate
     
     %X_time
     if flag_time_ground
-        sd_g.X_time{1}=X(:,1,:);
-        sd_g.X_time_name{1}={'no2_year'};
+        %sd_g.X_time{1}=X(:,1,:);
+        %sd_g.X_time_name{1}={'no2_year'};
+        sd_g.X_time{1}=cat(2,ones(size(X,1),1,365),X(:,1,:));
+        sd_g.X_time_name{1}={'constant','no2_year'};
     else
         sd_g.X_time=[];
         sd_g.X_time_name=[];
@@ -97,8 +99,10 @@ if flag_estimate
             temp=reshape(temp,size(temp,1),1,1,size(temp,2));
             X_new(:,1,t,:)=temp;
         end
-        sd_g.X_g{1}=X_new(:,1,:,1);
-        sd_g.X_g_name{1}={'no2year'};
+        %sd_g.X_g{1}=X_new(:,1,:,1);
+        %sd_g.X_g_name{1}={'no2year'};
+        sd_g.X_g{1}=ones(size(X,1),1,1,1);
+        sd_g.X_g_name{1}={'constant'};
         clear X_new
         clear temp
     else
@@ -216,7 +220,7 @@ if flag_estimate
     end
     if flag_w_ground
         st_par.alpha_g=[0.3];
-        st_par.theta_g=[60]';
+        st_par.theta_g=[200]';
         for i=1:1
             v_g(:,:,i)=1;
         end
@@ -224,15 +228,15 @@ if flag_estimate
     end
     
     if flag_time_ground||flag_time_remote
-        st_par.sigma_eta=diag([0.2]);
-        st_par.G=diag([0.8]);
+        st_par.sigma_eta=diag([0.2 0.2]);
+        st_par.G=diag([0.8 0.8]);
     end
     
     st_par.sigma_eps=diag([0.2]);
     st_model.set_initial_values(st_par);
     
     % model estimation
-    st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
+    st_EM_options=stem_EM_options(0.001,10,'single',[],0,[]);
     if flag_parallel
         st_EM_options.pathparallel=pathparallel;
     end
@@ -242,7 +246,7 @@ if flag_estimate
     %st_sim.simulate;
     
     st_model.EM_estimate(st_EM_options);
-    %st_model.set_Hessian;
+    %st_model.set_varcov;
     %st_model.set_logL;
     
     save(['st_model_',datestr(now,'yyyymmdd_HHMMSS')],'st_model');
