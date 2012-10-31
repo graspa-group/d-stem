@@ -22,7 +22,7 @@ classdef stem_model < handle
         stem_par_initial=[];    %[stem_par object]  (1x1) parameter starting values
         stem_par_sim=[];        %[stem_par object]  (1x1) parameter values used to simulate data
         note=[];
-                estimated=0;            %[boolean] (1x1) 0: the model is not estimated; 
+        estimated=0;            %[boolean] (1x1) 0: the model is not estimated; 
     end
     
     properties (SetAccess = private)
@@ -485,7 +485,7 @@ classdef stem_model < handle
                 back_transform=0;
                 no_varcov=1;
                 crossval=1;
-                obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,[],block_size,[],[],back_transform,no_varcov,crossval);
+                obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,obj.stem_data.stem_crossval.stem_gridlist.grid{1},block_size,[],[],back_transform,no_varcov,crossval);
                 res=obj.stem_data.stem_crossval.stem_krig_result.y_hat-obj.stem_data.stem_crossval.stem_varset.Y{1};
                 obj.stem_data.stem_crossval.mse=nanvar(res(:));
             end

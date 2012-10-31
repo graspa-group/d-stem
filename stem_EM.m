@@ -83,7 +83,7 @@ classdef stem_EM < EM
                 clear Xbeta
 
                 [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,Xbeta,st_kalmansmoother_result] = obj.E_step();
-                obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,st_kalmansmoother_result);
+                obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result);
 
                 st_EM_result.stem_par_all(:,iteration)=obj.stem_model.stem_par.vec;
                 if not(isempty(st_kalmansmoother_result))
@@ -1085,7 +1085,7 @@ classdef stem_EM < EM
                 clear temp_g
                 clear temp
                 t_partial2=clock;
-                disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
+                %disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
             ct2=clock;
             disp(['    Conditional E, Var, Cov evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
@@ -1094,7 +1094,7 @@ classdef stem_EM < EM
             disp('');
         end
         
-        function M_step(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,st_kalmansmoother_result)
+        function M_step(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result)
             disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
@@ -1933,7 +1933,7 @@ classdef stem_EM < EM
                 end
                 clear temp_g
                 t_partial2=clock;
-                disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
+                %disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
             
             ct2=clock;

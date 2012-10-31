@@ -403,31 +403,32 @@ classdef stem_kalman < handle
                         tX=t; %time variant
                     end
                     Lt=not(isnan(Y(:,t-1))); %note the t-1
-                    if t<=max_ts 
-                        temp=sigma_geo(Lt,Lt);
-                        if tapering
-                            if not(stem_misc.isdiagonal(temp))
-                                r = symamd(temp);
-                                c=chol(temp(r,r));
-                                temp2=speye(sum(Lt));
-                                temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
-                                sigma_geo_inv=zeros(size(temp3));
-                                sigma_geo_inv(r,:)=temp3;
-                                clear temp2
-                                clear temp3
-                            else
-                                d=1./diag(temp);
-                                sigma_geo_inv=sparse(1:length(d),1:length(d),d);
-                            end
+
+                    temp=sigma_geo(Lt,Lt);
+                    if tapering
+                        if not(stem_misc.isdiagonal(temp))
+                            r = symamd(temp);
+                            c=chol(temp(r,r));
+                            temp2=speye(sum(Lt));
+                            temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
+                            sigma_geo_inv=zeros(size(temp3));
+                            sigma_geo_inv(r,:)=temp3;
+                            clear temp2
+                            clear temp3
                         else
-                            if not(stem_misc.isdiagonal(temp))
-                                c=chol(sigma_geo(Lt,Lt));
-                                sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
-                            else
-                                sigma_geo_inv=diag(1./diag(temp));
-                            end
+                            d=1./diag(temp);
+                            sigma_geo_inv=sparse(1:length(d),1:length(d),d);
                         end
                     else
+                        if not(stem_misc.isdiagonal(temp))
+                            c=chol(sigma_geo(Lt,Lt));
+                            sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
+                        else
+                            sigma_geo_inv=diag(1./diag(temp));
+                        end
+                    end
+                        
+                    if t>max_ts
                         %wait for the proper file from the clients
                         exit=0;
                         disp(['        Waiting for kalman_output_',num2str(t)]);

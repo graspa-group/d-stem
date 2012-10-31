@@ -75,22 +75,22 @@ classdef stem_grid
                 error('coordinate must be a Nx2 matrix');
             end
             
-%             if not(strcmp(obj.grid_type,'regular'))
-%                 obj.duplicated_sites=[];
-%                 for i=1:length(coordinate)-1
-%                     temp=coordinate(i,:);
-%                     temp2=coordinate((i+1):end,:);
-%                     temp_lat=temp2(:,1);
-%                     temp_lon=temp2(:,2);
-%                     a=temp_lat==temp(1);
-%                     b=temp_lon==temp(2);
-%                     c=a&b;
-%                     if sum(c)>0
-%                         obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
-%                         disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
-%                     end
-%                 end
-%             end
+            if not(strcmp(obj.grid_type,'regular'))
+                obj.duplicated_sites=[];
+                for i=1:length(coordinate)-1
+                    temp=coordinate(i,:);
+                    temp2=coordinate((i+1):end,:);
+                    temp_lat=temp2(:,1);
+                    temp_lon=temp2(:,2);
+                    a=temp_lat==temp(1);
+                    b=temp_lon==temp(2);
+                    c=a&b;
+                    if sum(c)>0
+                        obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
+                        disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
+                    end
+                end
+            end
 
             obj.coordinate=coordinate;
             obj.box(1)=min(coordinate(:,1));
