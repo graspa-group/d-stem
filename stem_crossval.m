@@ -19,8 +19,10 @@ classdef stem_crossval < handle
         stem_varset=[];         %stem_varset object for crossvalidation
         stem_gridlist=[];       %gridlist object for crossvalidation
         stem_krig_result=[];
-        mindistance=[];         %for each cross-validation site contains the distance to the nearest non-cross-validation site (of the same variable)
+        min_distance=[];         %for each cross-validation site contains the distance to the nearest non-cross-validation site (of the same variable)
         mse=[];
+        relative_mse=[];
+        avg_relative_mse=[];
     end
 
     

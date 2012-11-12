@@ -226,16 +226,16 @@ classdef stem_model < handle
                                         corr_result=stem_misc.correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_par.correlation_type);
                                         weights=stem_misc.wendland(obj.stem_data.DistMat_r(idx_r,idx_c),obj.stem_data.stem_gridlist_r.tap);
                                         corr_result.correlation=obj.stem_par.v_r(i,j)*corr_result.correlation.*weights;
-                                        size=length(corr_result.I);
-                                        I(idx+1:idx+size)=corr_result.I+blocks(i);
-                                        J(idx+1:idx+size)=corr_result.J+blocks(j);
-                                        elements(idx+1:idx+size)=corr_result.correlation;
-                                        idx=idx+size;
+                                        siz=length(corr_result.I);
+                                        I(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                        J(idx+1:idx+siz)=corr_result.J+blocks(j);
+                                        elements(idx+1:idx+siz)=corr_result.correlation;
+                                        idx=idx+siz;
                                         if not(i==j)
-                                            I(idx+1:idx+size)=corr_result.J+blocks(j);
-                                            J(idx+1:idx+size)=corr_result.I+blocks(i);
-                                            elements(idx+1:idx+size)=corr_result.correlation;
-                                            idx=idx+size;
+                                            I(idx+1:idx+siz)=corr_result.J+blocks(j);
+                                            J(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                            elements(idx+1:idx+siz)=corr_result.correlation;
+                                            idx=idx+siz;
                                         end
                                     end
                                 end
@@ -261,11 +261,11 @@ classdef stem_model < handle
                                     corr_result=stem_misc.correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
                                     weights=stem_misc.wendland(obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_data.stem_gridlist_r.tap);
                                     corr_result.correlation=obj.stem_par.v_r(i,i)*corr_result.correlation.*weights;
-                                    size=length(corr_result.I);
-                                    I(idx+1:idx+size)=corr_result.I+blocks(i);
-                                    J(idx+1:idx+size)=corr_result.J+blocks(i);
-                                    elements(idx+1:idx+size)=corr_result.correlation;
-                                    idx=idx+size;
+                                    siz=length(corr_result.I);
+                                    I(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                    J(idx+1:idx+siz)=corr_result.J+blocks(i);
+                                    elements(idx+1:idx+siz)=corr_result.correlation;
+                                    idx=idx+sie;
                                 end
                             end
                             if obj.tapering_r
@@ -302,16 +302,16 @@ classdef stem_model < handle
                                corr_result=stem_misc.correlation_function(obj.stem_par.theta_g(k),obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_par.correlation_type);
                                weights=stem_misc.wendland(obj.stem_data.DistMat_g(idx_r,idx_c),obj.stem_data.stem_gridlist_g.tap);
                                corr_result.correlation=obj.stem_par.v_g(i,j,k)*corr_result.correlation.*weights;
-                               size=length(corr_result.I);
-                               I(idx+1:idx+size)=corr_result.I+blocks(i);
-                               J(idx+1:idx+size)=corr_result.J+blocks(j);
-                               elements(idx+1:idx+size)=corr_result.correlation;
-                               idx=idx+size;
+                               siz=length(corr_result.I);
+                               I(idx+1:idx+siz)=corr_result.I+blocks(i);
+                               J(idx+1:idx+siz)=corr_result.J+blocks(j);
+                               elements(idx+1:idx+siz)=corr_result.correlation;
+                               idx=idx+siz;
                                if not(i==j)
-                                   I(idx+1:idx+size)=corr_result.J+blocks(j);
-                                   J(idx+1:idx+size)=corr_result.I+blocks(i);
-                                   elements(idx+1:idx+size)=corr_result.correlation;
-                                   idx=idx+size;
+                                   I(idx+1:idx+siz)=corr_result.J+blocks(j);
+                                   J(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                   elements(idx+1:idx+siz)=corr_result.correlation;
+                                   idx=idx+siz;
                                end
                            end
                        end
@@ -448,13 +448,15 @@ classdef stem_model < handle
                 end      
                 
                 %set the cross_mindistance vector
-                dim=obj.stem_data.dim;
-                blocks=[0 cumsum(dim)];
-                temp_dist=obj.stem_data.DistMat_g(blocks(idx_var)+1:blocks(idx_var+1),blocks(idx_var)+1:blocks(idx_var+1));
-                temp_dist=temp_dist(indices,:);
-                temp_dist(:,indices)=[];
-                obj.stem_data.stem_crossval.mindistance=min(temp_dist');
-                clear temp_dist
+                if not(isempty(obj.stem_data.DistMat_g))
+                    dim=obj.stem_data.dim;
+                    blocks=[0 cumsum(dim)];
+                    temp_dist=obj.stem_data.DistMat_g(blocks(idx_var)+1:blocks(idx_var+1),blocks(idx_var)+1:blocks(idx_var+1));
+                    temp_dist=temp_dist(indices,:);
+                    temp_dist(:,indices)=[];
+                    obj.stem_data.stem_crossval.min_distance=min(temp_dist');
+                    clear temp_dist
+                end
                 
                 obj.stem_data.stem_crossval.stem_varset=stem_varset(Y,Y_name,X_rg,X_rg_name,X_beta,X_beta_name,X_time,X_time_name,X_g,X_g_name);
                 obj.stem_data.stem_crossval.stem_gridlist=stem_gridlist();
@@ -487,7 +489,9 @@ classdef stem_model < handle
                 crossval=1;
                 obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,obj.stem_data.stem_crossval.stem_gridlist.grid{1},block_size,[],[],back_transform,no_varcov,crossval);
                 res=obj.stem_data.stem_crossval.stem_krig_result.y_hat-obj.stem_data.stem_crossval.stem_varset.Y{1};
-                obj.stem_data.stem_crossval.mse=nanvar(res(:));
+                obj.stem_data.stem_crossval.mse=nanvar(res');
+                obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.Y');
+                obj.stem_data.stem_crossval.avg_relative_mse=nanmean(obj.stem_data.stem_crossval.relative_mse);
             end
         end
         

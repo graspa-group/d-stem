@@ -22,8 +22,8 @@ flag_beta_remote=0;
 flag_w_ground=1;
 flag_w_remote=0;
 
-flag_crossval=0;
-flag_tapering=0;
+flag_crossval=1;
+flag_tapering=1;
 
 flag_estimate=1;
 flag_kriging=0;
@@ -31,7 +31,14 @@ flag_kriging=0;
 pathparallel='/opt/matNfs/';
 if flag_estimate
     %Y
-    load ../Data/no2_ground_background_rural.mat
+    %load the full dataset in order to have the information of the lat-lon
+    %of all the NO2 monitoring stations
+    load ../Data/no2_ground.mat
+    lat_temp=no2_ground.lat;
+    lon_temp=no2_ground.lon;
+    
+    %load the redeced dataset
+    load ../Data/no2_ground_background_suburban.mat
     sd_g.Y{1}=no2_ground.data;
     sd_g.Y_name={'no2'};
     N=size(sd_g.Y{1},1);
@@ -45,36 +52,51 @@ if flag_estimate
         sd_g.X_rg=[];
         sd_g.X_rg_name{1}=[];
     end
+    
     %X_beta
+    %load the covariates over all the NO2 monitoring stations
     load ../Data/no2_meteo_point.mat
     load ../Data/no2_elevation_point.mat
     load ../Data/no2_emission_point.mat
     load ../Data/no2_population_point.mat
-    load ../Data/no2_no2year_point_background_rural.mat
+    load ../Data/no2_no2year_point.mat
     X_elevation_point(isnan(X_elevation_point))=0;
     X_elevation_point=repmat(X_elevation_point,[1,1,T]);
     X_emission_point=repmat(X_emission_point,[1,1,T]);
-    X_no2year_point=repmat(no2_remoteground_avg,[1,1,T]);
+    X_no2year_point=repmat(no2_y,[1,1,T]);
+    
+    %extract the indices of the reduced dataset
+    idx=[];
+    for i=1:length(no2_ground.lat)
+        finded=0;
+        for j=1:length(lat_temp)
+            if (no2_ground.lat(i)==lat_temp(j))&&(no2_ground.lon(i)==lon_temp(j))&&(finded==0)
+                idx=[idx;j];
+                finded=1;
+            end
+        end
+    end
+    
     
     %take the log of the population count
-%     X_population_point(X_population_point==0)=0.02;
-%     X_population_point=log(X_population_point);
-%     X_population_point=repmat(X_population_point,[1,1,T]);
-%     X_lat_point=repmat(no2_ground.lat,[1,1,T]);
-%     X_lon_point=repmat(no2_ground.lon,[1,1,T]);
-%     X=cat(2,X_no2year_point,X_meteo_point,X_elevation_point,X_emission_point,X_population_point,X_lat_point,X_lon_point);
-%     X=double(X);
-    X=X_no2year_point;
+    X_population_point(X_population_point==0)=0.02;
+    X_population_point=log(X_population_point);
+    X_population_point=repmat(X_population_point,[1,1,T]);
+    X_no2_remote_point=repmat(no2_y,[1,1,T]);
+    X=cat(2,X_no2_remote_point,X_meteo_point,X_elevation_point,X_emission_point,X_population_point);
+    X=double(X);
+    %obtain the covariates over the reduced dataset
+    X=X(idx,:,:);
     
     clear X_emission_point
     clear X_meteo_point
     clear X_elevation_point
     clear X_population_point
+    clear X_no2_remote_point
     
     if flag_beta_ground
-        sd_g.X_beta{1}=X(:,[1],:);
-        sd_g.X_beta{1}=cat(2,ones(size(X,1),1,365),sd_g.X_beta{1});
-        sd_g.X_beta_name{1}={'constant','no2_year'};%{'no2_year','pressure','temperature','wind speed','elevation','emission','population','lat','lon'};
+        sd_g.X_beta{1}=X(:,[4:9],:);
+        sd_g.X_beta_name{1}={'pressure','temperature','wind speed','elevation','emission','population'};
         %sd_g.X_beta{1}=ones(size(X,1),1,1);
         %sd_g.X_beta_name{1}={'constant'};
     else
@@ -86,8 +108,8 @@ if flag_estimate
     if flag_time_ground
         %sd_g.X_time{1}=X(:,1,:);
         %sd_g.X_time_name{1}={'no2_year'};
-        sd_g.X_time{1}=cat(2,ones(size(X,1),1,365),X(:,1,:));
-        sd_g.X_time_name{1}={'constant','no2_year'};
+        sd_g.X_time{1}=ones(size(X,1),1,1);
+        sd_g.X_time_name{1}={'constant'};
     else
         sd_g.X_time=[];
         sd_g.X_time_name=[];
@@ -114,7 +136,7 @@ if flag_estimate
     st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,sd_g.X_rg,sd_g.X_rg_name,sd_g.X_beta,sd_g.X_beta_name,sd_g.X_time,sd_g.X_time_name,sd_g.X_g,sd_g.X_g_name);
     
     if flag_tapering
-        tapering_g=300; %km
+        tapering_g=350; %km
         tapering_r=100; %km
     else
         tapering_g=[];
@@ -182,7 +204,7 @@ if flag_estimate
     st_datestamp=stem_datestamp('01-01-2009','31-12-2009',T);
     %crossval
     if flag_crossval
-        idx_step=3;
+        idx_step=2;
         st_crossval=stem_crossval('ground','no2',idx_step);
     else
         st_crossval=[];
@@ -220,7 +242,7 @@ if flag_estimate
     end
     if flag_w_ground
         st_par.alpha_g=[0.3];
-        st_par.theta_g=[200]';
+        st_par.theta_g=[1200]';
         for i=1:1
             v_g(:,:,i)=1;
         end
@@ -228,15 +250,15 @@ if flag_estimate
     end
     
     if flag_time_ground||flag_time_remote
-        st_par.sigma_eta=diag([0.2 0.2]);
-        st_par.G=diag([0.8 0.8]);
+        st_par.sigma_eta=diag([0.2]);
+        st_par.G=diag([0.8]);
     end
     
     st_par.sigma_eps=diag([0.2]);
     st_model.set_initial_values(st_par);
     
     % model estimation
-    st_EM_options=stem_EM_options(0.001,10,'single',[],0,[]);
+    st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
     if flag_parallel
         st_EM_options.pathparallel=pathparallel;
     end
@@ -253,7 +275,6 @@ if flag_estimate
 end
 
 if flag_kriging
-    load ../Data/output/st_model_europe_joint.mat
     load ../Data/no2_krig_coordinates_005.mat;
     load ../Data/no2_krigmask_005.mat
     st_krig=stem_krig(st_model);
