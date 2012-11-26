@@ -488,10 +488,31 @@ classdef stem_model < handle
                 no_varcov=1;
                 crossval=1;
                 obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,obj.stem_data.stem_crossval.stem_gridlist.grid{1},block_size,[],[],back_transform,no_varcov,crossval);
-                res=obj.stem_data.stem_crossval.stem_krig_result.y_hat-obj.stem_data.stem_crossval.stem_varset.Y{1};
-                obj.stem_data.stem_crossval.mse=nanvar(res');
-                obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.Y');
+                obj.stem_data.stem_crossval.res=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}-obj.stem_data.stem_crossval.stem_krig_result.y_hat;
+                obj.stem_data.stem_crossval.mse=nanvar(obj.stem_data.stem_crossval.res');
+                obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}');
                 obj.stem_data.stem_crossval.avg_relative_mse=nanmean(obj.stem_data.stem_crossval.relative_mse);
+                if not(isempty(obj.stem_data.stem_crossval.min_distance))
+                    obj.stem_data.stem_crossval.avg_relative_mse_higher50km=nanmean(obj.stem_data.stem_crossval.relative_mse(obj.stem_data.stem_crossval.min_distance>50));
+                end
+                for i=1:size(obj.stem_data.stem_crossval.stem_varset.Y{idx_var},1)
+                    obj.stem_data.stem_crossval.relative_res(i,:)=obj.stem_data.stem_crossval.res(i,:)./nanstd(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}(i,:));
+                end
+                
+                s=obj.stem_data.stem_varset_g.Y_stds{idx_var};
+                m=obj.stem_data.stem_varset_g.Y_means{idx_var};
+                if (obj.stem_data.stem_varset_g.standardized)&&not(obj.stem_data.stem_varset_g.log_transformed)
+                    y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat*s+m;
+                    y=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m;
+                end
+                if (obj.stem_data.stem_varset_g.standardized)&&(obj.stem_data.stem_varset_g.log_transformed)
+                    y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat;
+                    y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
+                    y=exp(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m);
+                end
+                obj.stem_data.stem_crossval.res_backtransformed=y-y_hat_back;
+                obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
+                obj.stem_data.stem_crossval.y_back=y;
             end
         end
         

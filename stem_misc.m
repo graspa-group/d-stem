@@ -12,6 +12,38 @@ classdef stem_misc
     
     methods (Static)
         
+        function R = autocorr(y,nlag,fl_plot)
+            if nargin < 2
+                nlag = 24;
+            end
+            if nargin < 3
+                fl_plot=1;
+            end
+            if size(y,2) > 1
+                error('Multivariate time series not supported');
+            else
+                L=isnan(y);
+                if not(isempty(L))
+                    warning('Missing data removed from the vector');
+                    y(L)=[];
+                end
+                n = length(y);
+                mnlag = min(n-1,nlag);
+                r = covf( (y - mean(y)), mnlag+1 );
+                r = r' / r(1);
+                sigma2 = 2 ./ sqrt(n - (0:mnlag));
+                sigma3 = 3 ./ sqrt(n - (0:mnlag));
+                if fl_plot
+                    plot(0:mnlag,r,'-k', 0:mnlag,[sigma2' -sigma2'],'-g', 0:mnlag,[sigma3' -sigma3'],'-r', [0; mnlag], [0; 0]);
+                    axis tight
+                    title('Autocorrelation (bands at \pm 2 and \pm 3\sigma)' );
+                end
+            end
+            if nargout>0
+                R=r;
+            end
+        end
+        
         function res = chol_solve(c,b,trim)
             if nargin<3
                 trim=0;
@@ -328,6 +360,31 @@ classdef stem_misc
             end
             B=A(block_i,block_j);
         end
+        
+        function color = get_rainbow_color(value,min_value,max_value)
+            value=(value-min_value)/(max_value-min_value);
+            if value<0.25
+                color(1)=0;
+                color(2)=value*4;
+                color(3)=1;
+            else
+                if value<0.5
+                    color(1)=0;
+                    color(2)=1;
+                    color(3)=1-(value-0.25)*4;
+                else
+                    if value<0.75
+                        color(1)=(value-0.5)*4;
+                        color(2)=1;
+                        color(3)=0;
+                    else
+                        color(1)=1;
+                        color(2)=1-(value-0.75)*4;
+                        color(3)=0;
+                    end
+                end
+            end
+        end
             
         function result = isdiagonal(a)
             [i,j] = find(a);
@@ -423,6 +480,47 @@ classdef stem_misc
                             res=sparse(I,J,res);
                         end
                     end
+                end
+            end
+        end
+        
+        function plot_map(lat,lon,data,shape)
+            if nargin<3
+                error('lat, lon and data must be provided');
+            end
+            if nargin<4
+                shape=[];
+            end
+            if not(isvector(lat))&&not(isvector(lon))&&not(isvector(data))
+                figure
+            else
+                if isvector(lat)&&isvector(lon)&&isvector(data)
+                    figure
+                    if not(isempty(shape))
+                        latmin=min(lat);
+                        latmax=max(lat);
+                        lonmin=min(lon);
+                        lonmax=max(lon);
+                        rlat=latmax-latmin;
+                        rlon=lonmax-lonmin;
+                        mapshow(shape);
+                        xlim([lonmin-rlon*0.1,lonmax+rlon*0.1]);
+                        ylim([latmin-rlat*0.1,latmax+rlat*0.1]);
+                        hold on
+                    end
+                    minval=nanmin(data);
+                    maxval=nanmax(data);
+                    for i=1:length(lat)
+                        if not(isnan(data(i)))
+                            %temp1=(data(i)-minval)/(maxval-minval);
+                            %color=[temp1 temp1 temp1];
+                            color = stem_misc.get_rainbow_color(data(i),minval,maxval);
+                            mapshow(lon(i),lat(i),'DisplayType','point','MarkerFaceColor',color, 'MarkerEdgeColor','k','Marker','o','MarkerSize',5);
+                            hold on
+                        end
+                    end
+                else
+                    error('lat, lon and data must be either all matrices or all vectors');
                 end
             end
         end

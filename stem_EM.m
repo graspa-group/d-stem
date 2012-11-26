@@ -118,6 +118,25 @@ classdef stem_EM < EM
             st_EM_result.y_hat=obj.stem_model.stem_data.Y;
             st_EM_result.y_hat(isnan(st_EM_result.y_hat))=0;
             st_EM_result.y_hat=st_EM_result.y_hat-E_e_y1;
+            st_EM_result.res=obj.stem_model.stem_data.Y-st_EM_result.y_hat;
+            
+            s=obj.stem_model.stem_data.stem_varset_g.Y_stds{1};
+            m=obj.stem_model.stem_data.stem_varset_g.Y_means{1};
+            if (obj.stem_model.stem_data.stem_varset_g.standardized)&&not(obj.stem_model.stem_data.stem_varset_g.log_transformed)
+                y_hat_back=st_EM_result.y_hat*s+m;
+                y=obj.stem_model.stem_data.Y*s+m;
+            end
+            if (obj.stem_model.stem_data.stem_varset_g.standardized)&&(obj.stem_model.stem_data.stem_varset_g.log_transformed)
+                y_hat_back=st_EM_result.y_hat;
+                %y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
+                y_hat_back=exp(y_hat_back*s+m);
+                y=exp(obj.stem_model.stem_data.Y*s+m);
+            end
+
+            st_EM_result.y_hat_back=y_hat_back;
+            st_EM_result.y_back=y;
+            st_EM_result.res_back=y-y_hat_back;
+            
             st_EM_result.iterations=iteration;
             st_EM_result.computation_time=etime(t2_full,t1_full);
         end

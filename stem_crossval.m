@@ -23,6 +23,12 @@ classdef stem_crossval < handle
         mse=[];
         relative_mse=[];
         avg_relative_mse=[];
+        avg_relative_mse_higher50km=[];
+        res=[];
+        res_backtransformed=[];
+        relative_res=[];
+        y_hat_back=[];
+        y_back=[];
     end
 
     

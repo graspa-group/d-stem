@@ -16,6 +16,10 @@ classdef stem_EM_result < handle
         stem_kalmansmoother_result=[]   %stem_kalmansmoother_result object
         stem_residual=[];               %stem_residual object
         y_hat=[];                       %Variable data missing filled (by the EM algorithm)
+        y_hat_back=[];
+        res=[];
+        res_back=[];
+        y_back=[];
         E_wg_y1=[];
         Var_wg_y1=[];
         computation_time=[];            %EM estimation time in seconds

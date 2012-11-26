@@ -23,7 +23,7 @@ flag_w_ground=1;
 flag_w_remote=0;
 
 flag_crossval=1;
-flag_tapering=1;
+flag_tapering=0;
 
 flag_estimate=1;
 flag_kriging=0;
@@ -77,16 +77,23 @@ if flag_estimate
         end
     end
     
-    
+    X_dummy1=zeros(size(X_population_point,1),1,365);
+    X_dummy2=zeros(size(X_population_point,1),1,365);
+    X_dummy1(:,1,3:7:365)=1;
+    X_dummy2(:,1,4:7:365)=1;
     %take the log of the population count
     X_population_point(X_population_point==0)=0.02;
     X_population_point=log(X_population_point);
     X_population_point=repmat(X_population_point,[1,1,T]);
     X_no2_remote_point=repmat(no2_y,[1,1,T]);
-    X=cat(2,X_no2_remote_point,X_meteo_point,X_elevation_point,X_emission_point,X_population_point);
+    X=cat(2,X_no2_remote_point,X_meteo_point,X_elevation_point,X_emission_point,X_population_point,X_dummy1,X_dummy2);
     X=double(X);
     %obtain the covariates over the reduced dataset
     X=X(idx,:,:);
+    
+    %exclude the sites above 1000 meters
+    X_elevation_point=X_elevation_point(idx,1,1);
+    idx=find(X_elevation_point>=1000);
     
     clear X_emission_point
     clear X_meteo_point
@@ -95,8 +102,8 @@ if flag_estimate
     clear X_no2_remote_point
     
     if flag_beta_ground
-        sd_g.X_beta{1}=X(:,[4:9],:);
-        sd_g.X_beta_name{1}={'pressure','temperature','wind speed','elevation','emission','population'};
+        sd_g.X_beta{1}=X(:,[5,6,8,9,10,11],:);
+        sd_g.X_beta_name{1}={'temperature','wind speed','emission','population','dummy1','dummy2'};%{'pressure','temperature','wind speed','elevation','emission','population','dummy'};
         %sd_g.X_beta{1}=ones(size(X,1),1,1);
         %sd_g.X_beta_name{1}={'constant'};
     else
@@ -106,8 +113,8 @@ if flag_estimate
     
     %X_time
     if flag_time_ground
-        %sd_g.X_time{1}=X(:,1,:);
-        %sd_g.X_time_name{1}={'no2_year'};
+        %sd_g.X_time{1}=X(:,[6],:);
+        %sd_g.X_time_name{1}={'wind speed'};
         sd_g.X_time{1}=ones(size(X,1),1,1);
         sd_g.X_time_name{1}={'constant'};
     else
@@ -121,8 +128,8 @@ if flag_estimate
             temp=reshape(temp,size(temp,1),1,1,size(temp,2));
             X_new(:,1,t,:)=temp;
         end
-        %sd_g.X_g{1}=X_new(:,1,:,1);
-        %sd_g.X_g_name{1}={'no2year'};
+        %sd_g.X_g{1}=X_new(:,1,:,5:6);
+        %sd_g.X_g_name{1}={'temperature','wind speed'};
         sd_g.X_g{1}=ones(size(X,1),1,1,1);
         sd_g.X_g_name{1}={'constant'};
         clear X_new
@@ -228,6 +235,7 @@ if flag_estimate
     % data modification
     %st_model.stem_data.space_crop([44,47,6,14]);
     %st_model.stem_data.time_crop(1:365);
+    st_model.stem_data.site_crop('ground','no2',idx);
     st_model.stem_data.log_transform;
     st_model.stem_data.standardize;
     
@@ -241,8 +249,8 @@ if flag_estimate
         st_par.beta=st_model.get_beta0();
     end
     if flag_w_ground
-        st_par.alpha_g=[0.3];
-        st_par.theta_g=[1200]';
+        st_par.alpha_g=[0.4];
+        st_par.theta_g=[400]';
         for i=1:1
             v_g(:,:,i)=1;
         end
@@ -250,15 +258,15 @@ if flag_estimate
     end
     
     if flag_time_ground||flag_time_remote
-        st_par.sigma_eta=diag([0.2]);
-        st_par.G=diag([0.8]);
+        st_par.sigma_eta=diag(repmat(0.047,1,1));
+        st_par.G=diag(repmat(0.8,1,1));
     end
     
-    st_par.sigma_eps=diag([0.2]);
+    st_par.sigma_eps=diag([0.3]);
     st_model.set_initial_values(st_par);
     
     % model estimation
-    st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
+    st_EM_options=stem_EM_options(0.001,50,'single',[],0,[]);
     if flag_parallel
         st_EM_options.pathparallel=pathparallel;
     end
