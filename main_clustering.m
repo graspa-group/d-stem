@@ -23,7 +23,7 @@ flag_simulatedata=0;
 flag_space=0;
 pathparallel='/opt/matNfs/';
 
-n_clusters=2;
+n_clusters=11;
 clustering_method=0;
 
 if flag_simulatedata
@@ -156,7 +156,7 @@ else
     st_data=stem_data(st_varset_g,st_gridlist_g,[],[],st_datestamp,shape); 
 end
 
-time_diagonal=0;
+time_diagonal=1;
 clustering=1;
 st_par=stem_par(st_data,'exponential',0,time_diagonal,clustering);
 st_model=stem_model(st_data,st_par);

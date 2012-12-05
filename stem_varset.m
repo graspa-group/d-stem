@@ -102,6 +102,83 @@ classdef stem_varset < handle
             obj.log_transformed=1;
         end
         
+        function detrend(obj)
+            for i=1:length(obj.Y)
+                for j=1:size(obj.Y{i},1)
+                    m1=nanmean(obj.Y{i}(j,:));
+                    obj.Y{i}(j,:)=(obj.Y{i}(j,:)-m1);
+                end
+            end      
+            for i=1:length(obj.X_beta)
+                for j=1:size(obj.X_beta{i},2)
+                    temp=squeeze(obj.X_beta{i}(:,j,:));
+                    m1=mean(temp(:));
+                    std1=std(temp(:));
+                    if std1==0
+                        m1=0;
+                        std1=1;
+                    end
+                    obj.X_beta{i}(:,j,:)=(obj.X_beta{i}(:,j,:)-m1)/std1;
+                    obj.X_beta_means{i}(j)=m1;
+                    obj.X_beta_stds{i}(j)=std1;
+                end
+            end           
+            for i=1:length(obj.X_g)
+                for j=1:size(obj.X_g{i},4)
+                    temp=squeeze(obj.X_g{i}(:,:,:,j));
+                    m1=mean(temp(:));
+                    std1=std(temp(:));
+                    if std1==0
+                        m1=0;
+                        std1=1;
+                    end
+                    obj.X_g{i}(:,:,:,j)=(obj.X_g{i}(:,:,:,j)-m1)/std1;
+                    obj.X_g_means{i}(j)=m1;
+                    obj.X_g_stds{i}(j)=std1;
+                end
+            end                 
+        end
+        
+        function standardize_sbs(obj)
+            for i=1:length(obj.Y)
+                for j=1:size(obj.Y{i},1)
+                    m1=nanmean(obj.Y{i}(j,:));
+                    std1=nanstd(obj.Y{i}(j,:));
+                    obj.Y{i}(j,:)=(obj.Y{i}(j,:)-m1)/std1;
+                end
+            end
+            
+            for i=1:length(obj.X_beta)
+                for j=1:size(obj.X_beta{i},2)
+                    temp=squeeze(obj.X_beta{i}(:,j,:));
+                    m1=mean(temp(:));
+                    std1=std(temp(:));
+                    if std1==0
+                        m1=0;
+                        std1=1;
+                    end
+                    obj.X_beta{i}(:,j,:)=(obj.X_beta{i}(:,j,:)-m1)/std1;
+                    obj.X_beta_means{i}(j)=m1;
+                    obj.X_beta_stds{i}(j)=std1;
+                end
+            end          
+            
+            for i=1:length(obj.X_g)
+                for j=1:size(obj.X_g{i},4)
+                    temp=squeeze(obj.X_g{i}(:,:,:,j));
+                    m1=mean(temp(:));
+                    std1=std(temp(:));
+                    if std1==0
+                        m1=0;
+                        std1=1;
+                    end
+                    obj.X_g{i}(:,:,:,j)=(obj.X_g{i}(:,:,:,j)-m1)/std1;
+                    obj.X_g_means{i}(j)=m1;
+                    obj.X_g_stds{i}(j)=std1;
+                end
+            end                 
+        end
+        
         function standardize(obj)
             for i=1:length(obj.Y)
                 m1=nanmean(obj.Y{i}(:));
@@ -171,56 +248,7 @@ classdef stem_varset < handle
         function index = get_Y_index(obj,name)
             index=find(strcmp(obj.Y_name,name));
         end
-        
-%         function subsample(obj,factor)
-%             if nargin<2
-%                 error('The subsampling factor must be provided');
-%             end
-%             if factor<=1
-%                 error('The subsampling factor must be greater than 1');
-%             end
-%             if round(factor)~=factor
-%                 error('The subsampling factor must be an integer value');
-%             end
-%             if mod(obj.T,factor)>0
-%                 warning('The total number of time steps is not a multiple of the subsampling factor');
-%             end
-%             disp('   Variable subsampling started...');
-%             indices=0:factor:obj.T;
-%             if indices(end)~=obj.T
-%                 indices=[indices,obj.T];
-%             end
-%             for j=1:length(obj.Y)
-%                 Y_temp=zeros(size(obj.Y{j},1),length(indices)-1);
-%                 for i=1:length(indices)-1
-%                     Y_temp(:,i)=nanmean(obj.Y{j}(:,indices(i)+1:indices(i+1)),2);
-%                 end
-%                 obj.Y{j}=Y_temp;
-%                 clear Y_temp;
-%                 %set data stamp!!!
-%             end
-%             disp(['   Variable subsampling ended. The new number of temporal steps is ',num2str(obj.T)]);
-%         end
-        
-%        function plot_autocorr(obj,name,site)
-%             index=obj.get_index(name);
-%             if isempty(index)
-%                 error('Variable name not recognized');
-%             end
-%             if (site<1)||(site>obj.dim(index))
-%                 error('site out of bounds');
-%             end
-%             data=obj.Y{index}(site,:);
-%             data=data(isnotnan(data));
-%             ac=xcorr(data,'coeff');
-%             l=length(ac);
-%             ac=ac((l+1)/2:end);
-%             figure
-%             plot(ac,'.-');
-%             title(['Autocorrelation for site ',num2str(site),' of variable ',name]);
-%        end
-       
-        
+
         %set methods
         
         function set.Y(obj,Y)
