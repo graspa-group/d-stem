@@ -12,9 +12,9 @@ clc
 clear all
 close all
 
-%RandStream.setDefaultStream(RandStream('mt19937ar','seed',7281));
+%RandStream.setDefaultStream(RandStream('mt19937ar','seed',2222));
 
-flag_lakedata=1;
+flag_lakedata=0;
 
 flag_parallel=0;
 flag_covariates=0;
@@ -23,8 +23,7 @@ flag_simulatedata=0;
 flag_space=0;
 pathparallel='/opt/matNfs/';
 
-n_clusters=11;
-clustering_method=0;
+n_clusters=5;
 
 if flag_simulatedata
     %Data simulation
@@ -158,7 +157,8 @@ end
 
 time_diagonal=1;
 clustering=1;
-st_par=stem_par(st_data,'exponential',0,time_diagonal,clustering);
+theta_clustering=0;
+st_par=stem_par(st_data,'exponential',0,time_diagonal,clustering,theta_clustering);
 st_model=stem_model(st_data,st_par);
 st_model.set_system_size();
 

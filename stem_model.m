@@ -70,7 +70,11 @@ classdef stem_model < handle
                 obj.tapering=obj.tapering_g|obj.tapering_r;
             else
                 obj.tapering=obj.tapering_g;
-            end            
+            end      
+            
+            if stem_par.theta_clustering>0
+                stem_data.update_distance('both',1);
+            end
         end
         
         function [aj_rg,aj_g] = get_aj(obj)

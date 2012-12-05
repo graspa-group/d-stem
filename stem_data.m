@@ -459,7 +459,7 @@ classdef stem_data < handle
             disp('Generation ended.');
         end
         
-        function update_distance(obj,type)
+        function update_distance(obj,type,force)
             %DESCRIPTION: generates the distance matrices
             %
             %INPUT
@@ -471,10 +471,12 @@ classdef stem_data < handle
             %
             %none: the distance matrices are generated and updated
             
-            disp('Generating distance matrices...');
             %Distance matrices
             if nargin<2
                 type='both';
+            end
+            if nargin<3
+                force=0;
             end
             cmp=strcmp(type,{'both','ground','remote'});
             if sum(cmp)==0
@@ -482,16 +484,19 @@ classdef stem_data < handle
             end
             
             if strcmp(type,'ground')||strcmp(type,'both')
-                if not(isempty(obj.stem_varset_g.X_g))
+                if not(isempty(obj.stem_varset_g.X_g))||force
+                    disp('Generating ground level distance matrices...');
                     obj.DistMat_g=obj.stem_gridlist_g.get_distance_matrix();
+                    disp('Generation ended.');
                 end
             end
             if strcmp(type,'remote')||strcmp(type,'both')
                 if not(isempty(obj.stem_gridlist_r))&&not(isempty(obj.stem_varset_r.X_rg))
+                    disp('Generating remote data distance matrices...');
                     obj.DistMat_r=obj.stem_gridlist_r.get_distance_matrix();
+                    disp('Generation ended.');
                 end
             end
-            disp('Generation ended.');
         end
         
 %         function google_map(obj,name,type)
@@ -831,23 +836,23 @@ classdef stem_data < handle
                         obj.stem_varset_g.X_rg{i}(indices,:,:)=[];
                     end
                     obj.stem_gridlist_g.grid{i}.coordinate(indices,:)=[];
-                    disp([    'Deleted ',num2str(sum(indices)),' site(s) for the ground variable ',obj.stem_varset_g.Y_name{i},' due to all missing.']);
+                    disp(['Deleted ',num2str(sum(indices)),' site(s) for the ground variable ',obj.stem_varset_g.Y_name{i},' due to all missing.']);
                     changed=1;
                 end
             end
             if changed
-                disp('    Updating ground distance matrix after time crop...');
+                disp('Updating ground distance matrix after time crop...');
                 obj.update_distance('ground'); %only ground because the remote data are not deleted from the data matrix even if they are NaN for all th time steps
-                disp('    Update ended.');
+                disp('Update ended.');
                 if not(isempty(obj.stem_varset_r))
-                    disp('    Updating M replication vector after time crop...');
+                    disp('Updating M replication vector after time crop...');
                     obj.update_M;
-                    disp('    Update ended.');
+                    disp('Update ended.');
                 end
             end
-            disp('    Updating data matrix after time crop...');
+            disp('Updating data matrix after time crop...');
             obj.update_data;
-            disp('    Update ended.');
+            disp('Update ended.');
             disp('Time crop ended.');
         end     
         
@@ -1039,7 +1044,7 @@ classdef stem_data < handle
             for i=1:obj.stem_varset_g.nvar
                 idx=obj.stem_gridlist_g.grid{i}.duplicated_sites;
                 if not(isempty(idx))
-                    disp(['   Removing ',num2str(length(idx)),' replicated sites for ground variable ',obj.stem_varset_g.Y_name{i}]);
+                    disp(['Removing ',num2str(length(idx)),' replicated sites for ground variable ',obj.stem_varset_g.Y_name{i}]);
                     obj.site_crop('ground',obj.stem_varset_g.Y_name{i},idx);
                     obj.stem_gridlist_g.grid{i}.duplicated_sites=[];
                 end
@@ -1049,7 +1054,7 @@ classdef stem_data < handle
                 for i=1:obj.stem_varset_r.nvar
                     idx=obj.stem_gridlist_r.grid{i}.duplicated_sites;
                     if not(isempty(idx))
-                        disp(['   Removing ',num2str(length(idx)),' replicated sites for remote variable ',obj.stem_varset_r.Y_name{i}]);
+                        disp(['Removing ',num2str(length(idx)),' replicated sites for remote variable ',obj.stem_varset_r.Y_name{i}]);
                         obj.site_crop('remote',obj.stem_varset_r.Y_name{i},idx);
                         obj.stem_gridlist_r.grid{i}.duplicated_sites=[];
                     end
@@ -1258,15 +1263,6 @@ classdef stem_data < handle
 %                 obj.X=obj.stem_covset.get_X;
 %             else
 %                 warning('No covariates in stem_data object');
-%             end
-%         end
-        
-%         function subsample(obj,factor)
-%             obj.stem_varset.subsample(factor);
-%             obj.Y=obj.stem_varset.get_Y();
-%             if not(isempty(obj.stem_covset))
-%                 obj.stem_covset.subsample(factor);
-%                 obj.X=obj.stem_covset.get_X();
 %             end
 %         end
         

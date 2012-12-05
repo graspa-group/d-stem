@@ -24,6 +24,7 @@ classdef stem_par
         %constraints
         time_diagonal=0;                    %[1 x 1 boolean]
         clustering=0;                       %[1 x 1 boolean]
+        theta_clustering=0;                 %[1 x 1 double];
         
         %estimated parameters
         beta=[];                            %[dim(n_beta) x 1 double] beta parameters
@@ -40,7 +41,7 @@ classdef stem_par
     
     methods
         
-        function obj = stem_par(stem_data,correlation_type,remote_correlated,time_diagonal,clustering)
+        function obj = stem_par(stem_data,correlation_type,remote_correlated,time_diagonal,clustering,theta_clustering)
             %costructor
             if nargin<1
                 error('The first input argument must be provided');
@@ -147,6 +148,16 @@ classdef stem_par
                         end
                     end
                     obj.clustering=clustering;
+                end
+            end
+            
+            if nargin>=6
+                if not(isempty(theta_clustering))
+                    if obj.clustering==0
+                        disp('WARNING: the theta_clustering parameter is ignored');
+                    else
+                        obj.theta_clustering=theta_clustering;
+                    end
                 end
             end
             
@@ -399,6 +410,14 @@ classdef stem_par
             end        
             obj.sigma_eps=sigma_eps;
         end
+        
+        function obj = set.theta_clustering(obj,theta_clustering)
+            if theta_clustering<0
+                error('theta_clustering must be >= 0')
+            end
+            obj.theta_clustering=theta_clustering;
+        end        
+        
     end
     
     methods (Static)

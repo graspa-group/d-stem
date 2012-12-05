@@ -1524,6 +1524,7 @@ classdef stem_EM < EM
             if obj.stem_model.stem_par.clustering==1
                 X_time_new=data.stem_varset_g.X_time{1};
                 if not(isempty(st_kalmansmoother_result))
+                    %correlation computation
                     for i=1:N
                         L=not(isnan(data.Y(i,:)));
                         a=data.Y(i,L)';
@@ -1543,6 +1544,24 @@ classdef stem_EM < EM
                             end
                             c(j)=temp;
                         end
+                        X_time_new(i,:)=c;
+                    end
+                    
+                    theta_clustering=obj.stem_model.stem_par.theta_clustering;
+                    if theta_clustering>0
+                        X_time_new2=zeros(size(X_time_new));
+                        for i=1:N
+                            v=exp(-obj.stem_model.stem_data.DistMat_g(:,i)/theta_clustering);
+                            for j=1:par.p
+                                X_time_new2(i,j)=(v'*X_time_new(:,j))/length(v);
+                            end
+                        end
+                        X_time_new=X_time_new2;
+                    end
+                    
+                    %weight computation
+                    for i=1:N
+                        c=X_time_new(i,:);
                         for h=1:iteration
                             c=c.^2;
                             c=c./sum(c);
