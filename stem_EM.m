@@ -83,7 +83,7 @@ classdef stem_EM < EM
                 clear Xbeta
 
                 [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,Xbeta,st_kalmansmoother_result] = obj.E_step();
-                obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result);
+                obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,iteration);
 
                 st_EM_result.stem_par_all(:,iteration)=obj.stem_model.stem_par.vec;
                 if not(isempty(st_kalmansmoother_result))
@@ -128,8 +128,8 @@ classdef stem_EM < EM
             end
             if (obj.stem_model.stem_data.stem_varset_g.standardized)&&(obj.stem_model.stem_data.stem_varset_g.log_transformed)
                 y_hat_back=st_EM_result.y_hat;
-                %y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
-                y_hat_back=exp(y_hat_back*s+m);
+                y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
+                %y_hat_back=exp(y_hat_back*s+m);
                 y=exp(obj.stem_model.stem_data.Y*s+m);
             end
 
@@ -506,7 +506,7 @@ classdef stem_EM < EM
                 clear data
                 if (K<=1)
                     %run the non parallel version of the M-step
-                    obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result);
+                    obj.M_step(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,iteration);
                     %send the message to the other machine that they don't have to run the M-step
                     for i=1:nhosts
                         data.iteration=iteration;
@@ -1113,7 +1113,7 @@ classdef stem_EM < EM
             disp('');
         end
         
-        function M_step(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result)
+        function M_step(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,iteration)
             disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
@@ -1515,6 +1515,47 @@ classdef stem_EM < EM
                     disp(['    v_g and theta_g update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 end
             end
+            
+            if obj.stem_model.stem_par.clustering==1
+                X_time_new=data.stem_varset_g.X_time{1};
+                if not(isempty(st_kalmansmoother_result))
+                    for i=1:N
+                        L=not(isnan(data.Y(i,:)));
+                        a=data.Y(i,L)';
+                        for j=1:par.p
+                            b=st_kalmansmoother_result.zk_s(j,2:end)';
+                            b=b(L);
+                            if not(isempty(b))
+                                temp=corr(a,b);
+                            else
+                                temp=0.0001;
+                            end
+                            if temp<=0
+                                temp=0.0001;
+                            end
+                            if isnan(temp)
+                                temp=0.0001;
+                            end
+                            c(j)=temp;
+                        end
+                        if obj.stem_EM_options.clustering_method==0
+                            for h=1:iteration
+                                c=c.^2;
+                                c=c./sum(c);
+                            end
+                        else
+                            c=c./sum(c);
+                        end
+                        X_time_new(i,:)=c;
+                    end
+                else
+                    error('The Kalman smoother output is empty');
+                end
+                obj.stem_model.stem_data.stem_varset_g.X_time{1}=X_time_new;
+                obj.stem_model.stem_data.update_data;
+            end
+            
+            
             obj.stem_model.stem_par=st_par_em_step;
             ct2_mstep=clock;
             disp(['  M step ended in ',stem_misc.decode_time(etime(ct2_mstep,ct1_mstep))]);
@@ -1962,7 +2003,7 @@ classdef stem_EM < EM
             disp('');
         end
         
-        function M_step_parallel(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index)
+        function M_step_parallel(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index,iteration)
             disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
@@ -2359,6 +2400,47 @@ classdef stem_EM < EM
                 ct2=clock;
                 disp(['    v_g and theta_g update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
+            
+            if obj.stem_model.stem_par.clustering==1
+                X_time_new=data.stem_varset_g.X_time{1};
+                if not(isempty(st_kalmansmoother_result))
+                    for i=1:N
+                        L=not(isnan(data.Y(i,:)));
+                        a=data.Y(i,L)';
+                        for j=1:par.p
+                            b=st_kalmansmoother_result.zk_s(j,2:end)';
+                            b=b(L);
+                            if not(isempty(b))
+                                temp=corr(a,b);
+                            else
+                                temp=0.0001;
+                            end
+                            if temp<=0
+                                temp=0.0001;
+                            end
+                            if isnan(temp)
+                                temp=0.0001;
+                            end
+                            c(j)=temp;
+                        end
+                        if obj.stem_EM_options.clustering_method==0
+                            for h=1:iteration
+                                c=c.^2;
+                                c=c./sum(c);
+                            end
+                        else
+                            c=c./sum(c);
+                        end
+                        X_time_new(i,:)=c;
+                    end
+                else
+                    error('The Kalman smoother output is empty');
+                end
+                obj.stem_model.stem_data.stem_varset_g.X_time{1}=X_time_new;
+                obj.stem_model.stem_data.update_data;
+            end
+            
+            
             obj.stem_model.stem_par=st_par_em_step;
             ct2_mstep=clock;
             disp(['  M step ended in ',stem_misc.decode_time(etime(ct2_mstep,ct1_mstep))]);

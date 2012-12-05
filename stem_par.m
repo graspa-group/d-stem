@@ -13,16 +13,17 @@ classdef stem_par
    
     properties
         %flag
-        remote_correlated=[];               %[1 x 1 boolean] 1 if remote sensing variables are correlated 0 otherwise        
+        remote_correlated=0;                %[1 x 1 boolean] 1 if remote sensing variables are correlated 0 otherwise        
         
         %fixed parameters
         q=[];                               %[1 x 1 integer] number of ground level variables
         p=[];                               %[1 x 1 integer] dimension of the latent temporal state
         k=[];                               %[1 x 1 integer] number of coregionalization components for the ground level variables
         n_beta=[];                          %[1 x 1 integer]
-        correlation_type='';                %[string] correlation function type  
+        correlation_type='exponential';     %[string] correlation function type  
         %constraints
         time_diagonal=0;                    %[1 x 1 boolean]
+        clustering=0;                       %[1 x 1 boolean]
         
         %estimated parameters
         beta=[];                            %[dim(n_beta) x 1 double] beta parameters
@@ -39,7 +40,7 @@ classdef stem_par
     
     methods
         
-        function obj = stem_par(stem_data,correlation_type,remote_correlated,time_diagonal)
+        function obj = stem_par(stem_data,correlation_type,remote_correlated,time_diagonal,clustering)
             %costructor
             if nargin<1
                 error('The first input argument must be provided');
@@ -100,7 +101,6 @@ classdef stem_par
             
             %correlation type
             if nargin<2
-                obj.correlation_type='exponential';
                 disp('WARNING: Exponential correlation function is considered');
             else
                 if not(isempty(correlation_type))
@@ -109,27 +109,46 @@ classdef stem_par
                     end
                     obj.correlation_type=correlation_type;
                 else
-                    obj.correlation_type='exponential';
                     disp('WARNING: Exponential correlation function is considered');
                 end
             end
             
             if nargin>=3
-                if isempty(stem_data.stem_varset_r)
-                    disp('WARNING: Remote sensing data are not provided. The remote_correlated input argument is ignored');
-                else
-                    obj.remote_correlated=remote_correlated;
+                if not(isempty(remote_correlated))
+                    if isempty(stem_data.stem_varset_r)
+                        disp('WARNING: Remote sensing data are not provided. The remote_correlated input argument is ignored');
+                    else
+                        obj.remote_correlated=remote_correlated;
+                    end
                 end
             end
             
             if nargin>=4
-                if obj.p==0
-                    disp('WARNING: p=0, the time_diagonal input argument is ignored');
-                else
-                    obj.time_diagonal=time_diagonal;
+                if not(isempty(time_diagonal))
+                    if obj.p==0
+                        disp('WARNING: p=0, the time_diagonal input argument is ignored');
+                    else
+                        obj.time_diagonal=time_diagonal;
+                    end
                 end
             end
             
+            if nargin>=5
+                if not(isempty(clustering))
+                    if clustering==1
+                        if obj.q>1
+                            error('The clustering option is only available in the univariate case (q=1)');
+                        end
+                        if not(isempty(stem_data.stem_varset_r))
+                            error('The clustering option is only available for ground level data');
+                        end
+                        if isempty(stem_data.stem_varset_g.X_time)
+                            error('X_time must be provided when the clustering option is enabled');
+                        end
+                    end
+                    obj.clustering=clustering;
+                end
+            end
             
             %matrix building
             
