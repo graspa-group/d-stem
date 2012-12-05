@@ -47,6 +47,18 @@ classdef stem_datestamp < handle
             obj.date_end=max(obj.stamp);
             obj.T=length(obj.stamp);
         end
+        
+        function average_stamps(obj,indices)
+            stamp_temp=[];
+            for i=1:length(indices)-1
+                stamp_temp(i)=mean(obj.stamp(indices(i)+1):obj.stamp(indices(i+1)));
+            end
+            obj.stamp=stamp_temp;
+            obj.date_start=min(obj.stamp);
+            obj.date_end=max(obj.stamp);
+            obj.T=length(obj.stamp);
+        end
+        
     end
     
     methods (Static)
