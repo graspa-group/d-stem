@@ -8,8 +8,8 @@
 % Release date: 15/05/2012                                     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%clc
-%clear all
+clc
+clear all
 close all
 
 %RandStream.setDefaultStream(RandStream('mt19937ar','seed',7281));

@@ -525,6 +525,32 @@ classdef stem_data < handle
         
         %data transform
         
+        function detrend(obj)
+            disp('Ground level data detrend started...');
+            obj.stem_varset_g.detrend;
+            disp('Ground level data detrend ended.');
+            if not(isempty(obj.stem_varset_r))
+                disp('Remote sensing data detrend started...');
+                obj.stem_varset_r.detrend;
+                disp('Remote sensing data detrend ended.');
+            end
+            disp('Updtaing data matrices after detrend...');
+            obj.update_data;            
+        end
+        
+        function standardize_sbs(obj)
+            disp('Ground level data site by site standardization started...');
+            obj.stem_varset_g.standardize_sbs;
+            disp('Ground level data site by site standardization ended.');
+            if not(isempty(obj.stem_varset_r))
+                disp('Remote sensing data site by site standardization started...');
+                obj.stem_varset_r.standardize_sbs;
+                disp('Remote sensing data site by site standardization ended.');
+            end
+            disp('Updtaing data matrices after site by site standardization...');
+            obj.update_data;
+        end
+        
         function standardize(obj)
             disp('Ground level data standardization started...');
             obj.stem_varset_g.standardize;
@@ -549,6 +575,135 @@ classdef stem_data < handle
             end
             disp('Updtaing data matrices after log-transformation...');
             obj.update_data;
+        end
+        
+        function time_average(obj,n_steps)
+            if nargin<2
+                error('The subsampling factor must be provided');
+            end
+            if n_steps<=1
+                error('n_steps must be greater than 1');
+            end
+            if round(n_steps)~=n_steps
+                error('n_steps must be an integer value');
+            end
+            if mod(obj.T,n_steps)>0
+                warning('The total number of time steps is not a multiple of n_steps');
+            end     
+            indices=0:n_steps:obj.T;
+            if indices(end)~=obj.T
+                indices=[indices,obj.T];
+            end
+            obj.stem_datestamp.average_stamps(indices);
+            
+            disp('Time averaging started...');
+            for i=1:length(obj.stem_varset_g.Y)
+                for j=1:length(indices)-1
+                    Y_temp{i}(:,j)=nanmean(obj.stem_varset_g.Y{i}(:,indices(j)+1:indices(j+1)),2);
+                end
+            end
+            obj.stem_varset_g.Y=Y_temp;
+            clear Y_temp
+
+            if not(isempty(obj.stem_varset_g.X_rg))
+                if obj.stem_varset_g.X_rg_tv
+                    for i=1:length(obj.stem_varset_g.X_rg)
+                        for j=1:length(indices)-1
+                            X_rg_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_rg{i}(:,:,indices(j)+1:indices(j+1)),3);
+                        end
+                    end
+                    obj.stem_varset_g.X_rg=X_rg_temp;
+                    clear X_rg_temp
+                end
+            end
+            
+            if not(isempty(obj.stem_varset_g.X_beta))
+                if obj.stem_varset_g.X_beta_tv
+                    for i=1:length(obj.stem_varset_g.X_beta)
+                        for j=1:length(indices)-1
+                            X_beta_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_beta{i}(:,:,indices(j)+1:indices(j+1)),3);
+                        end
+                    end
+                    obj.stem_varset_g.X_beta=X_beta_temp;
+                    clear X_beta_temp
+                end
+            end
+            
+%             %da attivare per stem
+%             if not(isempty(obj.stem_varset_g.X_time))
+%                 if obj.stem_varset_g.X_time_tv
+%                     for i=1:length(obj.stem_varset_g.X_time)
+%                         for j=1:length(indices)-1
+%                             X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
+%                         end
+%                     end
+%                     obj.stem_varset_g.X_time=X_time_temp;
+%                     clear X_time_temp
+%                 end
+%             end   
+            
+            if not(isempty(obj.stem_varset_g.X_g))
+                if obj.stem_varset_g.X_g_tv
+                    for i=1:length(obj.stem_varset_g.X_g)
+                        for j=1:length(indices)-1
+                            X_g_temp{i}(:,:,j,:)=nanmean(obj.stem_varset_g.X_g{i}(:,:,indices(j)+1:indices(j+1),:),3);
+                        end
+                    end
+                    obj.stem_varset_g.X_g=X_g_temp;        
+                    clear X_g_temp
+                end
+            end
+            
+            
+            if not(isempty(obj.stem_varset_r))
+                for i=1:length(obj.stem_varset_r.Y)
+                    for j=1:length(indices)-1
+                        Y_temp{i}(:,j)=nanmean(obj.stem_varset_r.Y{i}(:,indices(j)+1:indices(j+1)),2);
+                    end
+                end
+                obj.stem_varset_r.Y=Y_temp;
+                clear Y_temp
+                
+                if not(isempty(obj.stem_varset_g.X_rg))
+                    if obj.stem_varset_r.X_rg_tv
+                        for i=1:length(obj.stem_varset_r.X_rg)
+                            for j=1:length(indices)-1
+                                X_rg_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_rg{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            end
+                        end
+                        obj.stem_varset_r.X_rg=X_rg_temp;
+                        clear X_rg_temp
+                    end
+                end
+                
+                if not(isempty(obj.stem_varset_r.X_beta))
+                    if obj.stem_varset_r.X_beta_tv
+                        for i=1:length(obj.stem_varset_r.X_beta)
+                            for j=1:length(indices)-1
+                                X_beta_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_beta{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            end
+                        end
+                        obj.stem_varset_r.X_beta=X_beta_temp;
+                        clear X_beta_temp
+                    end
+                end
+                
+%                 %da attivare per stem
+%                 if not(isempty(obj.stem_varset_r.X_time))
+%                     if obj.stem_varset_r.X_time_tv
+%                         for i=1:length(obj.stem_varset_r.X_time)
+%                             for j=1:length(indices)-1
+%                                 X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
+%                             end
+%                         end
+%                         obj.stem_varset_r.X_time=X_time_temp;
+%                     end
+%                 end
+                
+            end
+
+            obj.update_data;    
+            disp('Time averaging ended.');
         end
         
         function time_crop(obj,dates_or_indices)
@@ -591,6 +746,15 @@ classdef stem_data < handle
                     obj.stem_varset_g.X_beta=X_beta;
                 end
             end
+            if not(isempty(obj.stem_varset_g.X_rg))
+                if obj.stem_varset_g.X_rg_tv
+                    X_rg=obj.stem_varset_g.X_rg;
+                    for i=1:length(X_rg)
+                        X_rg{i}=X_rg{i}(:,:,indices);
+                    end
+                    obj.stem_varset_g.X_rg=X_rg;
+                end
+            end               
             if not(isempty(obj.stem_varset_g.X_time))
                 if obj.stem_varset_g.X_time_tv
                     X_time=obj.stem_varset_g.X_time;
@@ -626,6 +790,15 @@ classdef stem_data < handle
                             obj.stem_varset_r.X_beta=X_beta;
                         end
                     end
+                    if not(isempty(obj.stem_varset_r.X_rg))
+                        if obj.stem_varset_r.X_rg_tv
+                            X_rg=obj.stem_varset_r.X_rg;
+                            for i=1:length(X_rg)
+                                X_rg{i}=X_rg{i}(:,:,indices);
+                            end
+                            obj.stem_varset_r.X_time=X_rg;
+                        end
+                    end                    
                     if not(isempty(obj.stem_varset_r.X_time))
                         if obj.stem_varset_r.X_time_tv
                             X_time=obj.stem_varset_r.X_time;
