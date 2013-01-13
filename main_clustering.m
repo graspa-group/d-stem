@@ -8,13 +8,13 @@
 % Release date: 15/05/2012                                     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-clc
-clear all
-close all
+%clc
+%clear all
+%close all
 
 %RandStream.setDefaultStream(RandStream('mt19937ar','seed',2222));
 
-flag_lakedata=0;
+flag_lakedata=1;
 
 flag_parallel=0;
 flag_covariates=0;
@@ -23,7 +23,7 @@ flag_simulatedata=0;
 flag_space=0;
 pathparallel='/opt/matNfs/';
 
-n_clusters=5;
+n_clusters=11;
 
 if flag_simulatedata
     %Data simulation
@@ -76,8 +76,8 @@ else
         for i=1:length(data.id_day)
             idx=[idx;find(id_vec==data.id_day(i))];
         end
-        X=cell2mat(lakes_covariate(idx,[5,6,7,14]));
-        X_label=lakes_covariate_label([5,6,7,14]);
+        X=cell2mat(lakes_covariate(idx,[3,6,7,14]));
+        X_label=lakes_covariate_label([3,6,7,14]);
         
         shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\CNTR_BN_03M_2010');
         temp=data.day;
@@ -145,8 +145,8 @@ if not(flag_simulatedata)
     end
     st_data=stem_data(st_varset_g,st_gridlist_g,[],[],st_datestamp,shape);
     if flag_lakedata
-        st_data.time_crop(T-365*4:T);
-        st_data.time_average(7);
+        st_data.time_crop(T-365*5:T);
+        %st_data.time_average(7);
     end
     st_data.standardize_sbs;
     %st_data.detrend;
@@ -206,45 +206,57 @@ if 1
         for i=1:length(idx)
             switch idx(i)
                 case 1
-                    color='r';
-                    mark='o';
-                case 2
-                    color='g';
-                    mark='o';
-                case 3
-                    color='b';
+                    ecolor='k';
+                    fcolor=[0.7 0.7 0.7];
+                    mark='p';
+                case 9
+                    ecolor='k';
+                    fcolor=[0.7 0.7 0.7];
                     mark='o';
                 case 4
-                    color='c';
-                    mark='o';
-                case 5
-                    color='m';
-                    mark='o';
-                case 6
-                    color='y';
-                    mark='o';
-                case 7
-                    color='y';
-                    mark='^';
-                case 8
-                    color='r';
-                    mark='^';
-                case 9
-                    color='b';
-                    mark='^';
-                case 10
-                    color='g';
+                    ecolor='k';
+                    fcolor=[0.3 0.3 0.3];
                     mark='^';
                 case 11
-                    color='m';
+                    ecolor='k';
+                    fcolor=[0.7 0.7 0.7];
                     mark='^';
+                case 5
+                    ecolor='k';
+                    fcolor=[0.3 0.3 0.3];
+                    mark='h';
+                case 6
+                    ecolor='k';
+                    fcolor=[0.7 0.7 0.7];
+                    mark='h';
+                case 7
+                    ecolor='k';
+                    fcolor=[0.3 0.3 0.3];
+                    mark='s';
+                case 2
+                    ecolor='k';
+                    fcolor=[0.7 0.7 0.7];
+                    mark='s';
+                case 8
+                    ecolor='k';
+                    fcolor=[0.3 0.3 0.3];
+                    mark='d';
+                case 10
+                    ecolor='k';
+                    fcolor=[0.3 0.3 0.3];
+                    mark='o';
+                case 3
+                    ecolor='k';
+                    fcolor=[0.7 0.7 0.7];
+                    mark='d';
                 case 12
-                    color='c';
-                    mark='^';                    
+                    ecolor='k';
+                    fcolor=[0.3 0.3 0.3];
+                    mark='p';
             end
             if flag_lakedata
                 msize=round(val(i)*15);
-                plot(st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,2),st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,1),[color,mark],'MarkerFaceColor',color,'MarkerEdgeColor','k','MarkerSize',10);
+                plot(st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,2),st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,1),[ecolor,mark],'MarkerFaceColor',fcolor,'MarkerEdgeColor',ecolor,'MarkerSize',10,'LineWidth',1);
             else
                 msize=round(val(i)*10);
                 geoshow(st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,1),st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,2),'DisplayType','Point','Marker','o','MarkerFaceColor',color,'MarkerEdgeColor','k','MarkerSize',msize);
@@ -259,6 +271,66 @@ if 1
         % plot(st_model.stem_data.Y(idx2,:),'r','LineWidth',2);
     end
     
+    
+    figure
+    hold on
+    for i=1:length(idx)
+        switch idx(i)
+            case 1
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='p';
+            case 9
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='o';
+            case 11
+                ecolor='k';
+                fcolor=[0.3 0.3 0.3];
+                mark='^';
+            case 4
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='^';
+            case 5
+                ecolor='k';
+                fcolor=[0.3 0.3 0.3];
+                mark='h';
+            case 6
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='h';
+            case 7
+                ecolor='k';
+                fcolor=[0.3 0.3 0.3];
+                mark='s';
+            case 2
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='s';
+            case 8
+                ecolor='k';
+                fcolor=[0.3 0.3 0.3];
+                mark='d';
+            case 10
+                ecolor='k';
+                fcolor=[0.3 0.3 0.3];
+                mark='o';
+            case 3
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='d';
+            case 12
+                ecolor='k';
+                fcolor=[0.7 0.7 0.7];
+                mark='p';
+        end
+        if flag_lakedata
+            msize=round(val(i)*15);
+            plot(X(i,1),X(i,3),[ecolor,mark],'MarkerFaceColor',fcolor,'MarkerEdgeColor',ecolor,'MarkerSize',10,'LineWidth',1);
+        end
+    end
+
     figure
     H=ceil(sqrt(n_clusters));
     K=ceil(n_clusters/H);

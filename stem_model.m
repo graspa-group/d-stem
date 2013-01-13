@@ -262,14 +262,14 @@ classdef stem_model < handle
                                 if not(obj.tapering_r)
                                     sigma_W_r(idx_rc,idx_rc)=stem_misc.correlation_function(obj.stem_par.theta_r(i,:),obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
                                 else
-                                    corr_result=stem_misc.correlation_function(obj.stem_par.theta_r,obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                    corr_result=stem_misc.correlation_function(obj.stem_par.theta_r(i,:),obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_par.correlation_type);
                                     weights=stem_misc.wendland(obj.stem_data.DistMat_r(idx_rc,idx_rc),obj.stem_data.stem_gridlist_r.tap);
                                     corr_result.correlation=obj.stem_par.v_r(i,i)*corr_result.correlation.*weights;
                                     siz=length(corr_result.I);
                                     I(idx+1:idx+siz)=corr_result.I+blocks(i);
                                     J(idx+1:idx+siz)=corr_result.J+blocks(i);
                                     elements(idx+1:idx+siz)=corr_result.correlation;
-                                    idx=idx+sie;
+                                    idx=idx+siz;
                                 end
                             end
                             if obj.tapering_r
@@ -1464,22 +1464,28 @@ classdef stem_model < handle
         %initial values estimation functions
         
         function [beta0] = get_beta0(obj)
-            N = obj.N;
-            y = obj.stem_data.Y(:);
-            T = obj.T;
-            x = zeros(N*T,size(obj.stem_data.X_beta,2));
-            
-            for t=1:T
-                if size(obj.stem_data.X_beta,3)==T
-                    tT=t;
-                else
-                    tT=1;
+            if obj.stem_par.n_beta>0
+                N = size(obj.stem_data.X_beta,1);
+                y = obj.stem_data.Y(1:N,:);
+                y=y(:);
+                T = obj.T;
+                x = zeros(N*T,size(obj.stem_data.X_beta,2));
+                
+                for t=1:T
+                    if size(obj.stem_data.X_beta,3)==T
+                        tT=t;
+                    else
+                        tT=1;
+                    end
+                    x((t-1)*N+1:t*N,:)=obj.stem_data.X_beta(:,:,tT);
                 end
-                x((t-1)*N+1:t*N,:)=obj.stem_data.X_beta(:,:,tT);
+                
+                L=not(isnan(y));
+                beta0 = (x(L,:)'*x(L,:))\x(L,:)'*y(L);
+            else
+                disp('WARNING: the model does not include data to estimate beta');
+                beta0=[];
             end
-            
-            L=not(isnan(y));
-            beta0 = (x(L,:)'*x(L,:))\x(L,:)'*y(L);
         end
         
 %         function stem_par = get_initial_value_estimation(obj)

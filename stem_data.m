@@ -29,6 +29,7 @@ classdef stem_data < handle
         
         shape=[];               %[struct] geographic data structure loaded from a shapefile with the boundary of the geographic region
         simulated=0;            %[boolean] (1x1) 1 if the data have been simulated, 0 otherwise.
+        remote_correlated=0;    %[boolean] (1x1) 1 if the remote variables are cross-correlated
     end
     
     properties (SetAccess = private) 
@@ -51,7 +52,7 @@ classdef stem_data < handle
     
     methods
         
-        function obj = stem_data(stem_varset_g,stem_gridlist_g,stem_varset_r,stem_gridlist_r,stem_datestamp,shape,can_reset,stem_crossval)
+        function obj = stem_data(stem_varset_g,stem_gridlist_g,stem_varset_r,stem_gridlist_r,stem_datestamp,shape,can_reset,stem_crossval,remote_correlated)
             %DESCRIPTION: is the constructor of the class stem_data
             %
             %INPUT
@@ -113,6 +114,12 @@ classdef stem_data < handle
                     if isempty(idx_var)
                         error('Cross-validation variable not found');
                     end
+                end
+            end
+            
+            if nargin>=9
+                if not(isempty(remote_correlated))
+                    obj.remote_correlated=remote_correlated;
                 end
             end
             
@@ -260,7 +267,7 @@ classdef stem_data < handle
                                 for i=1:length(obj.stem_varset_g.X_beta)
                                     X_temp=blkdiag(X_temp,obj.stem_varset_g.X_beta{i}(:,:,t));
                                 end
-                                X_temp=cat(1,X_temp,zeros(obj.stem_varset_r.N,size(X_temp,2),size(X_temp,3)));
+                                %X_temp=cat(1,X_temp,zeros(obj.stem_varset_r.N,size(X_temp,2),size(X_temp,3)));
                                 X_beta(:,:,t)=X_temp;
                             end
                             done=1;
@@ -270,7 +277,7 @@ classdef stem_data < handle
                             for i=1:length(obj.stem_varset_g.X_beta)
                                 X_temp=blkdiag(X_temp,obj.stem_varset_g.X_beta{i});
                             end
-                            X_temp=cat(1,X_temp,zeros(obj.stem_varset_r.N,size(X_temp,2),size(X_temp,3)));
+                            %X_temp=cat(1,X_temp,zeros(obj.stem_varset_r.N,size(X_temp,2),size(X_temp,3)));
                             X_beta=X_temp;
                             done=1;
                         end
@@ -381,7 +388,7 @@ classdef stem_data < handle
                             X_time=X_temp;
                             done=1;
                         end
-                        X_time=cat(1,X_time,zeros(size(obj.Y,1)-size(X_time,1),size(X_time,2),size(X_time,3)));
+                        %X_time=cat(1,X_time,zeros(size(obj.Y,1)-size(X_time,1),size(X_time,2),size(X_time,3)));
                     end
                 end
             else
@@ -493,7 +500,7 @@ classdef stem_data < handle
             if strcmp(type,'remote')||strcmp(type,'both')
                 if not(isempty(obj.stem_gridlist_r))&&not(isempty(obj.stem_varset_r.X_rg))
                     disp('Generating remote data distance matrices...');
-                    obj.DistMat_r=obj.stem_gridlist_r.get_distance_matrix();
+                    obj.DistMat_r=obj.stem_gridlist_r.get_distance_matrix(obj.remote_correlated);
                     disp('Generation ended.');
                 end
             end
@@ -1121,11 +1128,6 @@ classdef stem_data < handle
            
            if not(length(stem_varset_r.dim)==length(obj.stem_varset_g.dim))
                error('stem_varset_r must contain the same number of variables of stem_varset_g');
-           end
-           for i=1:length(stem_varset_r.Y_name)
-               if not(strcmp(stem_varset_r.Y_name{i},obj.stem_varset_g.Y_name{i}))
-                   error('The i-th Y variable of stem_varset_r must be equal to the i-th Y variable of stem_varset_g');
-               end
            end
            
            if not(size(stem_varset_r.Y{1},2)==size(obj.stem_varset_g.Y{1},2))

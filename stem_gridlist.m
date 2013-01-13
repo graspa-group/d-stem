@@ -37,38 +37,94 @@ classdef stem_gridlist < handle
             end
         end        
         
-        function DistMat = get_distance_matrix(obj)
+        function DistMat = get_distance_matrix(obj,type)
             % return the distance matrix given a cell vector of grids
-            d = obj.get_jointcoordinates();
+            if nargin<2
+                type=1;
+            end
+            
             if isempty(obj.tap)
+                d = obj.get_jointcoordinates();
                 DistMat=zeros(size(d,1));
                 for z=1:length(d)
                     DistMat(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
                 end
                 DistMat=DistMat+DistMat';
             else
-                idx_r=[];
-                idx_c=[];
-                elements=[];
-                for z=1:length(d)
-                    %evaluate the distance between the z-th coordinate and
-                    %the vector ahead (z included)
-                    dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
-                    %IMPORTANT! the distances equal to zero are setted to
-                    %eps so they are not confused with the zero generated
-                    %by tapering
-                    dist_vec(dist_vec==0)=eps;
-                    
-                    L=dist_vec<=obj.tap;
-                    idx_r=[idx_r;ones(sum(L),1)*z];
-                    idx_c=[idx_c;find(L)+z-1];
-                    elements=[elements;dist_vec(L)];
-                    %traspose
-                    idx_c=[idx_c;ones(sum(L),1)*z];
-                    idx_r=[idx_r;find(L)+z-1];
-                    elements=[elements;dist_vec(L)];
+                if (type==1||length(obj.grid)==1)
+                    d = obj.get_jointcoordinates();
+                    idx_r=[];
+                    idx_c=[];
+                    elements=[];
+                    for z=1:length(d)
+                        %evaluate the distance between the z-th coordinate and
+                        %the vector ahead (z included)
+                        dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                        %IMPORTANT! the distances equal to zero are setted to
+                        %eps so they are not confused with the zero generated
+                        %by tapering
+                        dist_vec(dist_vec==0)=eps;
+                        
+                        L=dist_vec<=obj.tap;
+                        idx_r=[idx_r;ones(sum(L),1)*z];
+                        idx_c=[idx_c;find(L)+z-1];
+                        elements=[elements;dist_vec(L)];
+                        %traspose
+                        idx_c=[idx_c;ones(sum(L),1)*z];
+                        idx_r=[idx_r;find(L)+z-1];
+                        elements=[elements;dist_vec(L)];
+                    end
+                    DistMat=sparse(idx_r,idx_c,elements);
+                else
+                    for i=1:length(obj.grid)
+                        d = obj.grid{i}.coordinate;
+                        evaluate=1;
+                        if i>1
+                            try
+                                s=d-obj.grid{1}.coordinate;
+                                s=s(:);
+                                s=sum(abs(s));
+                                if s==0
+                                    evaluate=0;
+                                end
+                            catch
+                                %if the difference cannot be evaluated as
+                                %the size is different
+                                evaluate=1;
+                            end
+                        end
+                        if evaluate
+                            idx_r=[];
+                            idx_c=[];
+                            elements=[];
+                            for z=1:length(d)
+                                %evaluate the distance between the z-th coordinate and
+                                %the vector ahead (z included)
+                                dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                %IMPORTANT! the distances equal to zero are setted to
+                                %eps so they are not confused with the zero generated
+                                %by tapering
+                                dist_vec(dist_vec==0)=eps;
+                                
+                                L=dist_vec<=obj.tap;
+                                idx_r=[idx_r;ones(sum(L),1)*z];
+                                idx_c=[idx_c;find(L)+z-1];
+                                elements=[elements;dist_vec(L)];
+                                %traspose
+                                idx_c=[idx_c;ones(sum(L),1)*z];
+                                idx_r=[idx_r;find(L)+z-1];
+                                elements=[elements;dist_vec(L)];
+                            end
+                            Dist{i}=sparse(idx_r,idx_c,elements);
+                        else
+                            Dist{i}=Dist{1};
+                        end
+                    end
+                    DistMat=blkdiag(Dist{1},Dist{2});
+                    for i=3:length(obj.grid)
+                        DistMat=blkdiag(DistMat,Dist{i});
+                    end
                 end
-                DistMat=sparse(idx_r,idx_c,elements);
             end
         end
         

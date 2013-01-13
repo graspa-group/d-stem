@@ -249,7 +249,7 @@ classdef stem_par
                 disp(['alpha_rg: ',num2str(obj.alpha_rg')]);
             end
             if not(isempty(obj.alpha_g))
-            disp(['alpha_g: ',num2str(obj.alpha_g)]);
+            disp(['alpha_g: ',num2str(obj.alpha_g')]);
             end
             if not(isempty(obj.theta_r))
             disp(['theta_r: ',num2str(obj.theta_r')]);
