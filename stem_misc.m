@@ -555,6 +555,10 @@ classdef stem_misc
                 weights=sparse(I,J,weights,size(DistMat,1),size(DistMat,2));
             end
         end
+        
+        function density = zero_density(matrix)
+            density=100-nnz(matrix)/(size(matrix,1)*size(matrix,2))*100;
+        end
 
     end
 end

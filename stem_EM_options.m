@@ -14,7 +14,7 @@ classdef stem_EM_options
         exit_toll=0.0001;            %relative exit tolerance on both parameter norm and log-likelihood
         max_iterations=100;          %maximum number of EM iterations
         numeric_opt_type='single';
-        mstep_system_size=3500;
+        mstep_system_size=2500;
         compute_logL_at_all_steps=0;
         verbose=1;
         pathparallel=[];

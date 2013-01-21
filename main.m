@@ -22,7 +22,7 @@ flag_beta_remote=0;
 flag_w_ground=1;
 
 flag_crossval=0;
-flag_tapering=1;
+flag_tapering=0;
 
 flag_estimate=1;
 flag_kriging=0;
@@ -136,7 +136,7 @@ if flag_estimate
     
     if flag_tapering
         tapering_g=400; %km
-        tapering_r=400; %km
+        tapering_r=250; %km
     else
         tapering_g=[];
         tapering_r=[];
@@ -153,6 +153,21 @@ if flag_estimate
     if flag_remote_data
         %Y
         load ../Data/no2_remote/no2_remote_025.mat
+        if 1
+           lat=no2_remote.lat;
+           lon=no2_remote.lon;
+           Llat=(lat>36)&(lat<47.5);
+           Llon=(lon>-10)&(lon<19);
+           L=Llat&Llon;
+           H=sum(L,1);
+           K=sum(L,2);
+           idx1=find(H);
+           idx2=find(K);
+           no2_remote.lat=no2_remote.lat(idx2,idx1);
+           no2_remote.lon=no2_remote.lon(idx2,idx1);
+           no2_remote.data=no2_remote.data(idx2,idx1,:);
+        end
+        
         no2_remote.data(no2_remote.data<1e+14)=NaN;
         no2_remote.data=reshape(no2_remote.data,size(no2_remote.data,1)*size(no2_remote.data,2),size(no2_remote.data,3));
         sd_r.Y{1}=no2_remote.data;
@@ -160,9 +175,23 @@ if flag_estimate
         m1=size(sd_r.Y{1},1);
         
         load ../Data/aot_remote/aot_remote_025.mat
+        if 1
+           lat=aot_remote.lat;
+           lon=aot_remote.lon;
+           Llat=(lat>36)&(lat<47.5);
+           Llon=(lon>-10)&(lon<19);
+           L=Llat&Llon;
+           H=sum(L,1);
+           K=sum(L,2);
+           idx1=find(H);
+           idx2=find(K);
+           aot_remote.lat=aot_remote.lat(idx2,idx1);
+           aot_remote.lon=aot_remote.lon(idx2,idx1);
+           aot_remote.data=aot_remote.data(idx2,idx1,:,:);
+        end        
         aot_remote.data=squeeze(aot_remote.data(:,:,1,:));
         aot_remote.data=reshape(aot_remote.data,size(aot_remote.data,1)*size(aot_remote.data,2),size(aot_remote.data,3));
-        sd_r.Y{2}=no2_remote.data;
+        sd_r.Y{2}=aot_remote.data;
         sd_r.Y_name{2}='aot remote';
         m2=size(sd_r.Y{2},1);        
         
@@ -175,10 +204,10 @@ if flag_estimate
         st_varset_r=stem_varset(sd_r.Y,sd_r.Y_name,sd_r.X_rg,sd_r.X_rg_name);
         
         st_gridlist_r=stem_gridlist(tapering_r);
-        st_grid=stem_grid([no2_remote.lat(:),no2_remote.lon(:)],'deg','regular','pixel',[128 184],'square',0.25,0.25);
+        st_grid=stem_grid([no2_remote.lat(:),no2_remote.lon(:)],'deg','regular','pixel',size(no2_remote.lat),'square',0.25,0.25);
         st_gridlist_r.add(st_grid);
         clear no2_remote
-        st_grid=stem_grid([aot_remote.lat(:),aot_remote.lon(:)],'deg','regular','pixel',[128 184],'square',0.25,0.25);
+        st_grid=stem_grid([aot_remote.lat(:),aot_remote.lon(:)],'deg','regular','pixel',size(aot_remote.lat),'square',0.25,0.25);
         st_gridlist_r.add(st_grid);
         clear aot_remote        
     else
@@ -216,16 +245,18 @@ if flag_estimate
     clear sd_r
     
     % data modification
-    st_model.stem_data.space_crop([44,47,6,14]);
-    st_model.stem_data.time_crop(1:90);
+    %st_model.stem_data.space_crop([36,47.5,-10,19]); %da croppare perché è già croppato solo il remote
+    st_model.stem_data.space_crop([44,47.5,6,14]); %Norther-Italy
+    st_model.stem_data.time_crop(180:180+90);
     %st_model.stem_data.site_crop('ground','no2',idx);
     st_model.stem_data.log_transform;
     st_model.stem_data.standardize;
-    
+
+        
     % st_par initialization
     if flag_remote_data
         st_par.alpha_rg=[0.4 0.4 0.8 0.8]';
-        st_par.theta_r=[400 400]';
+        st_par.theta_r=[100 100]';
         st_par.v_r=eye(2);
     end
     if flag_beta_ground
@@ -251,9 +282,8 @@ if flag_estimate
         st_par.sigma_eps=diag([0.3 0.3]);
     end
     st_model.set_initial_values(st_par);
-    
     % model estimation
-    st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
+    st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
     if flag_parallel
         st_EM_options.pathparallel=pathparallel;
     end

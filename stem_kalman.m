@@ -196,37 +196,56 @@ classdef stem_kalman < handle
                     tX=t; %time variant
                 end
                 Lt=not(isnan(Y(:,t-1))); %note the t-1
-                temp=sigma_geo(Lt,Lt);
-                if tapering
-                    if not(stem_misc.isdiagonal(temp))
-                        r = symamd(temp);
-                        c=chol(temp(r,r));
-                        temp2=speye(sum(Lt));
-                        temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
-                        sigma_geo_inv=zeros(size(temp3));
-                        sigma_geo_inv(r,:)=temp3;
-                        clear temp2
-                        clear temp3
-                    else
-                        d=1./diag(temp);
-                        sigma_geo_inv=sparse(1:length(d),1:length(d),d);
-                    end
-                else
-                    if not(stem_misc.isdiagonal(temp))
-                        c=chol(sigma_geo(Lt,Lt));
-                        sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
-                    else
-                        sigma_geo_inv=diag(1./diag(temp));
-                    end
-                end
                 
                 X_time_orlated=X_time(:,:,tK-1);
                 X_time_orlated=[X_time_orlated;zeros(N-size(X_time_orlated,1),size(X_time_orlated,2))];
                 X_time_orlated=X_time_orlated(Lt,:);
+                if stem_misc.zero_density(X_time_orlated)>90
+                    X_time_orlated=sparse(X_time_orlated);
+                end
                 
                 X_beta_orlated=X_beta(:,:,tX-1);
                 X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
                 X_beta_orlated=X_beta_orlated(Lt,:);
+                if stem_misc.zero_density(X_beta_orlated)>90
+                    X_beta_orlated=sparse(X_beta_orlated);
+                end                
+                
+                temp=sigma_geo(Lt,Lt);
+                if tapering
+                    if not(stem_misc.isdiagonal(temp))
+                        if compute_logL
+                            r = symamd(temp);
+                            c=chol(temp(r,r));
+                            temp2=speye(sum(Lt));
+                            temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
+                            sigma_geo_inv=zeros(size(temp3));
+                            sigma_geo_inv(r,:)=temp3;
+                            clear temp2
+                            clear temp3
+                        end
+                        temp=X_time_orlated'/temp;
+                    else
+                        d=1./diag(temp);
+                        sigma_geo_inv=sparse(1:length(d),1:length(d),d);
+                        temp=X_time_orlated'*sigma_geo_inv;
+                    end
+                else
+                    if not(stem_misc.isdiagonal(temp))
+                        if compute_logL
+                            c=chol(sigma_geo(Lt,Lt));
+                            sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
+                        end
+                        temp=X_time_orlated'/temp;
+                    else
+                        sigma_geo_inv=diag(1./diag(temp));
+                        temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
+                        for i=1:size(temp,1)
+                            temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
+                        end
+                    end
+                end
+                temp2=temp*X_time_orlated;
                 
                 if not(time_diagonal)
                     %filter
@@ -239,8 +258,8 @@ classdef stem_kalman < handle
                     %Sherman-Morrison-Woodbury formula: (B*P*B+D)^-1=D^-1-D^-1*B(P^-1+B*D^-1*B)^-1*B*D^-1
                     %J(i,Lt,t)=Pk_f(i,i,t)*X_time(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_time(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_time(Lt,i,tK-1)'*sigma_geo_inv*X_time(Lt,i,tK-1))*(X_time(Lt,i,tK-1)'*sigma_geo_inv));
                     
-                    temp=X_time_orlated'*sigma_geo_inv; %note that temp can be computed in a distributed way before the KF is started
-                    temp2=temp*X_time_orlated;
+                    %temp=X_time_orlated'*sigma_geo_inv; %note that temp can be computed in a distributed way before the KF is started
+                    %temp2=temp*X_time_orlated;
                     if compute_logL
                         sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
                     end
@@ -268,8 +287,8 @@ classdef stem_kalman < handle
                     %Sherman-Morrison-Woodbury formula: (B*P*B+D)^-1=D^-1-D^-1*B(P^-1+B*D^-1*B)^-1*B*D^-1
                     %J(i,Lt,t)=Pk_f(i,i,t)*X_time(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_time(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_time(Lt,i,tK-1)'*sigma_geo_inv*X_time(Lt,i,tK-1))*(X_time(Lt,i,tK-1)'*sigma_geo_inv));
                     
-                    temp=X_time_orlated'*sigma_geo_inv; %note that temp can be computed in a distributed way before the KF is started
-                    temp2=temp*X_time_orlated;
+                    %temp=X_time_orlated'*sigma_geo_inv; %note that temp can be computed in a distributed way before the KF is started
+                    %temp2=temp*X_time_orlated;
                     P=diag(1./diag(Pk_f(:,:,t)));
                     if compute_logL
                         sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
@@ -369,7 +388,7 @@ classdef stem_kalman < handle
                     if size(X_time,3)==1
                         tK=2;
                     else
-                        tK=t; %time variant
+                        tK=t; 
                     end
                     
                     if compute_sigma_geo
@@ -411,43 +430,25 @@ classdef stem_kalman < handle
                         tX=t; %time variant
                     end
                     Lt=not(isnan(Y(:,t-1))); %note the t-1
-
-                    temp=sigma_geo(Lt,Lt);
-                    if tapering
-                        if not(stem_misc.isdiagonal(temp))
-                            r = symamd(temp);
-                            c=chol(temp(r,r));
-                            temp2=speye(sum(Lt));
-                            temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
-                            sigma_geo_inv=zeros(size(temp3));
-                            sigma_geo_inv(r,:)=temp3;
-                            clear temp2
-                            clear temp3
-                        else
-                            d=1./diag(temp);
-                            sigma_geo_inv=sparse(1:length(d),1:length(d),d);
-                        end
-                    else
-                        if not(stem_misc.isdiagonal(temp))
-                            c=chol(sigma_geo(Lt,Lt));
-                            sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
-                        else
-                            sigma_geo_inv=diag(1./diag(temp));
-                        end
-                    end
                     
                     X_time_orlated=X_time(:,:,tK-1);
                     X_time_orlated=[X_time_orlated;zeros(N-size(X_time_orlated,1),size(X_time_orlated,2))];
                     X_time_orlated=X_time_orlated(Lt,:);
+                    if stem_misc.zero_density(X_time_orlated)>90
+                        X_time_orlated=sparse(X_time_orlated);
+                    end
                     
                     X_beta_orlated=X_beta(:,:,tX-1);
                     X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
                     X_beta_orlated=X_beta_orlated(Lt,:);
-                        
+                    if stem_misc.zero_density(X_beta_orlated)>90
+                        X_beta_orlated=sparse(X_beta_orlated);
+                    end
+                    
                     if t>max_ts
                         %wait for the proper file from the clients
                         exit=0;
-                        disp(['        Waiting for kalman_output_',num2str(t)]);
+                        %disp(['        Waiting for kalman_output_',num2str(t)]);
                         while not(exit)
                             exit=exist([pathparallel,'kalman_ouput_',num2str(t),'.mat'],'file');
                         end
@@ -456,7 +457,7 @@ classdef stem_kalman < handle
                             try
                                 load([pathparallel,'kalman_ouput_',num2str(t),'.mat']);
                                 read=1;
-                                disp(['        kalman_ouput_',num2str(t),' readed']);
+                                %disp(['        kalman_ouput_',num2str(t),' readed']);
                             catch
                             end
                             pause(0.05);
@@ -466,7 +467,7 @@ classdef stem_kalman < handle
                             try
                                 delete([pathparallel,'kalman_ouput_',num2str(t),'.mat']);
                                 deleted=1;
-                                disp(['        kalman_ouput_',num2str(t),' deleted']);
+                                %disp(['        kalman_ouput_',num2str(t),' deleted']);
                             catch
                             end
                             pause(0.05);
@@ -480,7 +481,40 @@ classdef stem_kalman < handle
                         
                         %update
                         if t<=max_ts %the time steps up to max_ts are computed locally
-                            temp=X_time_orlated'*sigma_geo_inv;
+                            temp=sigma_geo(Lt,Lt);
+                            if tapering
+                                if not(stem_misc.isdiagonal(temp))
+                                    if compute_logL
+                                        r = symamd(temp);
+                                        c=chol(temp(r,r));
+                                        temp2=speye(sum(Lt));
+                                        temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
+                                        sigma_geo_inv=zeros(size(temp3));
+                                        sigma_geo_inv(r,:)=temp3;
+                                        clear temp2
+                                        clear temp3
+                                    end
+                                    temp=X_time_orlated'/temp;
+                                else
+                                    d=1./diag(temp);
+                                    sigma_geo_inv=sparse(1:length(d),1:length(d),d);
+                                    temp=X_time_orlated'*sigma_geo_inv;
+                                end
+                            else
+                                if not(stem_misc.isdiagonal(temp))
+                                    if compute_logL
+                                        c=chol(sigma_geo(Lt,Lt));
+                                        sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
+                                    end
+                                    temp=X_time_orlated'/temp;
+                                else
+                                    sigma_geo_inv=diag(1./diag(temp));
+                                    temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
+                                    for i=1:size(temp,1)
+                                        temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
+                                    end
+                                end
+                            end
                             temp2=temp*X_time_orlated;
                             temp3=Pk_f(:,:,t)*X_time_orlated';
                             J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
@@ -514,7 +548,40 @@ classdef stem_kalman < handle
                         %J(i,Lt,t)=Pk_f(i,i,t)*X_time(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_time(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_time(Lt,i,tK-1)'*sigma_geo_inv*X_time(Lt,i,tK-1))*(X_time(Lt,i,tK-1)'*sigma_geo_inv));
                         
                         if t<=max_ts %the time steps up to max_ts are computed locally
-                            temp=X_time_orlated'*sigma_geo_inv;
+                            temp=sigma_geo(Lt,Lt);
+                            if tapering
+                                if not(stem_misc.isdiagonal(temp))
+                                    if compute_logL
+                                        r = symamd(temp);
+                                        c=chol(temp(r,r));
+                                        temp2=speye(sum(Lt));
+                                        temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
+                                        sigma_geo_inv=zeros(size(temp3));
+                                        sigma_geo_inv(r,:)=temp3;
+                                        clear temp2
+                                        clear temp3
+                                    end
+                                    temp=X_time_orlated'/temp;
+                                else
+                                    d=1./diag(temp);
+                                    sigma_geo_inv=sparse(1:length(d),1:length(d),d);
+                                    temp=X_time_orlated'*sigma_geo_inv;
+                                end
+                            else
+                                if not(stem_misc.isdiagonal(temp))
+                                    if compute_logL
+                                        c=chol(sigma_geo(Lt,Lt));
+                                        sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
+                                    end
+                                    temp=X_time_orlated'/temp;
+                                else
+                                    sigma_geo_inv=diag(1./diag(temp));
+                                    temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
+                                    for i=1:size(temp,1)
+                                        temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
+                                    end
+                                end
+                            end
                             temp2=temp*X_time_orlated;
                         else
                             %temp and temp2 has been already reader from the file
@@ -524,7 +591,7 @@ classdef stem_kalman < handle
                             sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
                         end
                         temp3=Pk_f(:,:,t)*X_time_orlated';
-                        J(:,Lt,t)=temp3*sigma_geo_inv-temp3*(temp'/(P+temp2)*temp);      
+                        J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(P+temp2)*temp);      
                         
                         if not(isempty(X_beta))
                             innovation(Lt,t-1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
@@ -549,7 +616,7 @@ classdef stem_kalman < handle
                     if size(X_time,3)==1
                         tK=2;
                     else
-                        tK=t; %time variant
+                        tK=t;
                     end
                     if compute_sigma_geo
                         if not(isempty(X_rg))
@@ -586,39 +653,38 @@ classdef stem_kalman < handle
 
                     Lt=not(isnan(Y(:,t-1))); %note the t-1
                     
-                    temp=sigma_geo(Lt,Lt);
-                    if tapering
-                        if not(stem_misc.isdiagonal(temp))
-                            r = symamd(temp);
-                            c=chol(temp(r,r));
-                            temp2=speye(sum(Lt));
-                            temp3=full(stem_misc.chol_solve(c,temp2(r,:)));
-                            sigma_geo_inv=zeros(size(temp3));
-                            sigma_geo_inv(r,:)=temp3;
-                            clear temp2
-                            clear temp3
-                        else
-                            d=1./diag(temp);
-                            sigma_geo_inv=sparse(1:length(d),1:length(d),d);
-                        end
-                    else
-                        if not(stem_misc.isdiagonal(temp))
-                            c=chol(sigma_geo(Lt,Lt));
-                            sigma_geo_inv=stem_misc.chol_solve(c,eye(sum(Lt)));
-                        else
-                            sigma_geo_inv=diag(1./diag(temp));
-                        end
-                    end
-                    
                     X_time_orlated=X_time(:,:,tK-1);
                     X_time_orlated=[X_time_orlated;zeros(N-size(X_time_orlated,1),size(X_time_orlated,2))];
                     X_time_orlated=X_time_orlated(Lt,:);
+                    if stem_misc.zero_density(X_time_orlated)>90
+                        X_time_orlated=sparse(X_time_orlated);
+                    end
                     
-                    temp=X_time_orlated'*sigma_geo_inv;
-                    temp2=temp*X_time_orlated;
+                    temp=sigma_geo(Lt,Lt);
+                    if tapering
+                        if not(stem_misc.isdiagonal(temp))
+                            temp=X_time_orlated'/temp;
+                        else
+                            d=1./diag(temp);
+                            sigma_geo_inv=sparse(1:length(d),1:length(d),d);
+                            temp=X_time_orlated'*sigma_geo_inv;
+                        end
+                    else
+                        if not(stem_misc.isdiagonal(temp))
+                            temp=X_time_orlated'/temp;
+                        else
+                            sigma_geo_inv=diag(1./diag(temp));
+                            temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
+                            for i=1:size(temp,1)
+                                temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
+                            end
+                        end
+                    end
+                    temp2=temp*X_time_orlated;                    
+                    
                     save([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],'temp','temp2');
                     movefile([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],[pathparallel,'kalman_ouput_',num2str(t),'.mat']);
-                    disp(['Saved kalman_ouput_',num2str(t),'.mat']);
+                    %disp(['Saved kalman_ouput_',num2str(t),'.mat']);
                 end
             end
         end

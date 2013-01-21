@@ -279,6 +279,11 @@ classdef stem_model < handle
                     end
                 end
             end
+            clear I
+            clear J
+            clear elements
+            clear weights
+            clear corr_result
             
            %sigma_W_g
            if obj.stem_par.k>0
@@ -327,6 +332,11 @@ classdef stem_model < handle
            else
                sigma_W_g=[];
            end
+           clear I
+           clear J
+           clear elements
+           clear weights
+           clear corr_result
            
            %sigma_geo
            [aj_rg,aj_g]=obj.get_aj;
@@ -337,7 +347,7 @@ classdef stem_model < handle
                end
                if obj.stem_par.k>0
                    if isempty(obj.stem_data.stem_varset_r)
-                       %se manca il remoto allora sigma_geo non è stata
+                       %se manca il remoto allora sigma_geo non ï¿½ stata
                        %ancora allocata
                        if obj.tapering
                            sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
@@ -623,7 +633,7 @@ classdef stem_model < handle
             
             if not(isempty(data.X_g))
                 n_g_alpha=q*k; %alpha_g
-                n_g_v=q*(q-1)*k;
+                n_g_v=q*(q-1)/2*k;
                 n_g_theta=k;
             end
             n_eps=size(par.sigma_eps,1);
@@ -720,9 +730,9 @@ classdef stem_model < handle
                 end
             end
             
-            %%%%%%%%%%%%%%%%%%%%%%%%%
-            %  compute d_Sgeo_prel  %
-            %%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %      compute d_Sgeo_prel     %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
             %beta
             for i=1:n_beta
@@ -814,6 +824,7 @@ classdef stem_model < handle
             %v_rg
             if n_rg_v>0
                 if par.remote_correlated
+                    error('Da testare!');
                     z=1;
                     for j=1:q
                         for i=j+1:q
@@ -823,7 +834,7 @@ classdef stem_model < handle
                             for h=1:2
                                 idx=blocks(j*h)+1:blocks(j*h+1);
                                 result1=result(idx,idx);
-                                result2=stem_misc.D_apply(result1,aj_rg(idx),'b')/par.v_r(i,j);
+                                result2=stem_misc.D_apply(result1,aj_rg(idx),'b')/par.v_r(i,j); %verificare se va in errore!
                                 L=find(result2);
                                 [idx_I,idx_J]=ind2sub(size(result2),L);
                                 Id=[Id; idx_I+blocks(j*h)];
@@ -863,7 +874,7 @@ classdef stem_model < handle
                                 Jd=[Jd; idx_J+blocks(j)];
                                 elements=[elements; temp2(L)];
                             else
-                                temp2=alpha_g(j,k)*temp;
+                                temp2=par.alpha_g(j,k)*temp;
                                 L=find(temp2);
                                 [idx_I,idx_J]=ind2sub(size(temp2),L);
                                 Id=[Id; idx_I+blocks(i)];
@@ -878,8 +889,8 @@ classdef stem_model < handle
                             d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=sparse(Id,Jd,elements,Ng,Ng); %note that N,N is not used
                         else
                             d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=zeros(Ng);
-                            elements=reshape(elements,Ng,Ng);
-                            d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=elements;
+                            temp=sub2ind([Ng,Ng],Id,Jd);
+                            d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}(temp)=elements;
                         end
                         z=z+1;
                     end
@@ -888,7 +899,7 @@ classdef stem_model < handle
             %theta_g
             if n_g_theta>0
                 for k=1:par.k
-                    d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=sigma_W_g{k}.*obj.stem_data.DistMat_g/(par.theta_g(k)^2);
+                    d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(sigma_W_g{k}.*obj.stem_data.DistMat_g/(par.theta_g(k)^2),aj_g(:,k),'b');
                 end
             end
             %v_g
@@ -900,21 +911,26 @@ classdef stem_model < handle
                             Id=[];
                             Jd=[];
                             elements=[];
-                            for h=1:2
-                                result1=sigma_W_g{k}(blocks(j*h-1)+1:blocks((j*h+1)-1),blocks(i*h-1)+1:blocks((i*h+1)-1));
-                                result2=stem_misc.D_apply(result1,aj_g(:,k))/par.v_g(i,j,k);
-                                L=find(result2);
-                                [idx_I,idx_J]=ind2sub(size(result2),L);
-                                Id=[Id; idx_I+blocks(j*h)];
-                                Jd=[Jd; idx_J+blocks(j*h)];
-                                elements=[elements; result2(L)];
-                            end
+                            %since the block is extra-diagonal it has
+                            %two separated D_apply!
+                            result1=sigma_W_g{k}(blocks(j)+1:blocks(j+1),blocks(i)+1:blocks(i+1));
+                            result2=stem_misc.D_apply(result1,aj_g(blocks(j)+1:blocks(j+1),k),'l');
+                            result2=stem_misc.D_apply(result2,aj_g(blocks(i)+1:blocks(i+1),k),'r');
+                            result2=result2/par.v_g(i,j,k);
+                            L=find(result2);
+                            [idx_I,idx_J]=ind2sub(size(result2),L);
+                            Id=[Id; idx_I+blocks(j)];
+                            Jd=[Jd; idx_J+blocks(i)];
+                            elements=[elements; result2(L)];
+                            Id=[Id; idx_J+blocks(i)];
+                            Jd=[Jd; idx_I+blocks(j)];
+                            elements=[elements; result2(L)];
                             if obj.tapering
                                 d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=sparse(Id,Jd,elements,Ng,Ng);
                             else
                                 d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=zeros(Ng);
-                                elements=reshape(elements,length(Id),length(Jd));
-                                d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=elements;
+                                temp=sub2ind([Ng,Ng],Id,Jd);
+                                d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}(temp)=elements;
                             end
                             z=z+1;
                         end
@@ -966,14 +982,19 @@ classdef stem_model < handle
                 end
                 if n_g_theta>0
                     for k=1:par.k
-                        d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},obj.stem_data.X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                        X_g_orlated=[obj.stem_data.X_g(:,1,1,k);zeros(N-size(obj.stem_data.X_g(:,1,1,k),1),1)];
+                        d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},X_g_orlated,'b');
                     end
                 end
                 if n_g_v>0
                     z=1;
                     for k=1:par.k
-                        for j=1:q*(q-1)
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha_r+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha_r+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta},obj.stem_data.X_g(:,1,1,k),'b');
+                        for j=1:q*(q-1)/2
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z},obj.stem_data.X_g(:,1,1,k),'b');
+                            L=find(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z});
+                            [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}),L);
+                            elements=d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}(L);
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=sparse(Id,Jd,elements,N,N);
                         end
                     end
                 end
@@ -1071,7 +1092,8 @@ classdef stem_model < handle
                     end
                     if n_g_theta>0
                         for k=1:par.k
-                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},obj.stem_data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                            X_g_orlated=[obj.stem_data.X_g(:,1,tG,k);zeros(N-size(obj.stem_data.X_g(:,1,tG,k),1),1)];
+                            d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+k},X_g_orlated,'b');
                         end
                     end
                     if n_g_v>0
@@ -1079,6 +1101,10 @@ classdef stem_model < handle
                         for k=1:par.k
                             for j=1:q*(q-1)
                                 d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z},obj.stem_data.X_g(:,1,tG,k),'b');
+                                L=find(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z});
+                                [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}),L);
+                                elements=d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}(L);
+                                d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=sparse(Id,Jd,elements,N,N);
                             end
                         end
                     end
@@ -1088,7 +1114,9 @@ classdef stem_model < handle
                 end
                 
                 if n_time>0
-                    sigma_t=data.X_time(:,:,tT)*st_kalmanfilter_result.Pk_f(:,:,t)*data.X_time(:,:,tT)'+sigma_geo;
+                    X_time_orlated=data.X_time(:,:,tT);
+                    X_time_orlated=[X_time_orlated;zeros(N-size(X_time_orlated,1),size(X_time_orlated,2))];
+                    sigma_t=X_time_orlated*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated'+sigma_geo;
                 else
                     sigma_t=sigma_geo;
                 end
@@ -1097,13 +1125,15 @@ classdef stem_model < handle
                 
                 if n_time>0
                     if n_beta>0
-                        et(Lt)=data.Y(Lt,t)-data.X_beta(Lt,:,tbeta)*par.beta-data.X_time(Lt,:,tT)*st_kalmanfilter_result.zk_f(:,t);
+                        X_beta_orlated=data.X_beta(:,:,tbeta);
+                        X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
+                        et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta-X_time_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
                     else
-                        et(Lt)=data.Y(Lt,t)-data.X_time(Lt,:,tT)*st_kalmanfilter_result.zk_f(:,t);
+                        et(Lt)=data.Y(Lt,t)-X_time_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
                     end
                 else
                     if n_beta>0
-                        et(Lt)=data.Y(Lt,t)-data.X_beta(Lt,:,tbeta)*par.beta;
+                        et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta;
                     else
                         et(Lt)=data.Y(Lt,t);
                     end
@@ -1134,7 +1164,7 @@ classdef stem_model < handle
                     
                     for i=n_psi-n_time_s2e+1:n_psi
                         %with respect to sigma_eta
-                        d_St{i}=data.X_time(:,:,tT)*d_s2e(:,:,i)*data.X_time(:,:,tT)';
+                        d_St{i}=X_time_orlated*d_s2e(:,:,i)*X_time_orlated';
                     end
                     
                     %d_J
@@ -1145,19 +1175,18 @@ classdef stem_model < handle
                         
                         for i=n_psi-n_time+1:+n_psi-n_time+n_time_G
                             %with respect to G
-                            d_J(:,Lt,i)=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*data.X_time(Lt,:,tT)')/sigma_t(Lt,Lt);
+                            d_J(:,Lt,i)=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated(Lt,:)')/sigma_t(Lt,Lt);
                         end
-                        
                         
                         for i=n_psi-n_time_s2e+1:n_psi
                             %with respect to sigma_eta
-                            d_J(:,Lt,i)=(par.G*d_P(:,:,i)*data.X_time(Lt,:,tT)')/sigma_t(Lt,Lt);
+                            d_J(:,Lt,i)=(par.G*d_P(:,:,i)*X_time_orlated(Lt,:)')/sigma_t(Lt,Lt);
                         end
                     end
                     
                     %d_e
                     for i=1:n_beta
-                        d_e(:,i)=-data.X_beta(:,:,tbeta)*d_beta(:,1,i);
+                        d_e(:,i)=-X_beta_orlated*d_beta(:,1,i);
                     end
                 else
                     Lt1=not(isnan(data.Y(:,t-1)));
@@ -1165,13 +1194,13 @@ classdef stem_model < handle
                     for i=1:n_psi
                         if (i<=n_beta)
                             if n_time>0
-                                d_e(:,i)=-data.X_beta(:,:,tbeta)*d_beta(:,1,i)-data.X_time(:,:,tT)*d_Z_lag(:,i);
+                                d_e(:,i)=-X_beta_orlated*d_beta(:,1,i)-X_time_orlated*d_Z_lag(:,i);
                             else
-                                d_e(:,i)=-data.X_beta(:,:,tbeta)*d_beta(:,1,i);
+                                d_e(:,i)=-X_beta_orlated*d_beta(:,1,i);
                             end
                         else
                             if n_time>0
-                                d_e(:,i)=-data.X_time(:,:,tT)*d_Z_lag(:,i);
+                                d_e(:,i)=-X_time_orlated*d_Z_lag(:,i);
                             end
                         end
                     end
@@ -1193,17 +1222,17 @@ classdef stem_model < handle
                         
                         %d_P
                         for i=1:n_psi
-                            d_P(:,:,i)=d_G(:,:,i)*(eye(p)-J(:,Lt1,t-1)*data.X_time(Lt1,:,tT))*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'-...
-                                par.G*d_J_lag(:,Lt1,i)*data.X_time(Lt1,:,tT)*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'+...
-                                par.G*(eye(p)-J(:,Lt1,t-1)*data.X_time(Lt1,:,tT))*d_P_lag(:,:,i)*par.G'+...
-                                par.G*(eye(p)-J(:,Lt1,t-1)*data.X_time(Lt1,:,tT))*st_kalmanfilter_result.Pk_f(:,:,t-1)*d_G(:,:,i)'+d_s2e(:,:,i);
+                            d_P(:,:,i)=d_G(:,:,i)*(eye(p)-J(:,Lt1,t-1)*X_time_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'-...
+                                par.G*d_J_lag(:,Lt1,i)*X_time_orlated(Lt1,:)*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'+...
+                                par.G*(eye(p)-J(:,Lt1,t-1)*X_time_orlated(Lt1,:))*d_P_lag(:,:,i)*par.G'+...
+                                par.G*(eye(p)-J(:,Lt1,t-1)*X_time_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*d_G(:,:,i)'+d_s2e(:,:,i);
                         end
                     end
                     
                     %d_St
                     for i=1:n_psi
                         if n_time>0
-                            d_St{i}(Lt,Lt)=data.X_time(Lt,:,tT)*d_P(:,:,i)*data.X_time(Lt,:,tT)'+d_Sgeo{i}(Lt,Lt);
+                            d_St{i}(Lt,Lt)=X_time_orlated(Lt,:)*d_P(:,:,i)*X_time_orlated(Lt,:)'+d_Sgeo{i}(Lt,Lt);
                         else
                             d_St{i}(Lt,Lt)=d_Sgeo{i}(Lt,Lt);
                         end
@@ -1212,17 +1241,13 @@ classdef stem_model < handle
                     %d_J
                     if n_time>0
                         for i=1:n_psi
-                            d_J(:,Lt,i)=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*data.X_time(Lt,:,tT)'+par.G*d_P(:,:,i)*data.X_time(Lt,:,tT)'-J(:,Lt,t)*d_St{i}(Lt,Lt))/sigma_t(Lt,Lt);
+                            d_J(:,Lt,i)=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated(Lt,:)'+par.G*d_P(:,:,i)*X_time_orlated(Lt,:)'-J(:,Lt,t)*d_St{i}(Lt,Lt))/sigma_t(Lt,Lt);
                         end
                     end
                 end
                 
                 if n_time>0
-                    if data.X_time_tv
-                        temp1=data.X_time(:,:,t)*st_kalmanfilter_result.Pk_f(:,:,t)*data.X_time(:,:,t)';
-                    else
-                        temp1=data.X_time*st_kalmanfilter_result.Pk_f(:,:,t)*data.X_time';
-                    end
+                    temp1=X_time_orlated*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated';
                     sigma_t=temp1+sigma_geo;
                 else
                     sigma_t=sigma_geo;
@@ -1300,19 +1325,19 @@ classdef stem_model < handle
                 disp('Data type: point data only');
                 disp(' ');
                 disp('Bounding box of the point data:');
-                disp(['  Latitude min : ',num2str(obj.stem_data.stem_gridlist_g.box(1)),'°'])
-                disp(['  Latitude max : ',num2str(obj.stem_data.stem_gridlist_g.box(2)),'°'])
-                disp(['  Longitude min: ',num2str(obj.stem_data.stem_gridlist_g.box(3)),'°'])
-                disp(['  Longitude max: ',num2str(obj.stem_data.stem_gridlist_g.box(4)),'°'])
+                disp(['  Latitude min : ',num2str(obj.stem_data.stem_gridlist_g.box(1)),'ï¿½'])
+                disp(['  Latitude max : ',num2str(obj.stem_data.stem_gridlist_g.box(2)),'ï¿½'])
+                disp(['  Longitude min: ',num2str(obj.stem_data.stem_gridlist_g.box(3)),'ï¿½'])
+                disp(['  Longitude max: ',num2str(obj.stem_data.stem_gridlist_g.box(4)),'ï¿½'])
                 disp(' ');
             else
                 disp('Data type: point and pixel data');
                 disp(' ');
                 disp('Bounding box of the point data:');
-                disp(['  Latitude min : ',num2str(obj.stem_data.stem_gridlist_r.box(1)),'°'])
-                disp(['  Latitude max : ',num2str(obj.stem_data.stem_gridlist_r.box(2)),'°'])
-                disp(['  Longitude min: ',num2str(obj.stem_data.stem_gridlist_r.box(3)),'°'])
-                disp(['  Longitude max: ',num2str(obj.stem_data.stem_gridlist_r.box(4)),'°'])
+                disp(['  Latitude min : ',num2str(obj.stem_data.stem_gridlist_r.box(1)),'ï¿½'])
+                disp(['  Latitude max : ',num2str(obj.stem_data.stem_gridlist_r.box(2)),'ï¿½'])
+                disp(['  Longitude min: ',num2str(obj.stem_data.stem_gridlist_r.box(3)),'ï¿½'])
+                disp(['  Longitude max: ',num2str(obj.stem_data.stem_gridlist_r.box(4)),'ï¿½'])
                 disp(' ');
             end
             disp('Number of sites:');
@@ -1689,7 +1714,7 @@ classdef stem_model < handle
 %                     end
 %                     filter=(theta0<max_distance/0.75)&(v0>0);
 %                     theta0=theta0(filter);
-%                     vv=vv(filter); %filtro anche v_tot perchè stimato congiuntamente a theta
+%                     vv=vv(filter); %filtro anche v_tot perchï¿½ stimato congiuntamente a theta
 %                     v0=v0(filter);
 %                     
 %                     sigma_eps(h,k)=mean(v0);

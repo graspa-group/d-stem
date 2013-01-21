@@ -12,8 +12,7 @@
 clc
 clear all
 
-%pathparallel='/opt/matNfs/';
-pathparallel='C:/';
+pathparallel='/opt/matNfs/';
 
 %address = java.net.InetAddress.getLocalHost;
 %split=regexp(char(address.getHostAddress),'\.','split');
@@ -26,7 +25,7 @@ while(1)
     disp([datestr(now),' - Waiting whois from server...']);
     while not(exit)
         exit=exist([pathparallel,'whoishere.mat'],'file');
-        pause(0.05);
+        pause(0.1);
     end
     read=0;
     while not(read)
@@ -36,7 +35,7 @@ while(1)
             disp([datestr(now),' - whois received.']);
         catch
         end
-        pause(0.05);
+        pause(0.1);
     end
     machine.IPaddress=IPaddress;
     machine.IDrequest=whoishere.IDrequest;
@@ -60,7 +59,7 @@ while(1)
         ct1=clock;
         while not(exit)
             exit=exist([pathparallel,'st_model_parallel_',num2str(IPaddress),'.mat'],'file');
-            pause(0.05);
+            pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout 
                 disp('Timeout in waiting for st_model_parallel');
@@ -76,7 +75,7 @@ while(1)
                 read=1;
             catch
             end
-            pause(0.05);
+            pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout
                 disp('Timeout in reading st_model_parallel');
@@ -92,7 +91,7 @@ while(1)
                 deleted=1;
             catch
             end
-            pause(0.05);
+            pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout
                 disp('Timeout in deleting st_model_parallel');
@@ -109,7 +108,7 @@ while(1)
     ct1=clock;
     while not(exit)
         exit=exist([pathparallel,'st_par_parallel_',num2str(IPaddress),'.mat'],'file');
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in waiting for st_par_parallel');
@@ -141,7 +140,7 @@ while(1)
             deleted=1;
         catch
         end
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in deleting st_par_parallel');
@@ -159,7 +158,7 @@ while(1)
         ct1=clock;
         while not(exit)
             exit=exist([pathparallel,'kalman_parallel_',num2str(IPaddress),'.mat'],'file');
-            pause(0.05);
+            pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout 
                 disp('Timeout in waiting for kalman_parallel');
@@ -175,7 +174,7 @@ while(1)
                 read=1;
             catch
             end
-            pause(0.05);
+            pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout 
                 disp('Timeout in loading kalman_parallel');
@@ -191,7 +190,7 @@ while(1)
                 deleted=1;
             catch
             end
-            pause(0.05);
+            pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout 
                 disp('Timeout in deleting kalman_parallel');
@@ -212,7 +211,7 @@ while(1)
     ct1=clock;
     while not(exit)
         exit=exist([pathparallel,'data_parallel_',num2str(IPaddress),'.mat'],'file');
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in waiting for data_parallel');
@@ -228,7 +227,7 @@ while(1)
             read=1;
         catch
         end
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in loading data_parallel');
@@ -244,7 +243,7 @@ while(1)
             deleted=1;
         catch
         end
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in deleting data_parallel');
@@ -285,7 +284,7 @@ while(1)
     ct1=clock;
     while not(exit)
         exit=exist([pathparallel,'data_parallel_mstep',num2str(IPaddress),'.mat'],'file');
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in waiting for data_parallelmstep');
@@ -301,7 +300,7 @@ while(1)
             read=1;
         catch
         end
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in loading data_parallelmstep');
@@ -317,7 +316,7 @@ while(1)
             deleted=1;
         catch
         end
-        pause(0.05);
+        pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
             disp('Timeout in deleting data_parallelmstep');

@@ -114,7 +114,9 @@ classdef stem_EM < EM
             st_EM_result.stem_par=obj.stem_model.stem_par;
             st_EM_result.stem_kalmansmoother_result=st_kalmansmoother_result;
             st_EM_result.E_wg_y1=E_wg_y1;
+            st_EM_result.E_wr_y1=E_wr_y1;
             st_EM_result.Var_wg_y1=diag_Var_wg_y1;
+            st_EM_result.Var_wr_y1=diag_Var_wr_y1;
             st_EM_result.y_hat=obj.stem_model.stem_data.Y;
             st_EM_result.y_hat(isnan(st_EM_result.y_hat))=0;
             st_EM_result.y_hat=st_EM_result.y_hat-E_e_y1;
@@ -202,10 +204,11 @@ classdef stem_EM < EM
                     end
                     
                     %create the file for the whoishere request
-                    disp('    Looking for distributed clients...');
+                    disp('  Looking for distributed clients...');
                     whoishere.IDrequest=unifrnd(0,100000,1,1);
 
                     save([pathparallel,'temp/whoishere.mat'],'whoishere');
+                    pause(0.5);
                     movefile([pathparallel,'temp/whoishere.mat'],[pathparallel,'whoishere.mat']);
                    
                     if iteration==1
@@ -246,7 +249,7 @@ classdef stem_EM < EM
                             end
                         end
                         wait2=clock;
-                        if etime(wait2,wait1)>15 %20 seconds timeout
+                        if etime(wait2,wait1)>120 %120 seconds timeout
                             exit=1;
                         end
                         pause(0.1);
@@ -267,7 +270,7 @@ classdef stem_EM < EM
                     %if there is at least one client then distribute the st_model
                     if nhosts>=1
                         disp(['    ',num2str(nhosts),' parallel client(s) found']);
-                        disp('    Saving st_model to distribute');
+                        disp('  Saving st_model to distribute');
                         st_model=obj.stem_model;
                         for i=1:nhosts
                             if hosts(i).require_stemmodel
@@ -276,12 +279,12 @@ classdef stem_EM < EM
                             end
                         end
                     else
-                        disp('    No clients found. Only the server is used');
+                        disp('  No clients found. Only the server is used');
                     end
                    
                     if nhosts>=1
                         %the st_par to be distributed is the same for all the clients
-                        disp('    Saving st_par to distribute')
+                        disp('  Saving st_par to distribute')
                         st_par=obj.stem_model.stem_par;
                         for i=1:nhosts
                             save([pathparallel,'temp/st_par_parallel_',num2str(hosts(i).IPaddress),'.mat'],'st_par');
@@ -309,13 +312,13 @@ classdef stem_EM < EM
                     t2=find(Lt_csum>=l2,1);
                     time_steps=t1:t2;
                     local_cb=sum(Lt_all(time_steps));
-                    disp(['    ',num2str(length(time_steps)),' time will be assigned to the server machine']);                    
+                    disp(['  ',num2str(length(time_steps)),' time will be assigned to the server machine']);                    
                     
                     %Kalman smoother
                     if obj.stem_model.stem_par.p>0
                         %distribute the st_par and the data needed to the clients
                         if nhosts>=1
-                            disp('    Saving the Kalman data structure to distribute')
+                            disp('  Saving the Kalman data structure to distribute')
                             %send the information for the computation of the parallel kalman
                             data.iteration=iteration;
                             last_t2=t2;
@@ -333,7 +336,7 @@ classdef stem_EM < EM
                                 end
                                 data.time_steps=t1:t2;
                                 last_t2=t2;
-                                disp(['    ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).IPaddress)]);
+                                disp(['  ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).IPaddress)]);
                                 save([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).IPaddress),'.mat'],'data');
                                 movefile([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'kalman_parallel_',num2str(hosts(i).IPaddress),'.mat']);
                             end
@@ -358,7 +361,7 @@ classdef stem_EM < EM
                     end
                     
                     ct1_distributed=clock;
-                    disp('    Saving the E-step data structure to distribute')
+                    disp('  Saving the E-step data structure to distribute')
                     data.st_kalmansmoother_result=st_kalmansmoother_result;
                     data.iteration=iteration;
                     
@@ -380,7 +383,7 @@ classdef stem_EM < EM
                         data.time_steps=t1:t2;
                         data.cb=sum(Lt_all(data.time_steps));
                         last_t2=t2;
-                        disp(['    ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).IPaddress)]);
+                        disp(['  ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).IPaddress)]);
                         save([pathparallel,'temp/data_parallel_',num2str(hosts(i).IPaddress),'.mat'],'data');
                         movefile([pathparallel,'temp/data_parallel_',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'data_parallel_',num2str(hosts(i).IPaddress),'.mat']);
                     end
@@ -556,7 +559,7 @@ classdef stem_EM < EM
                 
                 %Attende la ricezione dagli altri nodi
                 if nhosts>0
-                    disp(['     Wait for output_mstep from the client(s)']);
+                    disp(['  Wait for output_mstep from the client(s)']);
                     exit=0;
                     while not(exit)
                         files=dir([pathparallel,'output_mstep_*.*']);
@@ -564,7 +567,7 @@ classdef stem_EM < EM
                             % try
                             ct2_distributed=clock;
                             load([pathparallel,files(i).name]);
-                            disp(['    Received output_mstep file from client ',num2str(output.IPaddress)]);
+                            disp(['  Received output_mstep file from client ',num2str(output.IPaddress)]);
                             if iteration==output.iteration
                                 idx=[];
                                 for j=1:nhosts
@@ -573,7 +576,7 @@ classdef stem_EM < EM
                                     end
                                 end
                                 if not(isempty(idx))
-                                    disp('    The output_mstep from the client was expected');
+                                    disp('  The output_mstep from the client was expected');
                                     if not(isempty(output.index))
                                         for z=1:length(output.index)
                                             obj.stem_model.stem_par.v_g(:,:,output.index(z))=output.mstep_par.v_g(:,:,output.index(z));
@@ -581,7 +584,7 @@ classdef stem_EM < EM
                                             disp([num2str(output.index(z)),'th component of vg and theta_g updated']);
                                         end
                                     else
-                                        disp('     The output_mstep data from the client is empty');
+                                        disp('  The output_mstep data from the client is empty');
                                     end
                                     hosts(idx).data_received=1;
                                     clear output
@@ -595,7 +598,7 @@ classdef stem_EM < EM
                                     end
                                 end
                                 if exit==1
-                                    disp('    All the M-step data from the client(s) have been collected');
+                                    disp('  All the M-step data from the client(s) have been collected');
                                 end
                             else
                                 disp('    The iteration within the output file does not match. The file is deleted');
@@ -653,7 +656,9 @@ classdef stem_EM < EM
             st_EM_result.stem_par=obj.stem_model.stem_par;
             st_EM_result.stem_kalmansmoother_result=st_kalmansmoother_result;
             st_EM_result.E_wg_y1=E_wg_y1;
+            st_EM_result.E_wr_y1=E_wr_y1;
             st_EM_result.Var_wg_y1=diag_Var_wg_y1;
+            st_EM_result.Var_wr_y1=diag_Var_wr_y1;
             st_EM_result.iterations=iteration;
             st_EM_result.computation_time=etime(t2_full,t1_full);
         end        
@@ -1165,7 +1170,9 @@ classdef stem_EM < EM
             par=obj.stem_model.stem_par;
             st_par_em_step=par;
             
-            inv_sigma_eps=diag(1./diag(sigma_eps));
+            d=1./diag(sigma_eps);
+            I=1:length(d);
+            inv_sigma_eps=sparse(I,I,d);
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %             beta update                %
@@ -1331,7 +1338,8 @@ classdef stem_EM < EM
                 ct1=clock;
                 
                 if Nr<=obj.stem_EM_options.mstep_system_size
-                    %TEMP FULL DEVE ESSERE CALCOLATO PER LE MATRICI V IN OGNI CASO SE NON SI RISOLVE COREGIONALIZZ!!!
+                    %TEMP NrxNr VA CALCOLATA IN OGNI CASO SE NON SI RISOLVE
+                    %LA STIMA A BLOCCHI DI v E theta NEL CASO DI v NON DIAGONALE!!!
                     temp=zeros(size(sum_Var_wr_y1));
                     for t=1:T
                         temp=temp+E_wr_y1(:,t)*E_wr_y1(:,t)';
@@ -1339,8 +1347,11 @@ classdef stem_EM < EM
                     temp=temp+sum_Var_wr_y1;
                 end
                 
-                r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
+                %MANCA LA STIMA A BLOCCHI COSì COME FATTO PER THETA!
+                
+                
                 if par.remote_correlated
+                    r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
                     %indices are permutated in order to avoid deadlock
                     kindex=randperm(size(par.v_r,1));
                     for k=kindex
@@ -1404,12 +1415,38 @@ classdef stem_EM < EM
                         end
                     end
                 else
-                    for i=1:data.stem_varset_r.nvar
+                    if Nr<=obj.stem_EM_options.mstep_system_size
                         blocks=[0 cumsum(data.stem_varset_r.dim)];
-                        r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
-                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
-                            data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
-                        st_par_em_step.theta_r(i)=exp(min_result);
+                        for i=1:data.stem_varset_r.nvar
+                            r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
+                                data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            st_par_em_step.theta_r(i)=exp(min_result);
+                        end
+                    else
+                        blocks_var=[0 cumsum(data.stem_varset_r.dim)];
+                        for i=1:data.stem_varset_r.nvar
+                            s=ceil(data.stem_varset_r.dim(i)/obj.stem_EM_options.mstep_system_size);
+                            step=ceil(data.stem_varset_r.dim(i)/s);
+                            blocks=blocks_var(i):step:blocks_var(i+1);
+                            if not(blocks(end)==blocks_var(i+1))
+                                blocks=[blocks blocks_var(i+1)];
+                            end
+                            min_result=[];
+                            for j=1:length(blocks)-1
+                                block_size=blocks(j+1)-blocks(j);
+                                idx=blocks(j)+1:blocks(j+1);
+                                temp=zeros(block_size);
+                                for t=1:T
+                                    temp=temp+E_wr_y1(idx,t)*E_wr_y1(idx,t)';
+                                end
+                                temp=temp+sum_Var_wr_y1(idx,idx);
+                                r_partial=symamd(sum_Var_wr_y1(idx,idx));
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(idx,idx),...
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                            end
+                            st_par_em_step.theta_r(i)=exp(mean(min_result));
+                        end
                     end
                 end
                 ct2=clock;
@@ -1506,11 +1543,13 @@ classdef stem_EM < EM
                 ct2=clock;
                 disp(['    alpha_g update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 
-                %indices are permutated in order to avoid deadlock
+                
                 disp('    v_g and theta_g update started...');
                 ct1=clock;
                 r = symamd(sum_Var_wg_y1{1}); %note that sum_Var_wg_y1{1} and sigma_W_g{k} have the same sparseness structure
                 for z=1:K
+                    %AGGIUNGERE LA STIMA A BLOCCHI ANCHE PER v_g?????
+                    
                     if Ng<=obj.stem_EM_options.mstep_system_size
                         temp=zeros(size(sum_Var_wg_y1{z}));
                         for t=1:T
@@ -1519,6 +1558,7 @@ classdef stem_EM < EM
                         temp=temp+sum_Var_wg_y1{z};
                     end
                     
+                    %indices are permutated in order to avoid deadlock
                     kindex=randperm(size(par.v_g(:,:,z),1));
                     for k=kindex
                         hindex=randperm(size(par.v_g(:,:,z),1)-k)+k;
@@ -2124,7 +2164,9 @@ classdef stem_EM < EM
             par=obj.stem_model.stem_par;
             st_par_em_step=par;
             
-            inv_sigma_eps=diag(1./diag(sigma_eps));
+            d=1./diag(sigma_eps);
+            I=1:length(d);
+            inv_sigma_eps=sparse(I,I,d);
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %             beta update                %
@@ -2287,6 +2329,7 @@ classdef stem_EM < EM
                 disp(['    alpha_rg update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
 
                 disp('    v_r update started...');
+                %AGGIUNGERE LA STIMA A BLOCCHI ANCHE PER v_r?????
                 ct1=clock;
                 if Nr<=obj.stem_EM_options.mstep_system_size
                     temp=zeros(size(sum_Var_wr_y1));
@@ -2295,8 +2338,9 @@ classdef stem_EM < EM
                     end
                     temp=temp+sum_Var_wr_y1;
                 end
-                r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
+                
                 if par.remote_correlated
+                    r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
                     %indices are permutated in order to avoid deadlock
                     kindex=randperm(size(par.v_r,1));
                     for k=kindex
@@ -2356,12 +2400,38 @@ classdef stem_EM < EM
                         end
                     end
                 else
-                    for i=1:data.stem_varset_r.nvar
+                    if Nr<=obj.stem_EM_options.mstep_system_size
                         blocks=[0 cumsum(data.stem_varset_r.dim)];
-                        r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
-                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
-                            data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
-                        st_par_em_step.theta_r(i)=exp(min_result);
+                        for i=1:data.stem_varset_r.nvar
+                            r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
+                                data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            st_par_em_step.theta_r(i)=exp(min_result);
+                        end
+                    else
+                        blocks_var=[0 cumsum(data.stem_varset_r.dim)];
+                        for i=1:data.stem_varset_r.nvar
+                            s=ceil(data.stem_varset_r.dim(i)/obj.stem_EM_options.mstep_system_size);
+                            step=ceil(data.stem_varset_r.dim(i)/s);
+                            blocks=blocks_var(i):step:blocks_var(i+1);
+                            if not(blocks(end)==blocks_var(i+1))
+                                blocks=[blocks blocks_var(i+1)];
+                            end
+                            min_result=[];
+                            for j=1:length(blocks)-1
+                                block_size=blocks(j+1)-blocks(j);
+                                idx=blocks(j)+1:blocks(j+1);
+                                temp=zeros(block_size);
+                                for t=1:T
+                                    temp=temp+E_wr_y1(idx,t)*E_wr_y1(idx,t)';
+                                end
+                                temp=temp+sum_Var_wr_y1(idx,idx);
+                                r_partial=symamd(sum_Var_wr_y1(idx,idx));
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(idx,idx),...
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                            end
+                            st_par_em_step.theta_r(i)=exp(mean(min_result));
+                        end
                     end
                 end
                 ct2=clock;
