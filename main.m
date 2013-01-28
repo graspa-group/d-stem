@@ -123,10 +123,20 @@ if flag_estimate
     end
     
     if flag_w_ground
-        sd_g.X_g{1}=ones(n1,1,1,1);
-        sd_g.X_g_name{1}={'constant'};
-        sd_g.X_g{2}=ones(n2,1,1,1);
-        sd_g.X_g_name{2}={'constant'};        
+        x1_temp=sd_g.X_beta{1}(:,4,1);
+        x2_temp=sd_g.X_beta{1}(:,5,1);
+        x3_temp=sd_g.X_beta{1}(:,6,1);
+        sd_g.X_g{1}=cat(4,x1_temp,x2_temp,x3_temp);
+        sd_g.X_g_name{1}={'elevation','emission','population'};
+        x1_temp=sd_g.X_beta{2}(:,4,1);
+        x2_temp=sd_g.X_beta{2}(:,5,1);
+        x3_temp=sd_g.X_beta{2}(:,6,1);
+        sd_g.X_g{2}=cat(4,x1_temp,x2_temp,x3_temp);
+        sd_g.X_g_name{2}={'elevation','emission','population'};        
+%         sd_g.X_g{1}=ones(n1,1,1,1);
+%         sd_g.X_g_name{1}={'constant'};
+%         sd_g.X_g{2}=ones(n2,1,1,1);
+%         sd_g.X_g_name{2}={'constant'};        
     else
         sd_g.X_g=[];
         sd_g.X_g_name=[];
@@ -256,16 +266,16 @@ if flag_estimate
     % st_par initialization
     if flag_remote_data
         st_par.alpha_rg=[0.4 0.4 0.8 0.8]';
-        st_par.theta_r=[100 100]';
+        st_par.theta_r=[150 150]';
         st_par.v_r=eye(2);
     end
     if flag_beta_ground
         st_par.beta=st_model.get_beta0();
     end
     if flag_w_ground
-        st_par.alpha_g=[0.4 0.4]';
-        st_par.theta_g=[200]';
-        for i=1:1
+        st_par.alpha_g=[0.4 0.4;0.4 0.4;0.4 0.4]';
+        st_par.theta_g=[200 200 200]';
+        for i=1:3
             v_g(:,:,i)=[1 0.6;0.6 1];
         end
         st_par.v_g=v_g;

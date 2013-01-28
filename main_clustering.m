@@ -14,7 +14,7 @@
 
 %RandStream.setDefaultStream(RandStream('mt19937ar','seed',2222));
 
-flag_lakedata=1;
+flag_lakedata=0;
 
 flag_parallel=0;
 flag_covariates=0;
@@ -23,7 +23,7 @@ flag_simulatedata=0;
 flag_space=0;
 pathparallel='/opt/matNfs/';
 
-n_clusters=11;
+n_clusters=5;
 
 if flag_simulatedata
     %Data simulation
