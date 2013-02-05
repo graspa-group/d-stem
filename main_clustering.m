@@ -8,14 +8,14 @@
 % Release date: 15/05/2012                                     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%clc
-%clear all
-%close all
+clc
+clear all
+close all
 
 %RandStream.setDefaultStream(RandStream('mt19937ar','seed',2222));
 
-flag_lakedata=0;
-
+flag_lakedata=1;
+flag_singlelake=1;
 flag_parallel=0;
 flag_covariates=0;
 flag_remove_zero=0;
@@ -23,7 +23,7 @@ flag_simulatedata=0;
 flag_space=0;
 pathparallel='/opt/matNfs/';
 
-n_clusters=5;
+n_clusters=10;
 
 if flag_simulatedata
     %Data simulation
@@ -69,27 +69,35 @@ if flag_simulatedata
     shape=[];
 else
     if flag_lakedata
-        load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\lakes_data
-        load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\lakes_covariates.mat
-        idx=[];
-        id_vec=cell2mat(lakes_covariate(:,1));
-        for i=1:length(data.id_day)
-            idx=[idx;find(id_vec==data.id_day(i))];
+        if flag_singlelake
+            load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\data\victoria\victoria_lake.mat
+            shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\CNTR_BN_03M_2010');
+            sd_g.Y{1}=victoria_lake.temperature;
+            sd_g.Y_name={'temperature'};
+            st_grid=stem_grid([victoria_lake.lat,victoria_lake.lon],'deg','sparse','point');
+        else
+            load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\lakes_data
+            load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\lakes_covariates.mat
+            idx=[];
+            id_vec=cell2mat(lakes_covariate(:,1));
+            for i=1:length(data.id_day)
+                idx=[idx;find(id_vec==data.id_day(i))];
+            end
+            X=cell2mat(lakes_covariate(idx,[3,6,7,14]));
+            X_label=lakes_covariate_label([3,6,7,14]);
+            
+            shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\CNTR_BN_03M_2010');
+            temp=data.day;
+            if flag_remove_zero
+                temp(temp<=273.16)=NaN;
+            end
+            load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\residual_timeseries
+            sd_g.Y{1}=temp;
+            %sd_g.Y{1}=diff_all;
+            sd_g.Y_name={'temperature'};
+            %st_grid=stem_grid(data.coordinates_day(1:end-1,:),'deg','sparse','point');
+            st_grid=stem_grid(data.coordinates_day,'deg','sparse','point');
         end
-        X=cell2mat(lakes_covariate(idx,[3,6,7,14]));
-        X_label=lakes_covariate_label([3,6,7,14]);
-        
-        shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\CNTR_BN_03M_2010');
-        temp=data.day;
-        if flag_remove_zero
-            temp(temp<=273.16)=NaN;
-        end
-        load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\residual_timeseries
-        sd_g.Y{1}=temp;
-        %sd_g.Y{1}=diff_all;
-        sd_g.Y_name={'temperature'};
-        %st_grid=stem_grid(data.coordinates_day(1:end-1,:),'deg','sparse','point');
-        st_grid=stem_grid(data.coordinates_day,'deg','sparse','point');
     else
         load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\TOS_dataset
         shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\scotland_only');
@@ -139,14 +147,22 @@ st_gridlist_g.add(st_grid);
 %datestamp
 if not(flag_simulatedata)
     if flag_lakedata
-        st_datestamp=stem_datestamp(data.time(1),data.time(end),T);
+        if flag_singlelake
+            T=size(victoria_lake.temperature,2);           
+            st_datestamp=stem_datestamp(1,T,T);    
+        else
+            st_datestamp=stem_datestamp(data.time(1),data.time(end),T);
+        end
     else
         st_datestamp=stem_datestamp(1,T,T);
     end
     st_data=stem_data(st_varset_g,st_gridlist_g,[],[],st_datestamp,shape);
     if flag_lakedata
-        st_data.time_crop(T-365*5:T);
-        %st_data.time_average(7);
+        if flag_singlelake
+        else
+            st_data.time_crop(T-365*5:T);
+            %st_data.time_average(7);
+        end
     end
     st_data.standardize_sbs;
     %st_data.detrend;
@@ -157,7 +173,7 @@ end
 
 time_diagonal=1;
 clustering=1;
-theta_clustering=0;
+theta_clustering=0; %10
 st_par=stem_par(st_data,'exponential',0,time_diagonal,clustering,theta_clustering);
 st_model=stem_model(st_data,st_par);
 st_model.set_system_size();
@@ -259,7 +275,7 @@ if 1
                 plot(st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,2),st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,1),[ecolor,mark],'MarkerFaceColor',fcolor,'MarkerEdgeColor',ecolor,'MarkerSize',10,'LineWidth',1);
             else
                 msize=round(val(i)*10);
-                geoshow(st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,1),st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,2),'DisplayType','Point','Marker','o','MarkerFaceColor',color,'MarkerEdgeColor','k','MarkerSize',msize);
+                geoshow(st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,1),st_model.stem_data.stem_gridlist_g.grid{1}.coordinate(i,2),'DisplayType','point','Marker',mark,'MarkerFaceColor',fcolor,'MarkerEdgeColor',ecolor,'MarkerSize',10,'LineWidth',1);
             end
         end
         % [lon_click,lat_click] = ginput(1);

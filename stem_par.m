@@ -22,9 +22,9 @@ classdef stem_par
         n_beta=[];                          %[1 x 1 integer]
         correlation_type='exponential';     %[string] correlation function type  
         %constraints
-        time_diagonal=0;                    %[1 x 1 boolean]
-        clustering=0;                       %[1 x 1 boolean]
-        theta_clustering=0;                 %[1 x 1 double];
+        time_diagonal=0;                    %[1 x 1 boolean] force the matrix G and sigma_eta to be diagonal
+        clustering=0;                       %[1 x 1 boolean] enable or disable the estimation of X_time for clustering
+        theta_clustering=0;                 %[1 x 1 double] parameter of the spatial correlation fo clustering
         
         %estimated parameters
         beta=[];                            %[dim(n_beta) x 1 double] beta parameters

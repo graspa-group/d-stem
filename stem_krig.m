@@ -584,9 +584,16 @@ classdef stem_krig < handle
                 st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
                 if not(data.X_time_tv)
                     if obj.stem_model.tapering
+                        %migliorare la creazione della matrice sparsa!!!
                         var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
+                        if (size(data.X_time(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,1),1)));
+                        end
                     else
                         var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)';
+                        if (size(data.X_time(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,1),1)));
+                        end
                     end
                 end
                 if not(isempty(sigma_geo))
@@ -607,10 +614,20 @@ classdef stem_krig < handle
                 Xbeta=zeros(N,T);
                 if data.X_beta_tv
                     for t=1:T
-                        Xbeta(:,t)=data.X_beta(:,:,t)*par.beta;
+                        if size(data.X_beta(:,:,t),1)<N
+                            X_beta_orlated=[data.X_beta(:,:,t);zeros(N-size(data.X_beta(:,:,t),1),size(data.X_beta(:,:,t),2))];
+                        else
+                            X_beta_orlated=data.X_beta(:,:,t);
+                        end
+                        Xbeta(:,t)=X_beta_orlated*par.beta;
                     end
                 else
-                    Xbeta=repmat(data.X_beta(:,:,1)*par.beta,1,T);
+                    if size(data.X_beta(:,:,1),1)<N
+                        X_beta_orlated=[data.X_beta(:,:,1);zeros(N-size(data.X_beta(:,:,1),1),size(data.X_beta(:,:,1),2))];
+                    else
+                        X_beta_orlated=data.X_beta(:,:,1);
+                    end
+                    Xbeta=repmat(X_beta_orlated*par.beta,1,T);
                 end
                 res=res-Xbeta;
                 y_hat=Xbeta;
@@ -711,8 +728,14 @@ classdef stem_krig < handle
                             if data.X_time_tv
                                 if obj.stem_model.tapering
                                     var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
+                                    if (size(data.X_time(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,tT),1)));
+                                    end
                                 else
                                     var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
+                                    if (size(data.X_time(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,tT),1)));
+                                    end
                                 end
                             end
                             var_Yt=sigma_geo+var_Zt;
@@ -726,27 +749,33 @@ classdef stem_krig < handle
                 
                 %check if the temporal loadings are time variant
                 if not(isempty(data.X_time))
-                    temp=data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                    if size(data.X_time(:,:,tT),1)<N
+                        X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                    else
+                        X_time_orlated=data.X_time(:,:,tT);
+                    end
+                    temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                    
+                    
                     if N>obj.stem_model.system_size
                         blocks=0:80:size(diag_Var_e_y1,1);
                         if not(blocks(end)==size(diag_Var_e_y1,1))
                             blocks=[blocks size(diag_Var_e_y1,1)];
                         end
                         for i=1:length(blocks)-1
-                            %update diag(Var(e|y1))
-                            diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                            diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
                         end
                     else
-                        diag_Var_e_y1(:,t)=diag(temp*data.X_time(:,:,tT)');
+                        diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
                     end
                     temp=st_kalmansmoother_result.zk_s(:,t+1);
-                    y_hat(:,t)=y_hat(:,t)+data.X_time(:,:,tT)*temp;
+                    y_hat(:,t)=y_hat(:,t)+X_time_orlated*temp;
                 end
                 
                 if not(isempty(data.X_rg))||not(isempty(data.X_g))
                     %build the Ht matrix
                     if not(isempty(var_Zt))
-                        H1t=[var_Yt(Lt,Lt), data.X_time(Lt,:,tT)*sigma_Z; sigma_Z*data.X_time(Lt,:,tT)', sigma_Z];
+                        H1t=[var_Yt(Lt,Lt), X_time_orlated(Lt,:)*sigma_Z; sigma_Z*X_time_orlated(Lt,:)', sigma_Z];
                     else
                         H1t=var_Yt(Lt,Lt);
                         temp=[];
@@ -809,10 +838,11 @@ classdef stem_krig < handle
                                 blocks=[blocks size(diag_Var_e_y1,1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
                             end
                         else
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
+                            %faster for N small
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
                         end
                     else
                         cov_wr_z_y1=[];
@@ -868,10 +898,10 @@ classdef stem_krig < handle
                                     blocks=[blocks size(diag_Var_e_y1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
                                 end
                             else
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*data.X_time(:,:,tT)');
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
                             end
                         else
                             cov_wg_z_y1=[];
@@ -944,7 +974,7 @@ classdef stem_krig < handle
                     clear temp_g
                 end
                 t_partial2=clock;
-                disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
+                %disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
             var_y_hat=diag_Var_e_y1;
         end

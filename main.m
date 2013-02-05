@@ -24,8 +24,8 @@ flag_w_ground=1;
 flag_crossval=0;
 flag_tapering=0;
 
-flag_estimate=1;
-flag_kriging=0;
+flag_estimate=0;
+flag_kriging=1;
 
 pathparallel='/opt/matNfs/';
 if flag_estimate
@@ -310,16 +310,23 @@ if flag_estimate
 end
 
 if flag_kriging
-    load ../Data/no2_krig_coordinates_005.mat;
-    load ../Data/no2_krigmask_005.mat
+    load ../Data/output/model/st_model_20130204_030938.mat;
+    load('C:\Francesco\My Dropbox\air_quality_code_and_data\Output\krig_all_005_southwest_europe.mat');
+    krig_lat=krig_meteo_005.lat;
+    krig_lon=krig_meteo_005.lon;
+    krig_mask=krig_elevation_005.data_mask(:);
+    clear krig_elevation_005
+    clear krig_emission_005
+    clear krig_meteo_005
+    clear krig_population_005
+
     st_krig=stem_krig(st_model);
-    st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[640,920],'square',0.05,0.05);
+    st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[230,580],'square',0.05,0.05);
     back_transform=1;
     no_varcov=0;
-    block_size=10000;
-    mask=krig_mask;
+    block_size=500;
     X_krig='../Data/blocks/';
-    st_krig_result=st_krig.kriging('no2',st_krig_grid,block_size,mask,X_krig,back_transform,no_varcov);
+    st_krig_result=st_krig.kriging('no2 ground',st_krig_grid,block_size,krig_mask,X_krig,back_transform,no_varcov);
     save st_krig_result st_krig_result -v7.3
 end
 

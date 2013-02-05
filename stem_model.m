@@ -993,6 +993,7 @@ classdef stem_model < handle
                             [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}),L);
                             elements=d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}(L);
                             d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=sparse(Id,Jd,elements,N,N);
+                            z=z+1;
                         end
                     end
                 end
@@ -1097,12 +1098,13 @@ classdef stem_model < handle
                     if n_g_v>0
                         z=1;
                         for k=1:par.k
-                            for j=1:q*(q-1)
+                            for j=1:q*(q-1)/2
                                 d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z},obj.stem_data.X_g(:,1,tG,k),'b');
                                 L=find(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z});
                                 [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}),L);
                                 elements=d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}(L);
                                 d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+n_g_alpha+n_g_theta+z}=sparse(Id,Jd,elements,N,N);
+                                z=z+1;
                             end
                         end
                     end

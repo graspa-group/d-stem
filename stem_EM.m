@@ -269,7 +269,7 @@ classdef stem_EM < EM
                     
                     %if there is at least one client then distribute the st_model
                     if nhosts>=1
-                        disp(['    ',num2str(nhosts),' parallel client(s) found']);
+                        disp(['  ',num2str(nhosts),' parallel client(s) found']);
                         disp('  Saving st_model to distribute');
                         st_model=obj.stem_model;
                         for i=1:nhosts
@@ -544,14 +544,14 @@ classdef stem_EM < EM
                     for i=1:nhosts
                         data.iteration=iteration;
                         data.index=index{i};
-                        disp(['     Preparing M-step data for client ',num2str(hosts(i).IPaddress)]);
+                        disp(['    Preparing M-step data for client ',num2str(hosts(i).IPaddress)]);
                         data.sum_Var_wg_y1=sum_Var_wg_y1(index{i});
                         data.E_wg_y1=E_wg_y1(:,:,index{i});
                         data.r=r;
-                        disp(['     Sending M-step data to client ',num2str(hosts(i).IPaddress)]);
+                        disp(['    Sending M-step data to client ',num2str(hosts(i).IPaddress)]);
                         save([pathparallel,'temp/data_parallel_mstep',num2str(hosts(i).IPaddress),'.mat'],'data');
                         movefile([pathparallel,'temp/data_parallel_mstep',num2str(hosts(i).IPaddress),'.mat'],[pathparallel,'data_parallel_mstep',num2str(hosts(i).IPaddress),'.mat']);
-                        disp(['     M-Step data sent.']);
+                        disp(['    M-Step data sent.']);
                     end
                     %M-step locale
                     obj.M_step_parallel(E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index_local);

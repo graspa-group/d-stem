@@ -14,7 +14,7 @@
 
 %RandStream.setDefaultStream(RandStream('mt19937ar','seed',2222));
 
-flag_lakedata=1;
+flag_lakedata=0;
 
 flag_parallel=0;
 flag_covariates=0;
@@ -24,8 +24,9 @@ flag_space=0;
 pathparallel='/opt/matNfs/';
 
 max_log=-999999;
-n_clusters=16;
-for zz=1:30
+n_clusters=8;
+
+for zz=1:50
     if flag_simulatedata
         %Data simulation
         phase_step=10; %degree
@@ -159,7 +160,7 @@ for zz=1:30
     
     time_diagonal=1;
     clustering=1;
-    theta_clustering=0;
+    theta_clustering=10;
     st_par=stem_par(st_data,'exponential',0,time_diagonal,clustering,theta_clustering);
     st_model=stem_model(st_data,st_par);
     st_model.set_system_size();
