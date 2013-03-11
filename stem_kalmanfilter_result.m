@@ -14,17 +14,17 @@ classdef stem_kalmanfilter_result < handle
         zk_u = [];
         Pk_f = [];
         Pk_u = [];
-        J    = [];
+        J_last=[];
         logL = [];
     end
     
     methods
-        function obj = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J,logL)
+        function obj = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,logL)
             obj.zk_f=zk_f;
             obj.zk_u=zk_u;
             obj.Pk_f=Pk_f;
             obj.Pk_u=Pk_u;
-            obj.J=J;
+            obj.J_last=J_last;
             obj.logL=logL;
         end
     end

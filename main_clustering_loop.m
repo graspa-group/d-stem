@@ -24,7 +24,7 @@ flag_space=0;
 pathparallel='/opt/matNfs/';
 
 max_log=-999999;
-n_clusters=8;
+n_clusters=3;
 
 for zz=1:50
     if flag_simulatedata
@@ -97,8 +97,12 @@ for zz=1:50
             shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\scotland_only');
             shape_water = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\waterways');
             shape_natural = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\natural');
-            Y=data.Y_rivers_monthly_small;
-            coordinates=data.river_coordinates;
+            %Y=data.Y_rivers_monthly_small;
+            %coordinates=data.river_coordinates;
+            %Y=data.Y_lakes_monthly_small;
+            %coordinates=data.lake_coordinates;
+            Y=data.Y_monthly_small;
+            coordinates=[data.lake_coordinates;data.river_coordinates];
             sd_g.Y{1}=Y;
             sd_g.Y_name={'TOC'};
             st_grid=stem_grid(coordinates,'deg','sparse','point');
@@ -160,7 +164,7 @@ for zz=1:50
     
     time_diagonal=1;
     clustering=1;
-    theta_clustering=10;
+    theta_clustering=30;
     st_par=stem_par(st_data,'exponential',0,time_diagonal,clustering,theta_clustering);
     st_model=stem_model(st_data,st_par);
     st_model.set_system_size();

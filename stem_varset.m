@@ -141,10 +141,10 @@ classdef stem_varset < handle
         
         function standardize_sbs(obj)
             for i=1:length(obj.Y)
-                for j=1:size(obj.Y{i},1)
-                    m1=nanmean(obj.Y{i}(j,:));
-                    std1=nanstd(obj.Y{i}(j,:));
-                    obj.Y{i}(j,:)=(obj.Y{i}(j,:)-m1)/std1;
+                m1=nanmean(obj.Y{i},2);
+                std1=nanstd(obj.Y{i},1,2);
+                for j=1:size(obj.Y{i},2)
+                    obj.Y{i}(:,j)=(obj.Y{i}(:,j)-m1)./std1;
                 end
             end
             

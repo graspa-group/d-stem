@@ -696,7 +696,7 @@ classdef stem_EM < EM
                 %Kalman smoother
                 st_kalman=stem_kalman(obj.stem_model);
                 [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
-                if not(data.X_time_tv)
+                if not(data.X_time_tv)&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
                         var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
@@ -710,15 +710,15 @@ classdef stem_EM < EM
                         end
                     end
                 end
-                if not(isempty(sigma_geo))
+                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
                     var_Yt=sigma_geo+var_Zt;
                 end
             else
                 [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,~,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
                 st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);
                 var_Zt=[];
-                %variance of Y
-                if not(isempty(sigma_geo))
+                
+                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
                 end
             end
@@ -1618,49 +1618,95 @@ classdef stem_EM < EM
             if obj.stem_model.stem_par.clustering==1
                 X_time_new=data.stem_varset_g.X_time{1};
                 if not(isempty(st_kalmansmoother_result))
-                    %correlation computation
-                    for i=1:N
-                        L=not(isnan(data.Y(i,:)));
-                        a=data.Y(i,L)';
-                        for j=1:par.p
-                            b=st_kalmansmoother_result.zk_s(j,2:end)';
-                            b=b(L);
+                    if size(X_time_new,3)==1
+                        %correlation computation
+                        for i=1:N
+                            L=not(isnan(data.Y(i,:)));
+                            a=data.Y(i,L)';
+                            b=st_kalmansmoother_result.zk_s(:,2:end)';
+                            b=b(L,:);
                             if not(isempty(b))
                                 temp=corr(a,b);
                             else
-                                temp=0.0001;
+                                temp=repmat(0.0001,1,par.p);
                             end
-                            if temp<=0
-                                temp=0.0001;
-                            end
-                            if isnan(temp)
-                                temp=0.0001;
-                            end
-                            c(j)=temp;
+                            temp(temp<=0)=0.0001;
+                            temp(isnan(temp))=0.0001;
+                            X_time_new(i,:)=temp;
                         end
-                        X_time_new(i,:)=c;
-                    end
-                    
-                    theta_clustering=obj.stem_model.stem_par.theta_clustering;
-                    if theta_clustering>0
-                        X_time_new2=zeros(size(X_time_new));
-                        for i=1:N
-                            v=exp(-obj.stem_model.stem_data.DistMat_g(:,i)/theta_clustering);
-                            for j=1:par.p
-                                X_time_new2(i,j)=(v'*X_time_new(:,j))/length(v);
+                        
+                        theta_clustering=obj.stem_model.stem_par.theta_clustering;
+                        if theta_clustering>0
+                            X_time_new2=zeros(size(X_time_new));
+                            for i=1:N
+                                v=exp(-obj.stem_model.stem_data.DistMat_g(:,i)/theta_clustering);
+                                for j=1:par.p
+                                    X_time_new2(i,j)=(v'*X_time_new(:,j))/length(v);
+                                end
                             end
+                            X_time_new=X_time_new2;
                         end
-                        X_time_new=X_time_new2;
-                    end
-                    
-                    %weight computation
-                    for i=1:N
-                        c=X_time_new(i,:);
+                        
+                        %weight computation
                         for h=1:iteration
-                            c=c.^2;
-                            c=c./sum(c);
+                            X_time_new=X_time_new.^2;
+                            ss=sum(X_time_new,2);
+                            for j=1:size(X_time_new,2)
+                                X_time_new(:,j)=X_time_new(:,j)./ss;
+                            end
                         end
-                        X_time_new(i,:)=c;
+                    else
+                        %correlation computation
+                        for t=1:T
+                            t1=t-30;
+                            t2=t+30;
+                            if t1<1
+                                t1=1;
+                            end
+                            if t2>T
+                                t2=T;
+                            end
+                            Y_temp=data.Y(:,t1:t2);
+                            z_temp=st_kalmansmoother_result.zk_s(:,t1+1:t2+1)';
+                            parfor i=1:N
+                                L=not(isnan(Y_temp(i,:)));
+                                a=Y_temp(i,L)';
+                                b=z_temp(L,:);
+                                if not(isempty(b))
+                                    temp=corr(a,b);
+                                else
+                                    temp=repmat(0.0001,1,par.p);
+                                end
+                                temp(temp<=0)=0.0001;
+                                temp(isnan(temp))=0.0001;
+                                X_time_new(i,:,t)=temp;
+                            end
+                        end
+                        
+                        theta_clustering=obj.stem_model.stem_par.theta_clustering;
+                        if theta_clustering>0
+                            X_time_new2=zeros(size(X_time_new));
+                            for t=1:T
+                                for i=1:N
+                                    v=exp(-obj.stem_model.stem_data.DistMat_g(:,i)/theta_clustering);
+                                    for j=1:par.p
+                                        X_time_new2(i,j,t)=(v'*X_time_new(:,j,t))/length(v);
+                                    end
+                                end
+                            end
+                            X_time_new=X_time_new2;
+                        end
+                        
+                        %weight computation
+                        for h=1:iteration
+                            X_time_new=X_time_new.^2;
+                            for t=1:T
+                                ss=sum(X_time_new(:,:,t),2);
+                                for j=1:size(X_time_new,2)
+                                    X_time_new(:,j,t)=X_time_new(:,j,t)./ss;
+                                end
+                            end
+                        end
                     end
                 else
                     error('The Kalman smoother output is empty');
@@ -1697,7 +1743,7 @@ classdef stem_EM < EM
             
             [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
             if p>0
-                if not(data.X_time_tv)
+                if not(data.X_time_tv)&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
                         var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
@@ -1711,14 +1757,14 @@ classdef stem_EM < EM
                         end
                     end
                 end
-                if not(isempty(sigma_geo))
+                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
                     var_Yt=sigma_geo+var_Zt;
                 end                
             else
                 st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);    
                 var_Zt=[];
                 %variance of Y
-                if not(isempty(sigma_geo))
+                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
                 end                
             end            

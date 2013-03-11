@@ -48,11 +48,11 @@ classdef stem_kalman < handle
             
             tapering=obj.stem_model.tapering;            
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J,logL] = stem_kalman.Kfilter(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
             end
-            st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J,logL);
+            st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,logL);
             
             ct2=clock;
             disp(['    Kalman filter ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
@@ -93,7 +93,7 @@ classdef stem_kalman < handle
     
     methods (Static)
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J,logL] = Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL)
             if nargin<13
                 error('You have to provide all the input arguments');
             end
@@ -143,8 +143,8 @@ classdef stem_kalman < handle
             zk_u=zeros(p,T+1);
             Pk_f=zeros(p,p,T+1);
             Pk_u=zeros(p,p,T+1);
-            J=zeros(p,size(Y,1),T+1);
-            innovation=zeros(size(Y,1),T);
+            J=zeros(p,size(Y,1));
+            innovation=zeros(size(Y,1),1);
             
             zk_u(:,1)=z0;
             Pk_u(:,:,1)=P0;
@@ -238,7 +238,8 @@ classdef stem_kalman < handle
                         end
                         temp=X_time_orlated'/temp;
                     else
-                        sigma_geo_inv=diag(1./diag(temp));
+                        d=1./diag(temp);
+                        sigma_geo_inv=sparse(1:length(d),1:length(d),d); %sigma_geo_inv=diag(1./diag(temp));
                         temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
                         for i=1:size(temp,1)
                             temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
@@ -265,16 +266,16 @@ classdef stem_kalman < handle
                     end
                     
                     temp3=sparse(Pk_f(:,:,t)*X_time_orlated');
-                    J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
+                    J(:,Lt)=Pk_f(:,:,t)*temp-temp3*temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp;
                          
                     if not(isempty(X_beta))
-                        innovation(Lt,t-1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                        innovation(Lt,1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                     else
-                        innovation(Lt,t-1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                        innovation(Lt,1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                     end
                     
-                    zk_u(:,t)=zk_f(:,t)+J(:,Lt,t)*innovation(Lt,t-1); 
-                    Pk_u(:,:,t)=(eye(p)-J(:,Lt,t)*X_time_orlated)*Pk_f(:,:,t);  %(6.22) Stoffer
+                    zk_u(:,t)=zk_f(:,t)+J(:,Lt)*innovation(Lt,1); 
+                    Pk_u(:,:,t)=(eye(p)-J(:,Lt)*X_time_orlated)*Pk_f(:,:,t);  %(6.22) Stoffer
                 else
                     %filter
                     zk_f(:,t)=diag(G).*zk_u(:,t-1); %(6.19) Stoffer
@@ -294,28 +295,32 @@ classdef stem_kalman < handle
                         sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
                     end
                     temp3=Pk_f(:,:,t)*X_time_orlated';
-                    J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(P+temp2)*temp);
+                    J(:,Lt)=Pk_f(:,:,t)*temp-temp3*temp'/(P+temp2)*temp;
                     
                     if not(isempty(X_beta))
-                        innovation(Lt,t-1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                        innovation(Lt,1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                     else
-                        innovation(Lt,t-1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                        innovation(Lt,1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                     end
                     
-                    zk_u(:,t)=zk_f(:,t)+J(:,Lt,t)*innovation(Lt,t-1);
-                    Pk_u(:,:,t)=diag(diag((eye(p)-J(:,Lt,t)*X_time_orlated)).*diag(Pk_f(:,:,t))); %(6.22) Stoffer
+                    zk_u(:,t)=zk_f(:,t)+J(:,Lt)*innovation(Lt,1);
+                    Pk_u(:,:,t)=diag(diag((eye(p)-J(:,Lt)*X_time_orlated)).*diag(Pk_f(:,:,t))); %(6.22) Stoffer
                 end
                 if compute_logL
                     r = symamd(sigma_t_inv);
                     c=chol(sigma_t_inv(r,r));
                     logL=logL+(-2*sum(log(diag(c))));
-                    logL=logL+innovation(Lt,t-1)'*sigma_t_inv*innovation(Lt,t-1);
+                    logL=logL+innovation(Lt,1)'*sigma_t_inv*innovation(Lt,1);
                 end
+                clear temp
+                clear temp2
+                clear temp3
             end
             logL=-logL/2;
+            J_last=J;
         end
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J,logL] = Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL)
             if nargin<20
                 error('You have to provide all the input arguments');
             end
@@ -376,8 +381,8 @@ classdef stem_kalman < handle
             zk_u=zeros(p,T+1);
             Pk_f=zeros(p,p,T+1);
             Pk_u=zeros(p,p,T+1);
-            J=zeros(p,size(Y,1),T+1);
-            innovation=zeros(size(Y,1),T);
+            J=zeros(p,size(Y,1));
+            innovation=zeros(size(Y,1),1);
             
             zk_u(:,1)=z0;
             Pk_u(:,:,1)=P0;
@@ -508,7 +513,8 @@ classdef stem_kalman < handle
                                     end
                                     temp=X_time_orlated'/temp;
                                 else
-                                    sigma_geo_inv=diag(1./diag(temp));
+                                    d=1./diag(temp);
+                                    sigma_geo_inv=sparse(1:length(d),1:length(d),d); %sigma_geo_inv=diag(1./diag(temp));
                                     temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
                                     for i=1:size(temp,1)
                                         temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
@@ -517,24 +523,24 @@ classdef stem_kalman < handle
                             end
                             temp2=temp*X_time_orlated;
                             temp3=Pk_f(:,:,t)*X_time_orlated';
-                            J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
+                            J(:,Lt)=Pk_f(:,:,t)*temp-temp3*temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp;
                         else
                             %temp and temp2 has been already reader from the file
                             temp3=Pk_f(:,:,t)*X_time_orlated';
-                            J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp);
+                            J(:,Lt)=Pk_f(:,:,t)*temp-temp3*temp'/(Pk_f(:,:,t)\eye(size(temp2))+temp2)*temp;
                         end
                         if compute_logL
                             sigma_t_inv=sigma_geo_inv-(temp'/((Pk_f(:,:,t)\eye(size(temp2)))+temp2))*temp;
                         end
 
                         if not(isempty(X_beta))
-                            innovation(Lt,t-1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                            innovation(Lt,1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                         else
-                            innovation(Lt,t-1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                            innovation(Lt,1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                         end
                         
-                        zk_u(:,t)=zk_f(:,t)+J(:,Lt,t)*innovation(Lt,t-1);
-                        Pk_u(:,:,t)=(eye(p)-J(:,Lt,t)*X_time_orlated)*Pk_f(:,:,t);  %(6.22) Stoffer
+                        zk_u(:,t)=zk_f(:,t)+J(:,Lt)*innovation(Lt,1);
+                        Pk_u(:,:,t)=(eye(p)-J(:,Lt)*X_time_orlated)*Pk_f(:,:,t);  %(6.22) Stoffer
                     else
                         %filter
                         zk_f(:,t)=diag(G).*zk_u(:,t-1); %(6.19) Stoffer
@@ -575,7 +581,8 @@ classdef stem_kalman < handle
                                     end
                                     temp=X_time_orlated'/temp;
                                 else
-                                    sigma_geo_inv=diag(1./diag(temp));
+                                    d=1./diag(temp);
+                                    sigma_geo_inv=sparse(1:length(d),1:length(d),d); %sigma_geo_inv=diag(1./diag(temp));
                                     temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
                                     for i=1:size(temp,1)
                                         temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
@@ -591,25 +598,26 @@ classdef stem_kalman < handle
                             sigma_t_inv=sigma_geo_inv-(temp'/(P+temp2))*temp;
                         end
                         temp3=Pk_f(:,:,t)*X_time_orlated';
-                        J(:,Lt,t)=Pk_f(:,:,t)*temp-temp3*(temp'/(P+temp2)*temp);      
+                        J(:,Lt)=Pk_f(:,:,t)*temp-temp3*temp'/(P+temp2)*temp;      
                         
                         if not(isempty(X_beta))
-                            innovation(Lt,t-1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                            innovation(Lt,1)=Y(Lt,t-1)-X_beta_orlated*beta-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                         else
-                            innovation(Lt,t-1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
+                            innovation(Lt,1)=Y(Lt,t-1)-X_time_orlated*zk_f(:,t); %(6.21) Stoffer %note the t-1 on Y and X
                         end
                         
-                        zk_u(:,t)=zk_f(:,t)+J(:,Lt,t)*innovation(Lt,t-1);
-                        Pk_u(:,:,t)=diag(diag((eye(p)-J(:,Lt,t)*X_time_orlated)).*diag(Pk_f(:,:,t))); %(6.22) Stoffer
+                        zk_u(:,t)=zk_f(:,t)+J(:,Lt)*innovation(Lt,1);
+                        Pk_u(:,:,t)=diag(diag((eye(p)-J(:,Lt)*X_time_orlated)).*diag(Pk_f(:,:,t))); %(6.22) Stoffer
                     end
                     if compute_logL
                         r = symamd(sigma_t_inv);
                         c=chol(sigma_t_inv(r,r));
                         logL=logL+1/(2*sum(log(diag(c))));
-                        logL=logL+innovation(Lt,t-1)'*sigma_t_inv*innovation(Lt,t-1);
+                        logL=logL+innovation(Lt,1)'*sigma_t_inv*innovation(Lt,1);
                     end
                 end
                 logL=-logL/2;
+                J_last=J;
             else
                 %client computation
                 for t=time_steps
@@ -673,7 +681,8 @@ classdef stem_kalman < handle
                         if not(stem_misc.isdiagonal(temp))
                             temp=X_time_orlated'/temp;
                         else
-                            sigma_geo_inv=diag(1./diag(temp));
+                            d=1./diag(temp);
+                            sigma_geo_inv=sparse(1:length(d),1:length(d),d); %sigma_geo_inv=diag(1./diag(temp));
                             temp=zeros(size(X_time_orlated,2),size(X_time_orlated,1));
                             for i=1:size(temp,1)
                                 temp(i,:)=X_time_orlated(:,i).*diag(sigma_geo_inv);
@@ -686,14 +695,15 @@ classdef stem_kalman < handle
                     movefile([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],[pathparallel,'kalman_ouput_',num2str(t),'.mat']);
                     %disp(['Saved kalman_ouput_',num2str(t),'.mat']);
                 end
+                J_last=[];
             end
         end
         
         function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL)
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J,logL] = stem_kalman.Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J,logL] = stem_kalman.Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
             end
             
             p=size(G,1);
@@ -719,7 +729,7 @@ classdef stem_kalman < handle
             X_time_orlated=[X_time_orlated;zeros(N-size(X_time_orlated,1),size(X_time_orlated,2))];
             X_time_orlated=X_time_orlated(Lt,:);
             
-            PPk_s(:,:,end)=(eye(p)-J(:,Lt,end)*X_time_orlated)*G*Pk_u(:,:,end-1); %(6.55) Stoffer
+            PPk_s(:,:,end)=(eye(p)-J_last(:,Lt)*X_time_orlated)*G*Pk_u(:,:,end-1); %(6.55) Stoffer
             for t=T+1:-1:3
                 PPk_s(:,:,t-1)=Pk_u(:,:,t-1)*H(:,:,t-2)'+H(:,:,t-1)*(PPk_s(:,:,t)-G*Pk_u(:,:,t-1))*H(:,:,t-2)'; %(6.56) Stoffer
             end

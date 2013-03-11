@@ -14,16 +14,19 @@ close all
 
 %RandStream.setDefaultStream(RandStream('mt19937ar','seed',2222));
 
-flag_lakedata=1;
-flag_singlelake=1;
+flag_lakedata=0;
+flag_singlelake=0;
+flag_no2=0;
+
 flag_parallel=0;
 flag_covariates=0;
 flag_remove_zero=0;
 flag_simulatedata=0;
+flag_time_variant_clustering=0;
 flag_space=0;
 pathparallel='/opt/matNfs/';
 
-n_clusters=10;
+n_clusters=3;
 
 if flag_simulatedata
     %Data simulation
@@ -75,6 +78,9 @@ else
             sd_g.Y{1}=victoria_lake.temperature;
             sd_g.Y_name={'temperature'};
             st_grid=stem_grid([victoria_lake.lat,victoria_lake.lon],'deg','sparse','point');
+            %sd_g.Y{1}=randn(1000000,100);
+            %sd_g.Y_name={'temperature'};
+            %st_grid=stem_grid(randn(1000000,2),'deg','sparse','point');
         else
             load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\lakes_data
             load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\lakes_covariates.mat
@@ -99,15 +105,29 @@ else
             st_grid=stem_grid(data.coordinates_day,'deg','sparse','point');
         end
     else
-        load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\TOS_dataset
-        shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\scotland_only');
-        shape_water = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\waterways');
-        shape_natural = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\natural');
-        Y=data.Y_rivers_monthly_small;
-        coordinates=data.river_coordinates;
-        sd_g.Y{1}=Y;
-        sd_g.Y_name={'TOC'};
-        st_grid=stem_grid(coordinates,'deg','sparse','point');
+        if flag_no2
+            load ../Data/no2_ground/no2_ground_background.mat
+            shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\arclake\lake_average\CNTR_BN_03M_2010');
+            Y=no2_ground.data;
+            coordinates=[no2_ground.lat,no2_ground.lon];
+            sd_g.Y{1}=Y;
+            sd_g.Y_name={'NO2'};
+            st_grid=stem_grid(coordinates,'deg','sparse','point');
+        else
+            load C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\TOS_dataset
+            shape = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\scotland_only');
+            shape_water = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\waterways');
+            shape_natural = shaperead('C:\Francesco\Universita\Ricerca\Visiting\2012_Glasgow\ricerca\TOS\Maps\natural');
+            Y=data.Y_rivers_monthly_small;
+            coordinates=data.river_coordinates;
+            %Y=data.Y_lakes_monthly_small;
+            %coordinates=data.lake_coordinates;
+            %Y=data.Y_monthly_small;
+            %coordinates=[data.lake_coordinates;data.river_coordinates];
+            sd_g.Y{1}=Y;
+            sd_g.Y_name={'TOC'};
+            st_grid=stem_grid(coordinates,'deg','sparse','point');
+        end
     end
 end
 
@@ -115,14 +135,22 @@ end
 
 N=size(sd_g.Y{1},1);
 T=size(sd_g.Y{1},2);
+
 w=unifrnd(0,1,N,n_clusters);
 s=sum(w,2);
-sd_g.X_time_name{1}=[];
 for i=1:n_clusters
     w(:,i)=w(:,i)./s;
-    sd_g.X_time_name{1}{i}={['weights_',num2str(i)]};
+end
+
+if flag_time_variant_clustering
+    w=repmat(w,[1,1,T]);
 end
 sd_g.X_time{1}=w;
+
+sd_g.X_time_name{1}=[];
+for i=1:n_clusters
+    sd_g.X_time_name{1}{i}={['weights_',num2str(i)]};
+end
 
 if flag_covariates
     sd_g.X_beta{1}=X;
@@ -148,7 +176,8 @@ st_gridlist_g.add(st_grid);
 if not(flag_simulatedata)
     if flag_lakedata
         if flag_singlelake
-            T=size(victoria_lake.temperature,2);           
+            T=size(victoria_lake.temperature,2);  
+            %T=100;
             st_datestamp=stem_datestamp(1,T,T);    
         else
             st_datestamp=stem_datestamp(data.time(1),data.time(end),T);
@@ -159,13 +188,13 @@ if not(flag_simulatedata)
     st_data=stem_data(st_varset_g,st_gridlist_g,[],[],st_datestamp,shape);
     if flag_lakedata
         if flag_singlelake
+
         else
             st_data.time_crop(T-365*5:T);
             %st_data.time_average(7);
         end
     end
     st_data.standardize_sbs;
-    %st_data.detrend;
 else
     st_datestamp=stem_datestamp(1,T,T);
     st_data=stem_data(st_varset_g,st_gridlist_g,[],[],st_datestamp,shape); 
@@ -190,8 +219,10 @@ st_par.sigma_eps=diag(0.2);
 st_model.set_initial_values(st_par);
 
 %model estimation
-st_EM_options=stem_EM_options(0.001,50,'single',[],0);
+st_EM_options=stem_EM_options(0.001,100,'single',[],0);
+%matlabpool(8);
 st_model.EM_estimate(st_EM_options);
+%matlabpool close
 st_model.set_logL;
 st_model.stem_EM_result.logL
 round(sum(st_model.stem_data.X_time))
@@ -204,22 +235,92 @@ if 1
         if flag_lakedata
             mapshow(st_model.stem_data.shape,'Color', 'black');
         else
-            axesm('MapProjection','sinusoid','MapLatLimit',[54.5 61],'MapLonLimit',[-8 0],...
-                'MLineLocation',1,'PLineLocation',1,'GColor',[0 0 0],'ParallelLabel','on','MeridianLabel','on','Grid','on')
-            st_model.stem_data.shape.X(isnan(st_model.stem_data.shape.X))=0;
-            st_model.stem_data.shape.Y(isnan(st_model.stem_data.shape.Y))=0;
-            indices=find(st_model.stem_data.shape.X==0);
-            for j=1:length(indices)-1
-                geoshow(st_model.stem_data.shape.Y(indices(j)+1:indices(j+1)-1),st_model.stem_data.shape.X(indices(j)+1:indices(j+1)-1),'DisplayType','polygon','FaceColor','none');
+            if flag_no2
+                mapshow(st_model.stem_data.shape,'Color', 'black');
+            else
+                axesm('MapProjection','sinusoid','MapLatLimit',[54.5 61],'MapLonLimit',[-8 0],...
+                    'MLineLocation',1,'PLineLocation',1,'GColor',[0 0 0],'ParallelLabel','on','MeridianLabel','on','Grid','on')
+                st_model.stem_data.shape.X(isnan(st_model.stem_data.shape.X))=0;
+                st_model.stem_data.shape.Y(isnan(st_model.stem_data.shape.Y))=0;
+                indices=find(st_model.stem_data.shape.X==0);
+                for j=1:length(indices)-1
+                    geoshow(st_model.stem_data.shape.Y(indices(j)+1:indices(j+1)-1),st_model.stem_data.shape.X(indices(j)+1:indices(j+1)-1),'DisplayType','polygon','FaceColor','none');
+                end
+                
+                %     for j=1:length(shape_water)
+                %         geoshow(shape_natural(j).Y,shape_natural(j).X,'DisplayType','polygon','FaceColor','none','EdgeColor','blue');
+                %     end
             end
-            
-            %     for j=1:length(shape_water)
-            %         geoshow(shape_natural(j).Y,shape_natural(j).X,'DisplayType','polygon','FaceColor','none','EdgeColor','blue');
-            %     end
         end
         hold on
         
         for i=1:length(idx)
+%             switch idx(i)
+%                 case 1
+%                     ecolor='k';
+%                     fcolor='r';
+%                     mark='o';
+%                 case 2
+%                     ecolor='k';
+%                     fcolor='b';
+%                     mark='o';
+%                 case 3
+%                     ecolor='k';
+%                     fcolor='g';
+%                     mark='o';
+%                 case 4
+%                     ecolor='k';
+%                     fcolor='c';
+%                     mark='o';
+%                 case 5
+%                     ecolor='k';
+%                     fcolor='m';
+%                     mark='o';
+%                 case 6
+%                     ecolor='k';
+%                     fcolor='y';
+%                     mark='o';
+%                 case 7
+%                     ecolor='k';
+%                     fcolor='k';
+%                     mark='o';
+%                 case 8
+%                     ecolor='k';
+%                     fcolor='w';
+%                     mark='o';
+%                 case 9
+%                     ecolor='k';
+%                     fcolor='r';
+%                     mark='^';
+%                 case 10
+%                     ecolor='k';
+%                     fcolor='b';
+%                     mark='^';
+%                 case 11
+%                     ecolor='k';
+%                     fcolor='g';
+%                     mark='^';
+%                 case 12
+%                     ecolor='k';
+%                     fcolor='c';
+%                     mark='^';
+%                 case 13
+%                     ecolor='k';
+%                     fcolor='m';
+%                     mark='^';
+%                 case 14
+%                     ecolor='k';
+%                     fcolor='y';
+%                     mark='^';
+%                 case 15
+%                     ecolor='k';
+%                     fcolor='k';
+%                     mark='^';
+%                 case 16
+%                     ecolor='k';
+%                     fcolor='w';
+%                     mark='^';                  
+%             end            
             switch idx(i)
                 case 1
                     ecolor='k';
@@ -257,11 +358,11 @@ if 1
                     ecolor='k';
                     fcolor=[0.3 0.3 0.3];
                     mark='d';
-                case 10
+                case 3
                     ecolor='k';
                     fcolor=[0.3 0.3 0.3];
                     mark='o';
-                case 3
+                case 10
                     ecolor='k';
                     fcolor=[0.7 0.7 0.7];
                     mark='d';
@@ -367,11 +468,11 @@ if 1
                 end
                 mult_value=mult_value/counter2;
                 mult_value=1;
-                plot(mult_value*st_model.stem_EM_result.stem_kalmansmoother_result.zk_s(counter,2:end)','LineWidth',3,'Color','b');
+                plot(mult_value*st_model.stem_EM_result.stem_kalmansmoother_result.zk_s(counter,2:end)','LineWidth',1,'Color','b');
                 temp1=mult_value*(st_model.stem_EM_result.stem_kalmansmoother_result.zk_s(counter,2:end)'+3*sqrt(squeeze(st_model.stem_EM_result.stem_kalmansmoother_result.Pk_s(counter,counter,2:end))));
                 temp2=mult_value*(st_model.stem_EM_result.stem_kalmansmoother_result.zk_s(counter,2:end)'-3*sqrt(squeeze(st_model.stem_EM_result.stem_kalmansmoother_result.Pk_s(counter,counter,2:end))));
-                plot(temp1,'LineWidth',2,'Color','b','LineStyle','--');
-                plot(temp2,'LineWidth',2,'Color','b','LineStyle','--');
+                %plot(temp1,'LineWidth',2,'Color','b','LineStyle','--');
+                %plot(temp2,'LineWidth',2,'Color','b','LineStyle','--');
                 title(['Cluster ',num2str(counter),' - ',num2str(counter2),' time series']);
                 ylim([-5,5]);
                 grid on
