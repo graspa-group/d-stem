@@ -13,7 +13,7 @@ clear all
 close all
 % ground level data
 flag_bivariate=0;
-flag_parallel=1;
+flag_parallel=0;
 flag_remote_data=1;
 
 flag_time_ground=0;
@@ -25,8 +25,8 @@ flag_w_ground=1;
 flag_crossval=0;
 flag_tapering=1;
 
-flag_estimate=1;
-flag_kriging=0;
+flag_estimate=0;
+flag_kriging=1;
 
 pathparallel='/home/finazzi/matNfs/';
 
@@ -285,21 +285,21 @@ if flag_estimate
             st_par.theta_r=[150 150]';
             st_par.v_r=eye(2);
         else
-            st_par.alpha_rg=[0.25 0.79]';
-            st_par.theta_r=943;
+            st_par.alpha_rg=[0.205 0.840]';
+            st_par.theta_r=349;
             st_par.v_r=1;
         end
     end
     if flag_beta_ground
-        st_par.beta=st_model.get_beta0();
+        st_par.beta=[-0.26699     -0.1304    -0.27801    -0.25549     0.11673     0.36062   -0.083341    -0.14461]';%st_model.get_beta0();
     end
     if flag_w_ground
         if flag_bivariate
             st_par.alpha_g=[0.4 0.4;0.4 0.4;0.4 0.4]';
         else
-            st_par.alpha_g=[0.4757 0.4026 0.3775];
+            st_par.alpha_g=[0.609 0.349 0.337];
         end
-        st_par.theta_g=[301 307 295]';
+        st_par.theta_g=[304 346 274]';
         for i=1:3
             if flag_bivariate
                 v_g(:,:,i)=[1 0.6;0.6 1];
@@ -324,7 +324,7 @@ if flag_estimate
         if flag_bivariate
             st_par.sigma_eps=diag([0.3 0.3 0.3 0.3]);
         else
-            st_par.sigma_eps=diag([0.305 0.211]);
+            st_par.sigma_eps=diag([0.285 0.147]);
         end
     else
         if flag_bivariate
@@ -335,7 +335,7 @@ if flag_estimate
     end
     st_model.set_initial_values(st_par);
     % model estimation
-    st_EM_options=stem_EM_options(0.001,100,'single',[],0,[]);
+    st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
     if flag_parallel
         st_EM_options.pathparallel=pathparallel;
     end
@@ -345,28 +345,24 @@ if flag_estimate
     %st_sim.simulate;
     
     st_model.EM_estimate(st_EM_options);
-    %st_model.set_varcov;
-    %st_model.set_logL;
-    
     save(['st_model_',datestr(now,'yyyymmdd_HHMMSS')],'st_model');
+    st_model.set_varcov;
+    save(['st_model_',datestr(now,'yyyymmdd_HHMMSS')],'st_model');
+    %st_model.set_logL;
 end
 
 if flag_kriging
-    load ../Data/output/model/st_model_20130204_030938.mat;
-    load('C:\Francesco\My Dropbox\air_quality_code_and_data\Output\krig_all_005_southwest_europe.mat');
-    krig_lat=krig_meteo_005.lat;
-    krig_lon=krig_meteo_005.lon;
-    krig_mask=krig_elevation_005.data_mask;
-    clear krig_elevation_005
-    clear krig_emission_005
-    clear krig_meteo_005
-    clear krig_population_005
+    load st_model_20130316_020315.mat;
+    load ../Data/krig_elevation_005;
+    krig_lat=out_elevation.lat;
+    krig_lon=out_elevation.lon;
+    krig_mask=out_elevation.data_mask;
 
     st_krig=stem_krig(st_model);
-    st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[230,580],'square',0.05,0.05);
+    st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[480,720],'square',0.05,0.05);
     back_transform=1;
     no_varcov=0;
-    block_size=2000;
+    block_size=10000;
     X_krig='../Data/blocks/';
     st_krig_result=st_krig.kriging('no2 ground',st_krig_grid,block_size,krig_mask,X_krig,back_transform,no_varcov);
     save st_krig_result st_krig_result -v7.3

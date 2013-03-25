@@ -30,13 +30,13 @@ classdef stem_data < handle
         shape=[];               %[struct] geographic data structure loaded from a shapefile with the boundary of the geographic region
         simulated=0;            %[boolean] (1x1) 1 if the data have been simulated, 0 otherwise.
         remote_correlated=0;    %[boolean] (1x1) 1 if the remote variables are cross-correlated
+        X_time=[];              %[double]     (NxpxTT) the full X_time matrix
     end
     
     properties (SetAccess = private) 
         Y=[];                   %[double]     (NxT) the full observation matrix
         X_rg=[];                %[double]     (Nx1XTT) the full X_rg matrix
         X_beta=[];              %[double]     (NxBxTT) the full X_beta matrix
-        X_time=[];              %[double]     (NxpxTT) the full X_time matrix
         X_g=[];                 %[double]     (Nx1xTTxK) the full X_g matrix
         DistMat_g=[];           %[double]     (Ng x Ng) distance matrix of the ground level sites
         DistMat_r=[];           %[double]     (Nr x Nr) distance matrix of the remote sensing sites
@@ -599,9 +599,7 @@ classdef stem_data < handle
             if round(n_steps)~=n_steps
                 error('n_steps must be an integer value');
             end
-            if mod(obj.T,n_steps)>0
-                warning('The total number of time steps is not a multiple of n_steps');
-            end     
+   
             indices=0:n_steps:obj.T;
             if indices(end)~=obj.T
                 indices=[indices,obj.T];

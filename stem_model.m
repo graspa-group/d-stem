@@ -70,7 +70,7 @@ classdef stem_model < handle
                 obj.tapering=obj.tapering_g|obj.tapering_r;
             else
                 obj.tapering=obj.tapering_g;
-            end      
+            end
             
             if stem_par.theta_clustering>0
                 stem_data.update_distance('both',1);
@@ -643,10 +643,12 @@ classdef stem_model < handle
             if p>0
                 %kalman filter
                 st_kalman=stem_kalman(obj);
-                [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,~,aj_rg,aj_g,M,sigma_geo] = st_kalman.filter();
+                compute_logL=0;
+                enable_varcov_computation=1;
+                [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,~,aj_rg,aj_g,M,sigma_geo] = st_kalman.filter(compute_logL,enable_varcov_computation);
             else
                 [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,~,aj_rg,aj_g,M] = obj.get_sigma();
-                st_kalmanfilter_result=stem_kalmanfilter_result([],[],[],[],[],[]);
+                st_kalmanfilter_result=stem_kalmanfilter_result([],[],[],[],[],[],[]);
             end            
             J=st_kalmanfilter_result.J(:,:,2:end); %J for t=0 is deleted
             st_kalmanfilter_result.J=st_kalmanfilter_result.J(:,:,2:end);
@@ -787,7 +789,7 @@ classdef stem_model < handle
             %theta_rg
             if n_rg_theta>0
                 d=stem_misc.M_apply(obj.stem_data.DistMat_r,M,'b');
-                if not(par.remote_correlated)
+                if not(par.remote_correlated)&&(q>1)
                     for j=1:q
                         Id=[];
                         Jd=[];
@@ -968,7 +970,7 @@ classdef stem_model < handle
                 if n_g_alpha>0
                     z=1;
                     for k=1:par.k
-                        for j=1:p
+                        for j=1:q
                             d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z},obj.stem_data.X_g(:,1,1,k),'b');
                             L=find(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z});
                             [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_rg_alpha+n_rg_theta+n_rg_v+z}),L);
@@ -1133,6 +1135,8 @@ classdef stem_model < handle
                     end
                 else
                     if n_beta>0
+                        X_beta_orlated=data.X_beta(:,:,tbeta);
+                        X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
                         et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta;
                     else
                         et(Lt)=data.Y(Lt,t);

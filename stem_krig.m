@@ -481,14 +481,14 @@ classdef stem_krig < handle
                 end
                 
                 %kriging
-                [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1]=obj.E_step();
+                [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1]=obj.E_step(no_varcov);
                 st_krig_result.y_hat(obj.idx_notnan(block_krig),:)=y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
                 if not(no_varcov)
                     st_krig_result.var_y_hat(obj.idx_notnan(block_krig),:)=var_y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
+                    st_krig_result.diag_Var_wg_y1(obj.idx_notnan(block_krig),:,:)=diag_Var_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
                 end
                 if K>0
                     st_krig_result.E_wg_y1(obj.idx_notnan(block_krig),:,:)=E_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
-                    st_krig_result.diag_Var_wg_y1(obj.idx_notnan(block_krig),:,:)=diag_Var_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
                 end
                 
                 %restore original
@@ -565,7 +565,7 @@ classdef stem_krig < handle
             st_krig_result.variable_name=variable_name;
         end
         
-        function [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj)
+        function [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj,no_varcov)
             N=obj.stem_model.stem_data.N;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                 Nr=obj.stem_model.stem_data.stem_varset_r.N;
@@ -634,7 +634,12 @@ classdef stem_krig < handle
             else
                 y_hat=zeros(size(res));
             end
-            diag_Var_e_y1=zeros(N,T);
+            
+            if not(no_varcov)
+                diag_Var_e_y1=zeros(N,T);
+            else
+                diag_Var_e_y1=[];
+            end
             
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -665,7 +670,11 @@ classdef stem_krig < handle
                     end
                 end
                 E_wg_y1=zeros(Ng,T,K);
-                diag_Var_wg_y1=zeros(Ng,T,K);
+                if not(no_varcov)
+                    diag_Var_wg_y1=zeros(Ng,T,K);
+                else
+                    diag_Var_wg_y1=[];
+                end
                 cov_wg_z_y1=zeros(Ng,p,T,K);
             else
                 E_wg_y1=[];
@@ -756,17 +765,18 @@ classdef stem_krig < handle
                     end
                     temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+1);
                     
-                    
-                    if N>obj.stem_model.system_size
-                        blocks=0:80:size(diag_Var_e_y1,1);
-                        if not(blocks(end)==size(diag_Var_e_y1,1))
-                            blocks=[blocks size(diag_Var_e_y1,1)];
+                    if not(no_varcov)
+                        if N>obj.stem_model.system_size
+                            blocks=0:80:size(diag_Var_e_y1,1);
+                            if not(blocks(end)==size(diag_Var_e_y1,1))
+                                blocks=[blocks size(diag_Var_e_y1,1)];
+                            end
+                            for i=1:length(blocks)-1
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                            end
+                        else
+                            diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
                         end
-                        for i=1:length(blocks)-1
-                            diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
-                        end
-                    else
-                        diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
                     end
                     temp=st_kalmansmoother_result.zk_s(:,t+1);
                     y_hat(:,t)=y_hat(:,t)+X_time_orlated*temp;
@@ -804,22 +814,25 @@ classdef stem_krig < handle
                     
                     %compute E(w_r|y1);
                     E_wr_y1(:,t)=cov_wr_y1z*cs;
-                    %compute diag(Var(w_r|y1))
-                    if obj.stem_model.tapering
-                        temp_r(r,:)=stem_misc.chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
-                    else
-                        temp_r=stem_misc.chol_solve(chol_H1t,cov_wr_y1z');
+                    
+                    if not(no_varcov)
+                        %compute diag(Var(w_r|y1))
+                        if obj.stem_model.tapering
+                            temp_r(r,:)=stem_misc.chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
+                        else
+                            temp_r=stem_misc.chol_solve(chol_H1t,cov_wr_y1z');
+                        end
+                        
+                        blocks=0:80:size(diag_Var_wr_y1,1);
+                        if not(blocks(end)==size(diag_Var_wr_y1,1))
+                            blocks=[blocks size(diag_Var_wr_y1,1)];
+                        end
+                        for i=1:length(blocks)-1
+                            diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)=diag(sigma_W_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r(:,blocks(i)+1:blocks(i+1)));
+                        end
                     end
                     
-                    blocks=0:80:size(diag_Var_wr_y1,1);
-                    if not(blocks(end)==size(diag_Var_wr_y1,1))
-                        blocks=[blocks size(diag_Var_wr_y1,1)];
-                    end
-                    for i=1:length(blocks)-1
-                        diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)=diag(sigma_W_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r(:,blocks(i)+1:blocks(i+1)));
-                    end
-                    
-                    if p>0
+                    if (p>0)&&(not(no_varcov))
                         %compute cov(w_r,z|y1)
                         cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
                         blocks=0:80:size(diag_Var_wr_y1,1);
@@ -846,11 +859,14 @@ classdef stem_krig < handle
                         end
                     else
                         cov_wr_z_y1=[];
+                        clear temp_r
                     end
                     %update y_hat
                     y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                     %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    if not(no_varcov)
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    end
                 end
                 
                 if not(isempty(data.X_g))
@@ -865,22 +881,25 @@ classdef stem_krig < handle
                         cov_wg_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
                         %compute E(w_g_k|y1);
                         E_wg_y1(:,t,k)=cov_wg_y1z*cs;
-                        %compute diag(Var(w_g_k|y1))
-                        if obj.stem_model.tapering
-                            temp_g{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
-                        else
-                            temp_g{k}=stem_misc.chol_solve(chol_H1t,cov_wg_y1z');
-                        end
-
-                        blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
-                        if not(blocks(end)==size(diag_Var_wg_y1(:,t,k),1))
-                            blocks=[blocks size(diag_Var_wg_y1(:,t,k),1)];
-                        end
-                        for i=1:length(blocks)-1
-                            diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(sigma_W_g{k}(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
+                        
+                        if not(no_varcov)
+                            %compute diag(Var(w_g_k|y1))
+                            if obj.stem_model.tapering
+                                temp_g{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
+                            else
+                                temp_g{k}=stem_misc.chol_solve(chol_H1t,cov_wg_y1z');
+                            end
+                            
+                            blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
+                            if not(blocks(end)==size(diag_Var_wg_y1(:,t,k),1))
+                                blocks=[blocks size(diag_Var_wg_y1(:,t,k),1)];
+                            end
+                            for i=1:length(blocks)-1
+                                diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(sigma_W_g{k}(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
+                            end
                         end
                         
-                        if p>0
+                        if (p>0)&&(not(no_varcov))
                             %compute cov(w_g,z|y1)
                             cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
                             blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
@@ -908,39 +927,42 @@ classdef stem_krig < handle
                         end
                         %y_hat
                         y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                        %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
                         
-                        if not(isempty(data.X_rg))
-                            %compute M_cov(w_r,w_g|y1); cioè M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
-                            if length(M)>obj.stem_model.system_size
-                                blocks=0:80:length(M);
-                                if not(blocks(end)==length(M))
-                                    blocks=[blocks length(M)];
-                                end
-                                for i=1:length(blocks)-1
-                                    %tested
+                        if not(no_varcov)
+                            %update diag(Var(e|y1))
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+
+                            if not(isempty(data.X_rg))
+                                %compute M_cov(w_r,w_g|y1); cioè M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                                if length(M)>obj.stem_model.system_size
+                                    blocks=0:80:length(M);
+                                    if not(blocks(end)==length(M))
+                                        blocks=[blocks length(M)];
+                                    end
+                                    for i=1:length(blocks)-1
+                                        %tested
+                                        if p>0
+                                            M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'stem_misc.M_apply su left!!
+                                        else
+                                            M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
+                                        end
+                                    end
+                                else
                                     if p>0
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'stem_misc.M_apply su left!!
+                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'stem_misc.M_apply su left!!
                                     else
-                                        M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
+                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
                                     end
                                 end
-                            else
-                                if p>0
-                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'stem_misc.M_apply su left!!
-                                else
-                                    M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
-                                end
+                                %update diag(Var(e|y1)) - tested
+                                temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
-                            %update diag(Var(e|y1)) - tested
-                            temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                            temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                         end
                     end
                     
-                    if K>1
+                    if (K>1)&&(not(no_varcov))
                         %compute cov(w_gk,w_gh|y1);
                         for h=1:K
                             for k=h+1:K

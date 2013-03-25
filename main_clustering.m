@@ -220,9 +220,7 @@ st_model.set_initial_values(st_par);
 
 %model estimation
 st_EM_options=stem_EM_options(0.001,100,'single',[],0);
-%matlabpool(8);
 st_model.EM_estimate(st_EM_options);
-%matlabpool close
 st_model.set_logL;
 st_model.stem_EM_result.logL
 round(sum(st_model.stem_data.X_time))

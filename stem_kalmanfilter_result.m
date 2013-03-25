@@ -10,21 +10,23 @@
 
 classdef stem_kalmanfilter_result < handle
     properties
-        zk_f = [];
-        zk_u = [];
-        Pk_f = [];
-        Pk_u = [];
-        J_last=[];
-        logL = [];
+        zk_f   = [];
+        zk_u   = [];
+        Pk_f   = [];
+        Pk_u   = [];
+        J_last = [];
+        J      = [];
+        logL   = [];
     end
     
     methods
-        function obj = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,logL)
+        function obj = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL)
             obj.zk_f=zk_f;
             obj.zk_u=zk_u;
             obj.Pk_f=Pk_f;
             obj.Pk_u=Pk_u;
             obj.J_last=J_last;
+            obj.J=J;
             obj.logL=logL;
         end
     end

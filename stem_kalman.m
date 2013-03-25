@@ -23,15 +23,18 @@ classdef stem_kalman < handle
             end
         end
         
-        function [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = filter(obj,compute_logL,time_steps,pathparallel)
+        function [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
             if nargin<2
                 compute_logL=0;
             end
             if nargin<3
+                enable_varcov_computation=0;
+            end
+            if nargin<4
                 pathparallel=[];
                 time_steps=[];
             end
-            if nargin==3
+            if nargin==4
                 error('The pathparallel input argument must be provided');
             end
             disp('    Kalman filter started...');
@@ -48,25 +51,28 @@ classdef stem_kalman < handle
             
             tapering=obj.stem_model.tapering;            
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_rg,data.X_beta,data.X_time,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
             end
-            st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,logL);
+            st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL);
             
             ct2=clock;
             disp(['    Kalman filter ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
-        function [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = smoother(obj,compute_logL,time_steps,pathparallel)
+        function [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
             if nargin<2
               compute_logL=0;
             end
             if nargin<3
+                enable_varcov_computation=0;
+            end
+            if nargin<4
                 pathparallel=[];
                 time_steps=[];
             end
-            if nargin==3
+            if nargin==4
                 error('The pathparallel input argument must be provided');
             end
             disp('    Kalman smoother started...');
@@ -84,7 +90,7 @@ classdef stem_kalman < handle
             [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_rg,data.X_beta,data.X_time,...
                 data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,...
                 sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,...
-                time_diagonal,time_steps,pathparallel,tapering,compute_logL);
+                time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
             st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL);
             ct2=clock;
             disp(['    Kalman smoother ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
@@ -93,7 +99,7 @@ classdef stem_kalman < handle
     
     methods (Static)
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation)
             if nargin<13
                 error('You have to provide all the input arguments');
             end
@@ -144,6 +150,9 @@ classdef stem_kalman < handle
             Pk_f=zeros(p,p,T+1);
             Pk_u=zeros(p,p,T+1);
             J=zeros(p,size(Y,1));
+            if enable_varcov_computation
+                J_all=zeros(p,size(Y,1),T+1);
+            end
             innovation=zeros(size(Y,1),1);
             
             zk_u(:,1)=z0;
@@ -315,12 +324,20 @@ classdef stem_kalman < handle
                 clear temp
                 clear temp2
                 clear temp3
+                if enable_varcov_computation
+                    J_all(:,:,t)=J;
+                end
             end
             logL=-logL/2;
             J_last=J;
+            if enable_varcov_computation
+                J=J_all;
+            else
+                J=[];
+            end
         end
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
             if nargin<20
                 error('You have to provide all the input arguments');
             end
@@ -382,6 +399,9 @@ classdef stem_kalman < handle
             Pk_f=zeros(p,p,T+1);
             Pk_u=zeros(p,p,T+1);
             J=zeros(p,size(Y,1));
+            if enable_varcov_computation
+                J_all=zeros(p,size(Y,1),T+1);
+            end
             innovation=zeros(size(Y,1),1);
             
             zk_u(:,1)=z0;
@@ -615,9 +635,17 @@ classdef stem_kalman < handle
                         logL=logL+1/(2*sum(log(diag(c))));
                         logL=logL+innovation(Lt,1)'*sigma_t_inv*innovation(Lt,1);
                     end
+                    if enable_varcov_computation
+                        J_all(:,:,t)=J;
+                    end
                 end
                 logL=-logL/2;
                 J_last=J;
+                if enable_varcov_computation
+                    J=J_all;
+                else
+                    J=[];
+                end
             else
                 %client computation
                 for t=time_steps
@@ -696,14 +724,15 @@ classdef stem_kalman < handle
                     %disp(['Saved kalman_ouput_',num2str(t),'.mat']);
                 end
                 J_last=[];
+                J=[];
             end
         end
         
-        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL)
+        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,logL] = stem_kalman.Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
             end
             
             p=size(G,1);

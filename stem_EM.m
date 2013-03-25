@@ -342,11 +342,11 @@ classdef stem_EM < EM
                             end
                             %local Kalman Smoother computation
                             st_kalman=stem_kalman(obj.stem_model);
-                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,time_steps,pathparallel);
+                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0,time_steps,pathparallel);
                         else
                             %The computation is only local. The standard Kalman smoother is considered
                             st_kalman=stem_kalman(obj.stem_model);
-                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
+                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0);
                             time_steps=1:T;
                         end
                     else
@@ -686,7 +686,6 @@ classdef stem_EM < EM
             
             K=obj.stem_model.stem_par.k;
             p=obj.stem_model.stem_par.p;
-            data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
 
             disp('  E step started...');
@@ -695,22 +694,22 @@ classdef stem_EM < EM
             if p>0
                 %Kalman smoother
                 st_kalman=stem_kalman(obj.stem_model);
-                [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps);
-                if not(data.X_time_tv)&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
+                [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0);
+                if not(obj.stem_model.stem_data.X_time_tv)&&(not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g)))
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
-                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
-                        if (size(data.X_time(:,:,1),1)<N)
-                            var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,1),1)));
+                        var_Zt=sparse(obj.stem_model.stem_data.X_time(:,:,1))*sparse(sigma_Z)*sparse(obj.stem_model.stem_data.X_time(:,:,1)');
+                        if (size(obj.stem_model.stem_data.X_time(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,speye(N-size(obj.stem_model.stem_data.X_time(:,:,1),1)));
                         end
                     else
-                        var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)';
-                        if (size(data.X_time(:,:,1),1)<N)
-                            var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,1),1)));
+                        var_Zt=obj.stem_model.stem_data.X_time(:,:,1)*sigma_Z*obj.stem_model.stem_data.X_time(:,:,1)';
+                        if (size(obj.stem_model.stem_data.X_time(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,eye(N-size(obj.stem_model.stem_data.X_time(:,:,1),1)));
                         end
                     end
                 end
-                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
+                if not(isempty(sigma_geo))&&(not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g)))
                     var_Yt=sigma_geo+var_Zt;
                 end
             else
@@ -718,42 +717,45 @@ classdef stem_EM < EM
                 st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);
                 var_Zt=[];
                 
-                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
+                if not(isempty(sigma_geo))&&(not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g)))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
                 end
             end
             
-            res=data.Y;
-            res(isnan(res))=0;
-            if not(isempty(data.X_beta))
+            if obj.stem_model.stem_par.clustering==1
+                obj.stem_model.stem_data.stem_varset_g.Y{1}=[];
+            end
+            
+            E_e_y1=obj.stem_model.stem_data.Y;
+            E_e_y1(isnan(E_e_y1))=0;
+            if not(isempty(obj.stem_model.stem_data.X_beta))
                 disp('    Xbeta evaluation started...');
                 ct1=clock;
                 Xbeta=zeros(N,T);
-                if data.X_beta_tv
+                if obj.stem_model.stem_data.X_beta_tv
                     for t=1:T
-                        if size(data.X_beta(:,:,t),1)<N
-                            X_beta_orlated=[data.X_beta(:,:,t);zeros(N-size(data.X_beta(:,:,t),1),size(data.X_beta(:,:,t),2))];
+                        if size(obj.stem_model.stem_data.X_beta(:,:,t),1)<N
+                            X_beta_orlated=[obj.stem_model.stem_data.X_beta(:,:,t);zeros(N-size(obj.stem_model.stem_data.X_beta(:,:,t),1),size(obj.stem_model.stem_data.X_beta(:,:,t),2))];
                         else
-                            X_beta_orlated=data.X_beta(:,:,t);
+                            X_beta_orlated=obj.stem_model.stem_data.X_beta(:,:,t);
                         end
                         Xbeta(:,t)=X_beta_orlated*par.beta;
                     end
                 else
-                    if size(data.X_beta(:,:,1),1)<N
-                        X_beta_orlated=[data.X_beta(:,:,1);zeros(N-size(data.X_beta(:,:,1),1),size(data.X_beta(:,:,1),2))];
+                    if size(obj.stem_model.stem_data.X_beta(:,:,1),1)<N
+                        X_beta_orlated=[obj.stem_model.stem_data.X_beta(:,:,1);zeros(N-size(obj.stem_model.stem_data.X_beta(:,:,1),1),size(obj.stem_model.stem_data.X_beta(:,:,1),2))];
                     else
-                        X_beta_orlated=data.X_beta(:,:,1);
+                        X_beta_orlated=obj.stem_model.stem_data.X_beta(:,:,1);
                     end
                     Xbeta=repmat(X_beta_orlated*par.beta,1,T);
                 end
                 ct2=clock;
                 disp(['    Xbeta evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
-                res=res-Xbeta;
+                E_e_y1=E_e_y1-Xbeta;
             else
                 Xbeta=[];
             end
-            E_e_y1=res;
-            diag_Var_e_y1=zeros(N,T);
+            diag_Var_e_y1=zeros(N,T,'single');
             
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -765,15 +767,15 @@ classdef stem_EM < EM
             disp('    Conditional E, Var, Cov evaluation started...');
             ct1=clock;
             %cov_wr_yz time invariant case
-            if not(isempty(data.X_rg))
+            if not(isempty(obj.stem_model.stem_data.X_rg))
                 if (obj.stem_model.tapering)
                     Lr=find(sigma_W_r);
                     [Ir,Jr]=ind2sub(size(sigma_W_r),Lr);
                     nnz_r=length(Ir);
                 end
                 
-                if not(data.X_rg_tv)
-                    cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
+                if not(obj.stem_model.stem_data.X_rg_tv)
+                    cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),obj.stem_model.stem_data.X_rg(:,1,1),'r'),aj_rg,'r');
                 end
                 E_wr_y1=zeros(Nr,T);
                 if (obj.stem_model.tapering)
@@ -786,15 +788,15 @@ classdef stem_EM < EM
             end
             
             %cov_wg_yz time invariant case
-            if not(isempty(data.X_g))
+            if not(isempty(obj.stem_model.stem_data.X_g))
                 if obj.stem_model.tapering
                     Lg=find(sigma_W_g{1});
                     [Ig,Jg]=ind2sub(size(sigma_W_g{1}),Lg);
                     nnz_g=length(Ig);
                 end
-                if not(data.X_g_tv)
+                if not(obj.stem_model.stem_data.X_g_tv)
                     for k=1:K
-                        cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
+                        cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_model.stem_data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
                     end
                 end
                 for h=1:K
@@ -815,7 +817,7 @@ classdef stem_EM < EM
                 cov_wg_z_y1=zeros(Ng,p,T,K);
             end
             
-            if not(isempty(data.X_rg)) && not(isempty(data.X_g))
+            if not(isempty(obj.stem_model.stem_data.X_rg)) && not(isempty(obj.stem_model.stem_data.X_g))
                 M_cov_wr_wg_y1=zeros(N,T,K);
             else
                 M_cov_wr_wg_y1=[];
@@ -824,106 +826,128 @@ classdef stem_EM < EM
             for t=1:T
                 t_partial1=clock;
                 %missing at time t
-                Lt=not(isnan(data.Y(:,t)));
+                Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
                 
-                if data.X_rg_tv
+                if obj.stem_model.stem_data.X_rg_tv
                     tRG=t;
                 else
                     tRG=1;
                 end
-                if data.X_time_tv
+                if obj.stem_model.stem_data.X_time_tv
                     tT=t;
                 else
                     tT=1;
                 end
-                if data.X_g_tv
+                if obj.stem_model.stem_data.X_g_tv
                     tG=t;
                 else
                     tG=1;
                 end
                 
                 %evaluate var_yt in the time variant case
-                if data.X_tv
-                    if not(isempty(data.X_rg))
-                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
+                if obj.stem_model.stem_data.X_tv
+                    if not(isempty(obj.stem_model.stem_data.X_rg))
+                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                     end
                     
-                    if not(isempty(data.X_g))
-                        if isempty(data.X_rg)
+                    if not(isempty(obj.stem_model.stem_data.X_g))
+                        if isempty(obj.stem_model.stem_data.X_rg)
                             if obj.stem_model.tapering
                                 sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
                             else
                                 sigma_geo=zeros(N);
                             end
                         end
-                        for k=1:size(data.X_g,4)
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                        for k=1:size(obj.stem_model.stem_data.X_g,4)
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_model.stem_data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
                         end
                     end
-                    if isempty(data.X_g)&&isempty(data.X_rg)
+                    if isempty(obj.stem_model.stem_data.X_g)&&isempty(obj.stem_model.stem_data.X_rg)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
                     end
                     
-                    if not(isempty(data.X_time))
-                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
-                            if data.X_time_tv
+                    if not(isempty(obj.stem_model.stem_data.X_time))
+                        if not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g))
+                            if obj.stem_model.stem_data.X_time_tv
                                 if obj.stem_model.tapering
-                                    var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
-                                    if (size(data.X_time(:,:,tT),1)<N)
-                                        var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,tT),1)));
+                                    var_Zt=sparse(obj.stem_model.stem_data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(obj.stem_model.stem_data.X_time(:,:,tT)');
+                                    if (size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,speye(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1)));
                                     end
                                 else
-                                    var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
-                                    if (size(data.X_time(:,:,tT),1)<N)
-                                        var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,tT),1)));
+                                    var_Zt=obj.stem_model.stem_data.X_time(:,:,tT)*sigma_Z*obj.stem_model.stem_data.X_time(:,:,tT)';
+                                    if (size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,eye(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1)));
                                     end
                                 end
                             end
                             var_Yt=sigma_geo+var_Zt;
                         end
                     else
-                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                        if not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g))
                             var_Yt=sigma_geo;
                         end
                     end
                 end
                 
                 %check if the temporal loadings are time variant
-                if not(isempty(data.X_time))
-                    if size(data.X_time(:,:,tT),1)<N
-                        X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                if not(isempty(obj.stem_model.stem_data.X_time))
+                    if size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N
+                        X_time_orlated=[obj.stem_model.stem_data.X_time(:,:,tT);zeros(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1),size(obj.stem_model.stem_data.X_time(:,:,tT),2))];
+                        orlated=true;
                     else
-                        X_time_orlated=data.X_time(:,:,tT);
+                        orlated=false;
                     end
                     
-                    temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+1);
                     if N>obj.stem_model.system_size
                         blocks=0:80:size(diag_Var_e_y1,1);
                         if not(blocks(end)==size(diag_Var_e_y1,1))
                             blocks=[blocks size(diag_Var_e_y1,1)];
                         end
                         for i=1:length(blocks)-1
-                            diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                            if orlated
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(X_time_orlated(blocks(i)+1:blocks(i+1),:)*st_kalmansmoother_result.Pk_s(:,:,t+1)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                            else
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                            end
                         end
                     else
-                        diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
+                        if orlated
+                            temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                            diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
+                        else
+                            temp=obj.stem_model.stem_data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                            diag_Var_e_y1(:,t)=diag(temp*obj.stem_model.stem_data.X_time(:,:,tT)');
+                        end
                     end
                     %update E(e|y1)
                     temp=st_kalmansmoother_result.zk_s(:,t+1);
-                    E_e_y1(:,t)=E_e_y1(:,t)-X_time_orlated*temp;
+                    if orlated
+                        E_e_y1(:,t)=E_e_y1(:,t)-X_time_orlated*temp;
+                    else
+                        E_e_y1(:,t)=E_e_y1(:,t)-obj.stem_model.stem_data.X_time(:,:,tT)*temp;
+                    end
                 end
                 
-                if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                if not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g))
                     %build the Ht matrix
                     if not(isempty(var_Zt))
-                        H1t=[var_Yt(Lt,Lt), X_time_orlated(Lt,:)*sigma_Z; sigma_Z*X_time_orlated(Lt,:)', sigma_Z];
+                        if orlated
+                            H1t=[var_Yt(Lt,Lt), X_time_orlated(Lt,:)*sigma_Z; sigma_Z*X_time_orlated(Lt,:)', sigma_Z];
+                        else
+                            H1t=[var_Yt(Lt,Lt), obj.stem_model.stem_data.X_time(Lt,:,tT)*sigma_Z; sigma_Z*obj.stem_model.stem_data.X_time(Lt,:,tT)', sigma_Z];
+                        end
                     else
                         H1t=var_Yt(Lt,Lt);
                         temp=[];
                     end
                     
+                    res=obj.stem_model.stem_data.Y;
+                    if not(isempty(Xbeta))
+                        res=res-Xbeta;
+                    end
                     if obj.stem_model.tapering
                         cs=[];
                         r = symamd(H1t);
@@ -936,11 +960,11 @@ classdef stem_EM < EM
                     end
                 end
                 
-                if not(isempty(data.X_rg))
+                if not(isempty(obj.stem_model.stem_data.X_rg))
                     %check if the remote loadings are time variant
-                    if data.X_rg_tv
+                    if obj.stem_model.stem_data.X_rg_tv
                         %cov_wr_yz time variant case
-                        cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                        cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),obj.stem_model.stem_data.X_rg(:,1,tRG),'r'),aj_rg,'r');
                     end
                     cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
                     %compute E(w_r|y1);
@@ -974,18 +998,26 @@ classdef stem_EM < EM
                         cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
                         Var_wr_y1=Var_wr_y1+cov_wr_z_y1(:,:,t)*temp_r(end-p+1:end,:);
                         %update diag(Var(e|y1))
-                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                         if N>obj.stem_model.system_size
                             blocks=0:80:size(diag_Var_e_y1,1);
                             if not(blocks(end)==size(diag_Var_e_y1,1))
                                 blocks=[blocks size(diag_Var_e_y1,1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                if orlated
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                else
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                end
                             end
                         else
                             %faster for N small
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                            if orlated
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                            else
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*obj.stem_model.stem_data.X_time(:,:,tT)');
+                            end
                         end
                     else
                         cov_wr_z_y1=[];
@@ -995,9 +1027,9 @@ classdef stem_EM < EM
                     %compute sum(Var(w_r|y1))
                     sum_Var_wr_y1=sum_Var_wr_y1+Var_wr_y1;
                     %update E(e|y1)
-                    E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                    E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                     %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
                 else
                     E_wr_y1=[];
                     diag_Var_wr_y1=[];
@@ -1005,12 +1037,12 @@ classdef stem_EM < EM
                     cov_wr_z_y1=[];
                 end
                 clear temp_r
-                if not(isempty(data.X_g))
+                if not(isempty(obj.stem_model.stem_data.X_g))
                     %check if the ground loadings are time variant
-                    if data.X_g_tv
+                    if obj.stem_model.stem_data.X_g_tv
                         %cov_wg_yz time invariant case
                         for k=1:K
-                            cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                            cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_model.stem_data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
                         end
                     end
                     for k=1:K
@@ -1046,17 +1078,25 @@ classdef stem_EM < EM
                             cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
                             Var_wg_y1=Var_wg_y1+cov_wg_z_y1(:,:,t,k)*temp_g{k}(end-p+1:end,:);
                             %update diag(Var(e|y1))
-                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,k),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(diag_Var_e_y1,1);
                                 if not(blocks(end)==size(diag_Var_e_y1,1))
                                     blocks=[blocks size(diag_Var_e_y1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    if orlated
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    else
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                    end
                                 end
                             else
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                                if orlated
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                                else
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*obj.stem_model.stem_data.X_time(:,:,tT)');
+                                end
                             end
                         else
                             cov_wg_z_y1=[];
@@ -1064,11 +1104,11 @@ classdef stem_EM < EM
                         diag_Var_wg_y1(:,t,k)=diag(Var_wg_y1);
                         sum_Var_wg_y1{k}=sum_Var_wg_y1{k}+Var_wg_y1;
                         %update E(e|y1)
-                        E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                        E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                         %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
                         
-                        if not(isempty(data.X_rg))
+                        if not(isempty(obj.stem_model.stem_data.X_rg))
                             %compute M_cov(w_r,w_g|y1); cioe' M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
                             if length(M)>obj.stem_model.system_size
                                 blocks=0:80:length(M);
@@ -1091,8 +1131,8 @@ classdef stem_EM < EM
                                 end
                             end
                             %update diag(Var(e|y1)) - tested
-                            temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                            temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(temp,[obj.stem_model.stem_data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
                             diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                         end
                     end
@@ -1121,8 +1161,8 @@ classdef stem_EM < EM
                                         cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
                                     end
                                 end
-                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{k,h}(:,t),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[obj.stem_model.stem_data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
                                 %update diag(Var(e|y1))
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
@@ -1144,6 +1184,11 @@ classdef stem_EM < EM
                 t_partial2=clock;
                 %disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
+            
+            if obj.stem_model.stem_par.clustering==1
+                obj.stem_model.stem_data.stem_varset_g.Y{1}=obj.stem_model.stem_data.Y;
+            end
+            
             ct2=clock;
             disp(['    Conditional E, Var, Cov evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             ct2_estep=clock;
@@ -1166,7 +1211,6 @@ classdef stem_EM < EM
             M=obj.stem_model.stem_data.M;
             dim=obj.stem_model.stem_data.dim;
             
-            data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             st_par_em_step=par;
             
@@ -1174,26 +1218,30 @@ classdef stem_EM < EM
             I=1:length(d);
             inv_sigma_eps=sparse(I,I,d);
             
+            if obj.stem_model.stem_par.clustering==1
+                obj.stem_model.stem_data.stem_varset_g.Y{1}=[];
+            end
+            
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %             beta update                %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if not(isempty(data.X_beta))
+            if not(isempty(obj.stem_model.stem_data.X_beta))
                 ct1=clock;
                 disp('    beta update started...');
-                temp1=zeros(size(data.X_beta,2));
-                temp2=zeros(size(data.X_beta,2),1);
+                temp1=zeros(size(obj.stem_model.stem_data.X_beta,2));
+                temp2=zeros(size(obj.stem_model.stem_data.X_beta,2),1);
                 d=diag(inv_sigma_eps);
                 for t=1:T
-                    Lt=not(isnan(data.Y(:,t)));
-                    if data.X_beta_tv
+                    Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
+                    if obj.stem_model.stem_data.X_beta_tv
                         tB=t;
                     else
                         tB=1;
                     end
-                    if size(data.X_beta(:,:,tB),1)<N
-                        X_beta_orlated=[data.X_beta(:,:,tB);zeros(N-size(data.X_beta(:,:,tB),1),size(data.X_beta(:,:,tB),2))];
+                    if size(obj.stem_model.stem_data.X_beta(:,:,tB),1)<N
+                        X_beta_orlated=[obj.stem_model.stem_data.X_beta(:,:,tB);zeros(N-size(obj.stem_model.stem_data.X_beta(:,:,tB),1),size(obj.stem_model.stem_data.X_beta(:,:,tB),2))];
                     else
-                        X_beta_orlated=data.X_beta(:,:,tB);
+                        X_beta_orlated=obj.stem_model.stem_data.X_beta(:,:,tB);
                     end
                     temp1=temp1+X_beta_orlated(Lt,:)'*stem_misc.D_apply(X_beta_orlated(Lt,:),d(Lt),'l');
                     temp2=temp2+X_beta_orlated(Lt,:)'*stem_misc.D_apply(E_e_y1(Lt,t)+X_beta_orlated(Lt,:)*par.beta,d(Lt),'l');
@@ -1211,7 +1259,7 @@ classdef stem_EM < EM
             temp1=zeros(N,1);
             d=diag(sigma_eps);
             for t=1:T
-                Lt=not(isnan(data.Y(:,t)));
+                Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
                 %the next two lines are ok only for sigma_eps diagonal
                 temp1(Lt)=E_e_y1(Lt,t).^2+diag_Var_e_y1(Lt,t);
                 temp1(~Lt)=d(~Lt);
@@ -1265,7 +1313,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %          alpha_rg, theta_r and v_r            %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if not(isempty(data.X_rg))
+            if not(isempty(obj.stem_model.stem_data.X_rg))
                 disp('    alpha_rg update started...');
                 ct1=clock;
                 for r=1:obj.stem_model.stem_data.nvar
@@ -1273,28 +1321,29 @@ classdef stem_EM < EM
                     sum_num=0;
                     sum_den=0;
                     for t=1:T
-                        if data.X_rg_tv
+                        if obj.stem_model.stem_data.X_rg_tv
                             tRG=t;
                         else
                             tRG=1;
                         end
-                        if data.X_time_tv
+                        if obj.stem_model.stem_data.X_time_tv
                             tT=t;
                         else
                             tT=1;
                         end
-                        Lt=not(isnan(data.Y(:,t)));
-                        temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg_r,'l');
-                        temp2=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t)',M,'r'),data.X_rg(:,1,tRG),'r'),j_r,'r');
+                        Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
+                        temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg_r,'l');
+                        temp2=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t)',M,'r'),obj.stem_model.stem_data.X_rg(:,1,tRG),'r'),j_r,'r');
                         sum_num=sum_num+sum(temp1(Lt).*temp2(Lt)');
                         
                         if par.p>0
-                            if size(data.X_time(:,:,tT),1)<N
-                                X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                            if size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N
+                                X_time_orlated=[obj.stem_model.stem_data.X_time(:,:,tT);zeros(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1),size(obj.stem_model.stem_data.X_time(:,:,tT),2))];
+                                orlated=true;
                             else
-                                X_time_orlated=data.X_time(:,:,tT);
+                                orlated=false;
                             end
-                            temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),j_r,'l');
+                            temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),j_r,'l');
                             temp2=zeros(size(temp1,1),1);
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(temp1,1);
@@ -1302,30 +1351,38 @@ classdef stem_EM < EM
                                     blocks=[blocks size(temp1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                    if orlated
+                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                    else
+                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                                    end
                                 end
                             else
-                                temp2=diag(temp1*X_time_orlated');
+                                if orlated
+                                    temp2=diag(temp1*X_time_orlated');
+                                else
+                                    temp2=diag(temp1*obj.stem_model.stem_data.X_time(:,:,tT)');
+                                end
                             end
                             sum_num=sum_num-sum(temp2(Lt));
                         end
                         
                         if par.k>0
-                            if data.X_g_tv
+                            if obj.stem_model.stem_data.X_g_tv
                                 tG=t;
                             else
                                 tG=1;
                             end
                             for k=1:K
-                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),j_r,'l');
-                                temp2=[data.X_g(:,1,tG,k);zeros(size(temp1,1)-size(data.X_g(:,1,tG,k),1),1)];
+                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),j_r,'l');
+                                temp2=[obj.stem_model.stem_data.X_g(:,1,tG,k);zeros(size(temp1,1)-size(obj.stem_model.stem_data.X_g(:,1,tG,k),1),1)];
                                 temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',temp2,'r'),aj_g(:,k),'r');
                                 sum_num=sum_num-sum(temp1(Lt));
                             end
                         end
                         
                         temp1=E_wr_y1(:,t).^2+diag_Var_wr_y1(:,t);
-                        temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(temp1,M,'l'),data.X_rg(:,1,tRG),'b'),j_r,'b');
+                        temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(temp1,M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),j_r,'b');
                         sum_den=sum_den+sum(temp1(Lt));
                     end
                     alpha_rg(r)=sum_num/sum_den;
@@ -1347,7 +1404,7 @@ classdef stem_EM < EM
                     temp=temp+sum_Var_wr_y1;
                 end
                 
-                %MANCA LA STIMA A BLOCCHI COSì COME FATTO PER THETA!
+                %MANCA LA STIMA A BLOCCHI COSï¿½ COME FATTO PER THETA!
                 
                 
                 if par.remote_correlated
@@ -1359,12 +1416,12 @@ classdef stem_EM < EM
                         for h=hindex
                             initial=par.v_r(k,h);
                             if Nr<=obj.stem_EM_options.mstep_system_size
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,data.DistMat_r,...
-                                    data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             else
                                 disp('WARNING: this operation will take a long time');
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,data.DistMat_r,...
-                                    data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             end
                             st_par_em_step.v_r(k,h)=min_result;
                             st_par_em_step.v_r(h,k)=min_result;
@@ -1381,14 +1438,14 @@ classdef stem_EM < EM
                 initial=par.theta_r;
                 if par.remote_correlated
                     if Nr<=obj.stem_EM_options.mstep_system_size
-                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r,...
-                            data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                            obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                         st_par_em_step.theta_r=exp(min_result);
                     else
-                        if data.stem_varset_r.nvar>1
+                        if obj.stem_model.stem_data.stem_varset_r.nvar>1
                             disp('WARNING: this operation will take a long time');
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r,...
-                                data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                                obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             st_par_em_step.theta_r=exp(min_result);
                         else
                             s=ceil(Nr/obj.stem_EM_options.mstep_system_size);
@@ -1406,7 +1463,7 @@ classdef stem_EM < EM
                                 end
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
-                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(idx,idx),...
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_r=exp(mean(min_result));
@@ -1416,18 +1473,18 @@ classdef stem_EM < EM
                     end
                 else
                     if Nr<=obj.stem_EM_options.mstep_system_size
-                        blocks=[0 cumsum(data.stem_varset_r.dim)];
-                        for i=1:data.stem_varset_r.nvar
+                        blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_r.dim)];
+                        for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
                             r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
-                                data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
+                                obj.stem_model.stem_data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             st_par_em_step.theta_r(i)=exp(min_result);
                         end
                     else
-                        blocks_var=[0 cumsum(data.stem_varset_r.dim)];
-                        for i=1:data.stem_varset_r.nvar
-                            s=ceil(data.stem_varset_r.dim(i)/obj.stem_EM_options.mstep_system_size);
-                            step=ceil(data.stem_varset_r.dim(i)/s);
+                        blocks_var=[0 cumsum(obj.stem_model.stem_data.stem_varset_r.dim)];
+                        for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
+                            s=ceil(obj.stem_model.stem_data.stem_varset_r.dim(i)/obj.stem_EM_options.mstep_system_size);
+                            step=ceil(obj.stem_model.stem_data.stem_varset_r.dim(i)/s);
                             blocks=blocks_var(i):step:blocks_var(i+1);
                             if not(blocks(end)==blocks_var(i+1))
                                 blocks=[blocks blocks_var(i+1)];
@@ -1442,7 +1499,7 @@ classdef stem_EM < EM
                                 end
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
-                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(idx,idx),...
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_r(i)=exp(mean(min_result));
@@ -1457,7 +1514,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %          alpha_g               %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if not(isempty(data.X_g))
+            if not(isempty(obj.stem_model.stem_data.X_g))
                 disp('    alpha_g update started...');
                 for s=1:K
                     for r=1:obj.stem_model.stem_data.stem_varset_g.nvar
@@ -1465,34 +1522,35 @@ classdef stem_EM < EM
                         sum_num=0;
                         sum_den=0;
                         for t=1:T
-                            if data.X_rg_tv
+                            if obj.stem_model.stem_data.X_rg_tv
                                 tRG=t;
                             else
                                 tRG=1;
                             end
-                            if data.X_time_tv
+                            if obj.stem_model.stem_data.X_time_tv
                                 tT=t;
                             else
                                 tT=1;
                             end
-                            if data.X_g_tv
+                            if obj.stem_model.stem_data.X_g_tv
                                 tG=t;
                             else
                                 tG=1;
                             end
-                            Lt=not(isnan(data.Y(:,t)));
+                            Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
                             
-                            temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s),data.X_g(:,1,tG,s),'l'),aj_g_rs,'l');
-                            temp2=stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s)',data.X_g(:,1,tG,s),'r'),j_r,'r');
+                            temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s),obj.stem_model.stem_data.X_g(:,1,tG,s),'l'),aj_g_rs,'l');
+                            temp2=stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s)',obj.stem_model.stem_data.X_g(:,1,tG,s),'r'),j_r,'r');
                             sum_num=sum_num+sum(temp1(Lt).*temp2(Lt)');
                             
                             if par.p>0
-                                if size(data.X_time(:,:,tT),1)<N
-                                    X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                                if size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N
+                                    X_time_orlated=[obj.stem_model.stem_data.X_time(:,:,tT);zeros(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1),size(obj.stem_model.stem_data.X_time(:,:,tT),2))];
+                                    orlated=true;
                                 else
-                                    X_time_orlated=data.X_time(:,:,tT);
+                                    orlated=false;
                                 end
-                                temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,s),data.X_g(:,1,tG,s),'l'),j_r,'l');
+                                temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,s),obj.stem_model.stem_data.X_g(:,1,tG,s),'l'),j_r,'l');
                                 temp2=zeros(size(temp1,1),1);
                                 if N>obj.stem_model.system_size
                                     blocks=0:80:size(temp1,1);
@@ -1500,10 +1558,18 @@ classdef stem_EM < EM
                                         blocks=[blocks size(temp1,1)];
                                     end
                                     for i=1:length(blocks)-1
-                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                        if orlated
+                                            temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                        else
+                                            temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                                        end
                                     end
                                 else
-                                    temp2=diag(temp1*X_time_orlated');
+                                    if orlated
+                                        temp2=diag(temp1*X_time_orlated');
+                                    else
+                                        temp2=diag(temp1*obj.stem_model.stem_data.X_time(:,:,tT)');
+                                    end
                                 end
                                 sum_num=sum_num-sum(temp2(Lt));
                             end
@@ -1518,22 +1584,22 @@ classdef stem_EM < EM
                                             kk=k;
                                             ss=s;
                                         end
-                                        temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{kk,ss}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                        temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',[data.X_g(:,1,tG,s);zeros(Nr,1)],'r'),j_r,'r');
+                                        temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{kk,ss}(:,t),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                        temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',[obj.stem_model.stem_data.X_g(:,1,tG,s);zeros(Nr,1)],'r'),j_r,'r');
                                         sum_num=sum_num-sum(temp1(Lt));
                                     end
                                 end
                             end
                             
-                            if not(isempty(data.X_rg))
-                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,s),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                                temp2=[data.X_g(:,1,tG,s);zeros(size(temp1,1)-size(data.X_g(:,1,tG,s),1),1)];
+                            if not(isempty(obj.stem_model.stem_data.X_rg))
+                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,s),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                                temp2=[obj.stem_model.stem_data.X_g(:,1,tG,s);zeros(size(temp1,1)-size(obj.stem_model.stem_data.X_g(:,1,tG,s),1),1)];
                                 temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',temp2,'r'),j_r,'r');
                                 sum_num=sum_num-sum(temp1(Lt));
                             end
                             
                             temp1=E_wg_y1(:,t,s).^2+diag_Var_wg_y1(:,t,s);
-                            temp1=stem_misc.D_apply(stem_misc.D_apply(temp1,data.X_g(:,1,tG,s),'b'),j_r,'b');
+                            temp1=stem_misc.D_apply(stem_misc.D_apply(temp1,obj.stem_model.stem_data.X_g(:,1,tG,s),'b'),j_r,'b');
                             sum_den=sum_den+sum(temp1(Lt));
                         end
                         alpha_g(r,s)=sum_num/sum_den;
@@ -1565,12 +1631,12 @@ classdef stem_EM < EM
                         for h=hindex
                             initial=par.v_g(k,h,z);
                             if Ng<=obj.stem_EM_options.mstep_system_size
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,data.DistMat_g,...
-                                    data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                             else
                                 disp('WARNING: this operation will take a long time');
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,data.DistMat_g,...
-                                    data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                             end
                             st_par_em_step.v_g(k,h,z)=min_result;
                             st_par_em_step.v_g(h,k,z)=min_result;
@@ -1579,14 +1645,14 @@ classdef stem_EM < EM
                     
                     initial=par.theta_g(z);
                     if Ng<=obj.stem_EM_options.mstep_system_size
-                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g,...
-                            data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                            obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                         st_par_em_step.theta_g(z)=exp(min_result);
                     else
-                        if data.stem_varset_g.nvar>1
+                        if obj.stem_model.stem_data.stem_varset_g.nvar>1
                             disp('WARNING: this operation will take a long time');
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g,...
-                                data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                                obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                             st_par_em_step.theta_g(z)=exp(min_result);
                         else
                             s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
@@ -1604,7 +1670,7 @@ classdef stem_EM < EM
                                 end
                                 temp=temp+sum_Var_wg_y1{z}(idx,idx);
                                 r_partial=symamd(sum_Var_wg_y1{z}(idx,idx));
-                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g(idx,idx),...
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_g.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_g(z)=exp(mean(min_result));
@@ -1616,13 +1682,20 @@ classdef stem_EM < EM
             end
             
             if obj.stem_model.stem_par.clustering==1
-                X_time_new=data.stem_varset_g.X_time{1};
                 if not(isempty(st_kalmansmoother_result))
-                    if size(X_time_new,3)==1
+                    E_e_y1=[];
+                    diag_Var_e_y1=[];
+                    sigma_eps=[];
+                    inv_sigma_eps=[];
+                    temp1=[];
+                    d=[];
+                    I=[];
+                    K=[];
+                    if size(obj.stem_model.stem_data.X_time,3)==1
                         %correlation computation
                         for i=1:N
-                            L=not(isnan(data.Y(i,:)));
-                            a=data.Y(i,L)';
+                            L=not(isnan(obj.stem_model.stem_data.Y(i,:)));
+                            a=obj.stem_model.stem_data.Y(i,L)';
                             b=st_kalmansmoother_result.zk_s(:,2:end)';
                             b=b(L,:);
                             if not(isempty(b))
@@ -1632,30 +1705,29 @@ classdef stem_EM < EM
                             end
                             temp(temp<=0)=0.0001;
                             temp(isnan(temp))=0.0001;
-                            X_time_new(i,:)=temp;
+                            obj.stem_model.stem_data.X_time(i,:)=temp;
                         end
                         
                         theta_clustering=obj.stem_model.stem_par.theta_clustering;
                         if theta_clustering>0
-                            X_time_new2=zeros(size(X_time_new));
                             for i=1:N
                                 v=exp(-obj.stem_model.stem_data.DistMat_g(:,i)/theta_clustering);
                                 for j=1:par.p
-                                    X_time_new2(i,j)=(v'*X_time_new(:,j))/length(v);
+                                    obj.stem_model.stem_data.X_time(i,j)=(v'*obj.stem_model.stem_data.X_time(:,j))/length(v);
                                 end
                             end
-                            X_time_new=X_time_new2;
                         end
                         
                         %weight computation
                         for h=1:iteration
-                            X_time_new=X_time_new.^2;
-                            ss=sum(X_time_new,2);
-                            for j=1:size(X_time_new,2)
-                                X_time_new(:,j)=X_time_new(:,j)./ss;
+                            obj.stem_model.stem_data.X_time=obj.stem_model.stem_data.X_time.^2;
+                            ss=sum(obj.stem_model.stem_data.X_time,2);
+                            for j=1:size(obj.stem_model.stem_data.X_time,2)
+                                obj.stem_model.stem_data.X_time(:,j)=obj.stem_model.stem_data.X_time(:,j)./ss;
                             end
                         end
                     else
+                        %DA MODIFICARE NON CREANDO VARIABILI TEMPORANEE!!!
                         %correlation computation
                         for t=1:T
                             t1=t-30;
@@ -1666,7 +1738,7 @@ classdef stem_EM < EM
                             if t2>T
                                 t2=T;
                             end
-                            Y_temp=data.Y(:,t1:t2);
+                            Y_temp=obj.stem_model.stem_data.Y(:,t1:t2);
                             z_temp=st_kalmansmoother_result.zk_s(:,t1+1:t2+1)';
                             parfor i=1:N
                                 L=not(isnan(Y_temp(i,:)));
@@ -1711,8 +1783,10 @@ classdef stem_EM < EM
                 else
                     error('The Kalman smoother output is empty');
                 end
-                obj.stem_model.stem_data.stem_varset_g.X_time{1}=X_time_new;
-                obj.stem_model.stem_data.update_data;
+                
+                if obj.stem_model.stem_par.clustering==1
+                    obj.stem_model.stem_data.stem_varset_g.Y{1}=obj.stem_model.stem_data.Y;
+                end 
             end
             
             
@@ -1733,7 +1807,6 @@ classdef stem_EM < EM
             T=length(time_steps);
             K=obj.stem_model.stem_par.k;
             p=obj.stem_model.stem_par.p;
-            data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
             fts=time_steps(1);
@@ -1743,62 +1816,61 @@ classdef stem_EM < EM
             
             [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
             if p>0
-                if not(data.X_time_tv)&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
+                if not(obj.stem_model.stem_data.X_time_tv)&&(not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g)))
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
-                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
-                        if (size(data.X_time(:,:,1),1)<N)
-                            var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,1),1)));
+                        var_Zt=sparse(obj.stem_model.stem_data.X_time(:,:,1))*sparse(sigma_Z)*sparse(obj.stem_model.stem_data.X_time(:,:,1)');
+                        if (size(obj.stem_model.stem_data.X_time(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,speye(N-size(obj.stem_model.stem_data.X_time(:,:,1),1)));
                         end
                     else
-                        var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)';
-                        if (size(data.X_time(:,:,1),1)<N)
-                            var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,1),1)));
+                        var_Zt=obj.stem_model.stem_data.X_time(:,:,1)*sigma_Z*obj.stem_model.stem_data.X_time(:,:,1)';
+                        if (size(obj.stem_model.stem_data.X_time(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,eye(N-size(obj.stem_model.stem_data.X_time(:,:,1),1)));
                         end
                     end
                 end
-                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
+                if not(isempty(sigma_geo))&&(not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g)))
                     var_Yt=sigma_geo+var_Zt;
                 end                
             else
                 st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);    
                 var_Zt=[];
                 %variance of Y
-                if not(isempty(sigma_geo))&&(not(isempty(data.X_rg))||not(isempty(data.X_g)))
+                if not(isempty(sigma_geo))&&(not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g)))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
                 end                
             end            
             
-            res=data.Y(:,time_steps);
-            res(isnan(res))=0;
-            if not(isempty(data.X_beta))
+            E_e_y1=obj.stem_model.stem_data.Y(:,time_steps);
+            E_e_y1(isnan(E_e_y1))=0;
+            if not(isempty(obj.stem_model.stem_data.X_beta))
                 disp('    Xbeta evaluation started...');
                 ct1=clock;
                 Xbeta=zeros(N,T);
-                if data.X_beta_tv
+                if obj.stem_model.stem_data.X_beta_tv
                     for t=1:T
-                        if size(data.X_beta(:,:,t+fts-1),1)<N
-                            X_beta_orlated=[data.X_beta(:,:,t+fts-1);zeros(N-size(data.X_beta(:,:,t+fts-1),1),size(data.X_beta(:,:,t+fts-1),2))];
+                        if size(obj.stem_model.stem_data.X_beta(:,:,t+fts-1),1)<N
+                            X_beta_orlated=[obj.stem_model.stem_data.X_beta(:,:,t+fts-1);zeros(N-size(obj.stem_model.stem_data.X_beta(:,:,t+fts-1),1),size(obj.stem_model.stem_data.X_beta(:,:,t+fts-1),2))];
                         else
-                            X_beta_orlated=data.X_beta(:,:,t+fts-1);
+                            X_beta_orlated=obj.stem_model.stem_data.X_beta(:,:,t+fts-1);
                         end
                         Xbeta(:,t)=X_beta_orlated*par.beta;
                     end
                 else
-                    if size(data.X_beta(:,:,1),1)<N
-                        X_beta_orlated=[data.X_beta(:,:,1);zeros(N-size(data.X_beta(:,:,1),1),size(data.X_beta(:,:,1),2))];
+                    if size(obj.stem_model.stem_data.X_beta(:,:,1),1)<N
+                        X_beta_orlated=[obj.stem_model.stem_data.X_beta(:,:,1);zeros(N-size(obj.stem_model.stem_data.X_beta(:,:,1),1),size(obj.stem_model.stem_data.X_beta(:,:,1),2))];
                     else
-                        X_beta_orlated=data.X_beta(:,:,1);
+                        X_beta_orlated=obj.stem_model.stem_data.X_beta(:,:,1);
                     end
                     Xbeta=repmat(X_beta_orlated*par.beta,1,T);
                 end
                 ct2=clock;
                 disp(['    Xbeta evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
-                res=res-Xbeta;
+                E_e_y1=E_e_y1-Xbeta;
             else
                 Xbeta=[];
             end
-            E_e_y1=res;
             diag_Var_e_y1=zeros(N,T);
             
             
@@ -1811,14 +1883,14 @@ classdef stem_EM < EM
             disp('    Conditional E, Var, Cov evaluation started...');
             ct1=clock;
             %cov_wr_yz time invariant case
-            if not(isempty(data.X_rg))
+            if not(isempty(obj.stem_model.stem_data.X_rg))
                 if obj.stem_model.tapering
                     Lr=find(sigma_W_r);
                     [Ir,Jr]=ind2sub(size(sigma_W_r),Lr);
                     nnz_r=length(Ir);
                 end
-                if not(data.X_rg_tv)
-                    cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
+                if not(obj.stem_model.stem_data.X_rg_tv)
+                    cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),obj.stem_model.stem_data.X_rg(:,1,1),'r'),aj_rg,'r');
                 end
                 E_wr_y1=zeros(Nr,T);
                 
@@ -1832,15 +1904,15 @@ classdef stem_EM < EM
                 cov_wr_z_y1=zeros(Nr,p,T);
             end
             %cov_wg_yz time invariant case
-            if not(isempty(data.X_g))
+            if not(isempty(obj.stem_model.stem_data.X_g))
                 if obj.stem_model.tapering
                     Lg=find(sigma_W_g{1});
                     [Ig,Jg]=ind2sub(size(sigma_W_g{1}),Lg);
                     nnz_g=length(Ig);
                 end
-                if not(data.X_g_tv)
+                if not(obj.stem_model.stem_data.X_g_tv)
                     for k=1:K
-                        cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
+                        cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_model.stem_data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
                     end
                 end
                 for h=1:K
@@ -1860,7 +1932,7 @@ classdef stem_EM < EM
                 cov_wg_z_y1=zeros(Ng,p,T,K);
             end
             
-            if not(isempty(data.X_rg)) && not(isempty(data.X_g))
+            if not(isempty(obj.stem_model.stem_data.X_rg)) && not(isempty(obj.stem_model.stem_data.X_g))
                 M_cov_wr_wg_y1=zeros(N,T,K);
             else
                 M_cov_wr_wg_y1=[];
@@ -1869,80 +1941,81 @@ classdef stem_EM < EM
             for t=1:T
                 t_partial1=clock;
                 %missing at time t
-                Lt=not(isnan(data.Y(:,t+fts-1)));
+                Lt=not(isnan(obj.stem_model.stem_data.Y(:,t+fts-1)));
                 
-                if data.X_rg_tv
+                if obj.stem_model.stem_data.X_rg_tv
                     tRG=t+fts-1;
                 else
                     tRG=1;
                 end
-                if data.X_time_tv
+                if obj.stem_model.stem_data.X_time_tv
                     tT=t+fts-1;
                 else
                     tT=1;
                 end
-                if data.X_g_tv
+                if obj.stem_model.stem_data.X_g_tv
                     tG=t+fts-1;
                 else
                     tG=1;
                 end
                 
                 %evaluate var_yt in the time variant case
-                if data.X_tv
-                    if not(isempty(data.X_rg))
-                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
+                if obj.stem_model.stem_data.X_tv
+                    if not(isempty(obj.stem_model.stem_data.X_rg))
+                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                     end
                     
-                    if not(isempty(data.X_g))
-                        if isempty(data.X_rg)
+                    if not(isempty(obj.stem_model.stem_data.X_g))
+                        if isempty(obj.stem_model.stem_data.X_rg)
                             if obj.stem_model.tapering
                                 sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
                             else
                                 sigma_geo=zeros(N);
                             end
                         end
-                        for k=1:size(data.X_g,4)
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                        for k=1:size(obj.stem_model.stem_data.X_g,4)
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_model.stem_data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
                         end
                     end
-                    if isempty(data.X_g)&&isempty(data.X_rg)
+                    if isempty(obj.stem_model.stem_data.X_g)&&isempty(obj.stem_model.stem_data.X_rg)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
                     end
                     
-                    if not(isempty(data.X_time))
-                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
-                            if data.X_time_tv
+                    if not(isempty(obj.stem_model.stem_data.X_time))
+                        if not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g))
+                            if obj.stem_model.stem_data.X_time_tv
                                 if obj.stem_model.tapering
-                                    var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
-                                    if (size(data.X_time(:,:,tT),1)<N)
-                                        var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,tT),1)));
+                                    var_Zt=sparse(obj.stem_model.stem_data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(obj.stem_model.stem_data.X_time(:,:,tT)');
+                                    if (size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,speye(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1)));
                                     end
                                 else
-                                    var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
-                                    if (size(data.X_time(:,:,tT),1)<N)
-                                        var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,tT),1)));
+                                    var_Zt=obj.stem_model.stem_data.X_time(:,:,tT)*sigma_Z*obj.stem_model.stem_data.X_time(:,:,tT)';
+                                    if (size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,eye(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1)));
                                     end
                                 end
                             end
                             var_Yt=sigma_geo+var_Zt;
                         end
                     else
-                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                        if not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g))
                             var_Yt=sigma_geo;
                         end
                     end
                 end
                 
                 %check if the temporal loadings are time variant
-                if not(isempty(data.X_time))
-                    if size(data.X_time(:,:,tT),1)<N
-                        X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                if not(isempty(obj.stem_model.stem_data.X_time))
+                    if size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N
+                        X_time_orlated=[obj.stem_model.stem_data.X_time(:,:,tT);zeros(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1),size(obj.stem_model.stem_data.X_time(:,:,tT),2))];
+                        orlated=true;
                     else
-                        X_time_orlated=data.X_time(:,:,tT);
+                        orlated=false;
                     end
-                    temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
+
                     if N>obj.stem_model.system_size
                         blocks=0:80:size(diag_Var_e_y1,1);
                         if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -1950,25 +2023,47 @@ classdef stem_EM < EM
                         end
                         for i=1:length(blocks)-1
                             %update diag(Var(e|y1))
-                            diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                            if orlated
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(X_time_orlated(blocks(i)+1:blocks(i+1),:)*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                            else
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                            end
                         end
                     else
-                        diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
+                        if orlated
+                            temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
+                            diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
+                        else
+                            temp=obj.stem_model.stem_data.X_time(:,:,tT)*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
+                            diag_Var_e_y1(:,t)=diag(temp*obj.stem_model.stem_data.X_time(:,:,tT)');
+                        end
                     end
                 end
                 
-                if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                if not(isempty(obj.stem_model.stem_data.X_rg))||not(isempty(obj.stem_model.stem_data.X_g))
                     %build the Ht matrix
                     if not(isempty(var_Zt))
                         temp=st_kalmansmoother_result.zk_s(:,t+fts-1+1);
-                        H1t=[var_Yt(Lt,Lt), X_time_orlated(Lt,:)*sigma_Z; sigma_Z*X_time_orlated(Lt,:)', sigma_Z];
+                        if orlated
+                            H1t=[var_Yt(Lt,Lt), X_time_orlated(Lt,:)*sigma_Z; sigma_Z*X_time_orlated(Lt,:)', sigma_Z];
+                        else
+                            H1t=[var_Yt(Lt,Lt), obj.stem_model.stem_data.X_time(Lt,:,tT)*sigma_Z; sigma_Z*obj.stem_model.stem_data.X_time(Lt,:,tT)', sigma_Z];
+                        end
                         %update E(e|y1)
-                        E_e_y1(:,t)=E_e_y1(:,t)-X_time_orlated*temp;
+                        if orlated
+                            E_e_y1(:,t)=E_e_y1(:,t)-X_time_orlated*temp;
+                        else
+                            E_e_y1(:,t)=E_e_y1(:,t)-obj.stem_model.stem_data.X_time(:,:,tT)*temp;
+                        end
                     else
                         H1t=var_Yt(Lt,Lt);
                         temp=[];
                     end
                     
+                    res=obj.stem_model.stem_data.Y(:,time_steps);
+                    if not(isempty(Xbeta))
+                        res=res-Xbeta;
+                    end
                     if obj.stem_model.tapering
                         cs=[];
                         r = symamd(H1t);
@@ -1981,11 +2076,11 @@ classdef stem_EM < EM
                     end
                 end
                 
-                if not(isempty(data.X_rg))
+                if not(isempty(obj.stem_model.stem_data.X_rg))
                     %check if the remote loadings are time variant
-                    if data.X_rg_tv
+                    if obj.stem_model.stem_data.X_rg_tv
                         %cov_wr_yz time variant case
-                        cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                        cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),obj.stem_model.stem_data.X_rg(:,1,tRG),'r'),aj_rg,'r');
                     end
                     cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
                     %compute E(w_r|y1);
@@ -2019,18 +2114,26 @@ classdef stem_EM < EM
                         cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
                         Var_wr_y1=Var_wr_y1+cov_wr_z_y1(:,:,t)*temp_r(end-p+1:end,:);
                         %update diag(Var(e|y1))
-                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                         if N>obj.stem_model.system_size
                             blocks=0:80:size(diag_Var_e_y1,1);
                             if not(blocks(end)==size(diag_Var_e_y1,1))
                                 blocks=[blocks size(diag_Var_e_y1,1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                if orlated
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                else
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                end
                             end
                         else
-                            %faster for N small
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                            %faster for N 
+                            if orlated
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                            else
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*obj.stem_model.stem_data.X_time(:,:,tT)');
+                            end
                         end
                     else
                         cov_wr_z_y1=[];
@@ -2040,9 +2143,9 @@ classdef stem_EM < EM
                     %compute sum(Var(w_r|y1))
                     sum_Var_wr_y1=sum_Var_wr_y1+Var_wr_y1;
                     %update E(e|y1)
-                    E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                    E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                     %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
                 else
                     E_wr_y1=[];
                     diag_Var_wr_y1=[];
@@ -2050,12 +2153,12 @@ classdef stem_EM < EM
                     cov_wr_z_y1=[];
                 end
                 clear temp_r
-                if not(isempty(data.X_g))
+                if not(isempty(obj.stem_model.stem_data.X_g))
                     %check if the ground loadings are time variant
-                    if data.X_g_tv
+                    if obj.stem_model.stem_data.X_g_tv
                         %cov_wg_yz time invariant case
                         for k=1:K
-                            cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                            cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},obj.stem_model.stem_data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
                         end
                     end
                     for k=1:K
@@ -2091,17 +2194,25 @@ classdef stem_EM < EM
                             cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+fts-1+1);
                             Var_wg_y1=Var_wg_y1+cov_wg_z_y1(:,:,t,k)*temp_g{k}(end-p+1:end,:);
                             %update diag(Var(e|y1))
-                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,k),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(diag_Var_e_y1,1);
                                 if not(blocks(end)==size(diag_Var_e_y1,1))
                                     blocks=[blocks size(diag_Var_e_y1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    if orlated
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    else
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                    end
                                 end
                             else
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                                if orlated
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                                else
+                                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*obj.stem_model.stem_data.X_time(:,:,tT)');
+                                end
                             end
                         else
                             cov_wg_z_y1=[];
@@ -2109,11 +2220,11 @@ classdef stem_EM < EM
                         diag_Var_wg_y1(:,t,k)=diag(Var_wg_y1);
                         sum_Var_wg_y1{k}=sum_Var_wg_y1{k}+Var_wg_y1;
                         %update E(e|y1)
-                        E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                        E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                         %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
                         
-                        if not(isempty(data.X_rg))
+                        if not(isempty(obj.stem_model.stem_data.X_rg))
                             %compute M_cov(w_r,w_g|y1); cioï¿½ M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
                             if length(M)>obj.stem_model.system_size
                                 for i=1:length(M)
@@ -2132,8 +2243,8 @@ classdef stem_EM < EM
                                 end
                             end
                             %update diag(Var(e|y1)) - tested
-                            temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                            temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(temp,[obj.stem_model.stem_data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
                             diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                         end
                     end
@@ -2162,8 +2273,8 @@ classdef stem_EM < EM
                                         cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
                                     end
                                 end
-                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{k,h}(:,t),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[obj.stem_model.stem_data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
                                 %update diag(Var(e|y1))
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
@@ -2206,7 +2317,6 @@ classdef stem_EM < EM
             M=obj.stem_model.stem_data.M;
             dim=obj.stem_model.stem_data.dim;
             
-            data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             st_par_em_step=par;
             
@@ -2217,23 +2327,23 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %             beta update                %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if not(isempty(data.X_beta))
+            if not(isempty(obj.stem_model.stem_data.X_beta))
                 ct1=clock;
                 disp('    beta update started...');
-                temp1=zeros(size(data.X_beta,2));
-                temp2=zeros(size(data.X_beta,2),1);
+                temp1=zeros(size(obj.stem_model.stem_data.X_beta,2));
+                temp2=zeros(size(obj.stem_model.stem_data.X_beta,2),1);
                 d=diag(inv_sigma_eps);
                 for t=1:T
-                    Lt=not(isnan(data.Y(:,t)));
-                    if data.X_beta_tv
+                    Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
+                    if obj.stem_model.stem_data.X_beta_tv
                         tB=t;
                     else
                         tB=1;
                     end
-                    if size(data.X_beta(:,:,tB),1)<N
-                        X_beta_orlated=[data.X_beta(:,:,tB);zeros(N-size(data.X_beta(:,:,tB),1),size(data.X_beta(:,:,tB),2))];
+                    if size(obj.stem_model.stem_data.X_beta(:,:,tB),1)<N
+                        X_beta_orlated=[obj.stem_model.stem_data.X_beta(:,:,tB);zeros(N-size(obj.stem_model.stem_data.X_beta(:,:,tB),1),size(obj.stem_model.stem_data.X_beta(:,:,tB),2))];
                     else
-                        X_beta_orlated=data.X_beta(:,:,tB);
+                        X_beta_orlated=obj.stem_model.stem_data.X_beta(:,:,tB);
                     end
                     temp1=temp1+X_beta_orlated(Lt,:)'*stem_misc.D_apply(X_beta_orlated(Lt,:),d(Lt),'l');
                     temp2=temp2+X_beta_orlated(Lt,:)'*stem_misc.D_apply(E_e_y1(Lt,t)+X_beta_orlated(Lt,:)*par.beta,d(Lt),'l');
@@ -2251,7 +2361,7 @@ classdef stem_EM < EM
             temp1=zeros(N,1);
             d=diag(sigma_eps);
             for t=1:T
-                Lt=not(isnan(data.Y(:,t)));
+                Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
                 %the next two lines are ok only for sigma_eps diagonal
                 temp1(Lt)=E_e_y1(Lt,t).^2+diag_Var_e_y1(Lt,t);
                 temp1(~Lt)=d(~Lt);
@@ -2305,7 +2415,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %          alpha_rg, theta_r and v_r            %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if not(isempty(data.X_rg))
+            if not(isempty(obj.stem_model.stem_data.X_rg))
                 disp('    alpha_rg update started...');
                 ct1=clock;
                 for r=1:obj.stem_model.stem_data.nvar
@@ -2313,28 +2423,29 @@ classdef stem_EM < EM
                     sum_num=0;
                     sum_den=0;
                     for t=1:T
-                        if data.X_rg_tv
+                        if obj.stem_model.stem_data.X_rg_tv
                             tRG=t;
                         else
                             tRG=1;
                         end
-                        if data.X_time_tv
+                        if obj.stem_model.stem_data.X_time_tv
                             tT=t;
                         else
                             tT=1;
                         end
-                        Lt=not(isnan(data.Y(:,t)));
-                        temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg_r,'l');
-                        temp2=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t)',M,'r'),data.X_rg(:,1,tRG),'r'),j_r,'r');
+                        Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
+                        temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg_r,'l');
+                        temp2=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t)',M,'r'),obj.stem_model.stem_data.X_rg(:,1,tRG),'r'),j_r,'r');
                         sum_num=sum_num+sum(temp1(Lt).*temp2(Lt)');
                         
                         if par.p>0
-                            if size(data.X_time(:,:,tT),1)<N
-                                X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                            if size(obj.stem_model.stem_data.X_time(:,:,tT),1)<N
+                                X_time_orlated=[obj.stem_model.stem_data.X_time(:,:,tT);zeros(N-size(obj.stem_model.stem_data.X_time(:,:,tT),1),size(obj.stem_model.stem_data.X_time(:,:,tT),2))];
+                                orlated=true;
                             else
-                                X_time_orlated=data.X_time(:,:,tT);
+                                orlated=false;
                             end
-                            temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),j_r,'l');
+                            temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),j_r,'l');
                             temp2=zeros(size(temp1,1));
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(temp1,1);
@@ -2342,7 +2453,11 @@ classdef stem_EM < EM
                                     blocks=[blocks size(temp1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                    if orlated
+                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                    else
+                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                                    end
                                 end
                             else
                                 temp2=diag(temp1*X_time_orlatated');
@@ -2351,21 +2466,21 @@ classdef stem_EM < EM
                         end
                         
                         if par.k>0
-                            if data.X_g_tv
+                            if obj.stem_model.stem_data.X_g_tv
                                 tG=t;
                             else
                                 tG=1;
                             end
                             for k=1:K
-                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),j_r,'l');
-                                temp2=[data.X_g(:,1,tG,k);zeros(size(temp1,1)-size(data.X_g(:,1,tG,k),1),1)];
+                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),j_r,'l');
+                                temp2=[obj.stem_model.stem_data.X_g(:,1,tG,k);zeros(size(temp1,1)-size(obj.stem_model.stem_data.X_g(:,1,tG,k),1),1)];
                                 temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',temp2,'r'),aj_g(:,k),'r');
                                 sum_num=sum_num-sum(temp1(Lt));
                             end
                         end
                         
                         temp1=E_wr_y1(:,t).^2+diag_Var_wr_y1(:,t);
-                        temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(temp1,M,'l'),data.X_rg(:,1,tRG),'b'),j_r,'b');
+                        temp1=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(temp1,M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),j_r,'b');
                         sum_den=sum_den+sum(temp1(Lt));
                     end
                     alpha_rg(r)=sum_num/sum_den;
@@ -2394,12 +2509,12 @@ classdef stem_EM < EM
                         for h=hindex
                             initial=par.v_r(k,h);
                             if Nr<=obj.stem_EM_options.mstep_system_size
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,data.DistMat_r,...
-                                    data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             else
                                 disp('WARNING: this operation will take a long time');
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,data.DistMat_r,...
-                                    data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             end
                             st_par_em_step.v_r(k,h)=min_result;
                             st_par_em_step.v_r(h,k)=min_result;
@@ -2414,14 +2529,14 @@ classdef stem_EM < EM
                 initial=par.theta_r;
                 if par.remote_correlated
                     if Nr<=obj.stem_EM_options.mstep_system_size
-                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r,...
-                            data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                            obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                         st_par_em_step.theta_r=exp(min_result);
                     else
-                        if data.stem_varset_r.nvar>1
+                        if obj.stem_model.stem_data.stem_varset_r.nvar>1
                             disp('WARNING: this operation will take a long time');
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r,...
-                                data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
+                                obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             st_par_em_step.theta_r=exp(min_result);
                         else
                             s=ceil(Nr/obj.stem_EM_options.mstep_system_size);
@@ -2439,7 +2554,7 @@ classdef stem_EM < EM
                                 end
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
-                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(idx,idx),...
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_r=exp(mean(min_result));
@@ -2447,18 +2562,18 @@ classdef stem_EM < EM
                     end
                 else
                     if Nr<=obj.stem_EM_options.mstep_system_size
-                        blocks=[0 cumsum(data.stem_varset_r.dim)];
-                        for i=1:data.stem_varset_r.nvar
+                        blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_r.dim)];
+                        for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
                             r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
-                                data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
+                                obj.stem_model.stem_data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
                             st_par_em_step.theta_r(i)=exp(min_result);
                         end
                     else
-                        blocks_var=[0 cumsum(data.stem_varset_r.dim)];
-                        for i=1:data.stem_varset_r.nvar
-                            s=ceil(data.stem_varset_r.dim(i)/obj.stem_EM_options.mstep_system_size);
-                            step=ceil(data.stem_varset_r.dim(i)/s);
+                        blocks_var=[0 cumsum(obj.stem_model.stem_data.stem_varset_r.dim)];
+                        for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
+                            s=ceil(obj.stem_model.stem_data.stem_varset_r.dim(i)/obj.stem_EM_options.mstep_system_size);
+                            step=ceil(obj.stem_model.stem_data.stem_varset_r.dim(i)/s);
                             blocks=blocks_var(i):step:blocks_var(i+1);
                             if not(blocks(end)==blocks_var(i+1))
                                 blocks=[blocks blocks_var(i+1)];
@@ -2473,7 +2588,7 @@ classdef stem_EM < EM
                                 end
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
-                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,data.DistMat_r(idx,idx),...
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_r(i)=exp(mean(min_result));
@@ -2487,7 +2602,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %          alpha_g               %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            if not(isempty(data.X_g))
+            if not(isempty(obj.stem_model.stem_data.X_g))
                 disp('    alpha_g update started...');
                 for s=1:K
                     for r=1:obj.stem_model.stem_data.stem_varset_g.nvar
@@ -2495,29 +2610,29 @@ classdef stem_EM < EM
                         sum_num=0;
                         sum_den=0;
                         for t=1:T
-                            if data.X_rg_tv
+                            if obj.stem_model.stem_data.X_rg_tv
                                 tRG=t;
                             else
                                 tRG=1;
                             end
-                            if data.X_time_tv
+                            if obj.stem_model.stem_data.X_time_tv
                                 tT=t;
                             else
                                 tT=1;
                             end
-                            if data.X_g_tv
+                            if obj.stem_model.stem_data.X_g_tv
                                 tG=t;
                             else
                                 tG=1;
                             end
-                            Lt=not(isnan(data.Y(:,t)));
+                            Lt=not(isnan(obj.stem_model.stem_data.Y(:,t)));
                             
-                            temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s),data.X_g(:,1,tG,s),'l'),aj_g_rs,'l');
-                            temp2=stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s)',data.X_g(:,1,tG,s),'r'),j_r,'r');
+                            temp1=E_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s),obj.stem_model.stem_data.X_g(:,1,tG,s),'l'),aj_g_rs,'l');
+                            temp2=stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,s)',obj.stem_model.stem_data.X_g(:,1,tG,s),'r'),j_r,'r');
                             sum_num=sum_num+sum(temp1(Lt).*temp2(Lt)');
                             
                             if par.p>0
-                                temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,s),data.X_g(:,1,tG,s),'l'),j_r,'l');
+                                temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,s),obj.stem_model.stem_data.X_g(:,1,tG,s),'l'),j_r,'l');
                                 temp2=zeros(size(temp1,1),1);
                                 if N>obj.stem_model.system_size
                                     blocks=0:80:size(temp1,1);
@@ -2525,10 +2640,18 @@ classdef stem_EM < EM
                                         blocks=[blocks size(temp1,1)];
                                     end
                                     for i=1:length(blocks)-1
-                                        temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                        if orlated
+                                            temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                        else
+                                            temp2(blocks(i)+1:blocks(i+1),1)=diag(temp1(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)');
+                                        end
                                     end
                                 else
-                                    temp2=diag(temp1*X_time_orlated');
+                                    if orlated
+                                        temp2=diag(temp1*X_time_orlated');
+                                    else
+                                        temp2=diag(temp1*obj.stem_model.stem_data.X_time(:,:,tT)');
+                                    end
                                 end
                                 sum_num=sum_num-sum(temp2(Lt));
                             end
@@ -2543,22 +2666,22 @@ classdef stem_EM < EM
                                             kk=k;
                                             ss=s;
                                         end
-                                        temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{kk,ss}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                        temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',[data.X_g(:,1,tG,s);zeros(Nr,1)],'r'),j_r,'r');
+                                        temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{kk,ss}(:,t),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                                        temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',[obj.stem_model.stem_data.X_g(:,1,tG,s);zeros(Nr,1)],'r'),j_r,'r');
                                         sum_num=sum_num-sum(temp1(Lt));
                                     end
                                 end
                             end
                             
-                            if not(isempty(data.X_rg))
-                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,s),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                                temp2=[data.X_g(:,1,tG,s);zeros(size(temp1,1)-size(data.X_g(:,1,tG,s),1),1)];
+                            if not(isempty(obj.stem_model.stem_data.X_rg))
+                                temp1=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,s),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                                temp2=[obj.stem_model.stem_data.X_g(:,1,tG,s);zeros(size(temp1,1)-size(obj.stem_model.stem_data.X_g(:,1,tG,s),1),1)];
                                 temp1=stem_misc.D_apply(stem_misc.D_apply(temp1',temp2,'r'),j_r,'r');
                                 sum_num=sum_num-sum(temp1(Lt));
                             end
                             
                             temp1=E_wg_y1(:,t,s).^2+diag_Var_wg_y1(:,t,s);
-                            temp1=stem_misc.D_apply(stem_misc.D_apply(temp1,data.X_g(:,1,tG,s),'b'),j_r,'b');
+                            temp1=stem_misc.D_apply(stem_misc.D_apply(temp1,obj.stem_model.stem_data.X_g(:,1,tG,s),'b'),j_r,'b');
                             sum_den=sum_den+sum(temp1(Lt));
                         end
                         alpha_g(r,s)=sum_num/sum_den;
@@ -2588,12 +2711,12 @@ classdef stem_EM < EM
                         for h=hindex
                             initial=par.v_g(k,h,z);
                             if Ng<=obj.stem_EM_options.mstep_system_size
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,data.DistMat_g,...
-                                    data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                             else
                                 disp('WARNING: this operation will take a long time');
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,data.DistMat_g,...
-                                    data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
                             end
                             st_par_em_step.v_g(k,h,z)=min_result;
                             st_par_em_step.v_g(h,k,z)=min_result;
@@ -2602,14 +2725,14 @@ classdef stem_EM < EM
                     
                     initial=par.theta_g(z);
                     if Ng<=obj.stem_EM_options.mstep_system_size
-                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g,...
-                            data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                        min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                            obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                         st_par_em_step.theta_g(z)=exp(min_result);
                     else
-                        if data.stem_varset_g.nvar>1
+                        if obj.stem_model.stem_data.stem_varset_g.nvar>1
                             disp('WARNING: this operation will take a long time');
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g,...
-                                data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
+                                obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
                             st_par_em_step.theta_g(z)=exp(min_result);
                         else
                             s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
@@ -2627,7 +2750,7 @@ classdef stem_EM < EM
                                 end
                                 temp=temp+sum_Var_wg_y1{z}(idx,idx);
                                 r_partial=symamd(sum_Var_wg_y1{z}(idx,idx));
-                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,data.DistMat_g(idx,idx),...
+                                min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_g.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_g(z)=exp(mean(min_result));
@@ -2639,42 +2762,54 @@ classdef stem_EM < EM
             end
             
             if obj.stem_model.stem_par.clustering==1
-                X_time_new=data.stem_varset_g.X_time{1};
                 if not(isempty(st_kalmansmoother_result))
-                    for i=1:N
-                        L=not(isnan(data.Y(i,:)));
-                        a=data.Y(i,L)';
-                        for j=1:par.p
-                            b=st_kalmansmoother_result.zk_s(j,2:end)';
-                            b=b(L);
+                    clear E_e_y1
+                    clear diag_Var_e_y1
+                    clear sigma_eps
+                    clear inv_sigma_eps
+                    clear temp1
+                    clear d
+                    clear I
+                    clear K
+                    if size(obj.stem_model.stem_data.X_time,3)==1
+                        %correlation computation
+                        for i=1:N
+                            L=not(isnan(obj.stem_model.stem_data.Y(i,:)));
+                            a=obj.stem_model.stem_data.Y(i,L)';
+                            b=st_kalmansmoother_result.zk_s(:,2:end)';
+                            b=b(L,:);
                             if not(isempty(b))
                                 temp=corr(a,b);
                             else
-                                temp=0.0001;
+                                temp=repmat(0.0001,1,par.p);
                             end
-                            if temp<=0
-                                temp=0.0001;
-                            end
-                            if isnan(temp)
-                                temp=0.0001;
-                            end
-                            c(j)=temp;
+                            temp(temp<=0)=0.0001;
+                            temp(isnan(temp))=0.0001;
+                            obj.stem_model.stem_data.X_time(i,:)=temp;
                         end
-                        if obj.stem_EM_options.clustering_method==0
-                            for h=1:iteration
-                                c=c.^2;
-                                c=c./sum(c);
+                        
+                        theta_clustering=obj.stem_model.stem_par.theta_clustering;
+                        if theta_clustering>0
+                            for i=1:N
+                                v=exp(-obj.stem_model.stem_data.DistMat_g(:,i)/theta_clustering);
+                                for j=1:par.p
+                                    obj.stem_model.stem_data.X_time(i,j)=(v'*obj.stem_model.stem_data.X_time(:,j))/length(v);
+                                end
                             end
-                        else
-                            c=c./sum(c);
                         end
-                        X_time_new(i,:)=c;
+                        
+                        %weight computation
+                        for h=1:iteration
+                            obj.stem_model.stem_data.X_time=obj.stem_model.stem_data.X_time.^2;
+                            ss=sum(obj.stem_model.stem_data.X_time,2);
+                            for j=1:size(obj.stem_model.stem_data.X_time,2)
+                                obj.stem_model.stem_data.X_time(:,j)=obj.stem_model.stem_data.X_time(:,j)./ss;
+                            end
+                        end
+                    else
+                        error('The Kalman smoother output is empty');
                     end
-                else
-                    error('The Kalman smoother output is empty');
                 end
-                obj.stem_model.stem_data.stem_varset_g.X_time{1}=X_time_new;
-                obj.stem_model.stem_data.update_data;
             end
             obj.stem_model.stem_par=st_par_em_step;
             ct2_mstep=clock;
