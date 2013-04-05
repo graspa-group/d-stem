@@ -9,40 +9,50 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 classdef stem_par
-    %class for stem parameters
    
     properties
-        %flag
-        remote_correlated=0;                %[1 x 1 boolean] 1 if remote sensing variables are correlated 0 otherwise        
+        %flags
+        pixel_correlated=0;                 %[boolean]    (1x1) 1 if pixel sensing variables are correlated 0 otherwise        
+        time_diagonal=0;                    %[boolean]    (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
+        clustering=0;                       %[boolean]    (1x1) 1: the property X_time of stem_data is estimated for clustering; 0: X_time is fixed and not estimated
         
         %fixed parameters
-        q=[];                               %[1 x 1 integer] number of ground level variables
-        p=[];                               %[1 x 1 integer] dimension of the latent temporal state
-        k=[];                               %[1 x 1 integer] number of coregionalization components for the ground level variables
-        n_beta=[];                          %[1 x 1 integer]
-        correlation_type='exponential';     %[string] correlation function type  
-        %constraints
-        time_diagonal=0;                    %[1 x 1 boolean] force the matrix G and sigma_eta to be diagonal
-        clustering=0;                       %[1 x 1 boolean] enable or disable the estimation of X_time for clustering
-        theta_clustering=0;                 %[1 x 1 double] parameter of the spatial correlation fo clustering
+        q=[];                               %[integer]    (1x1) number of point level variables
+        p=[];                               %[integer]    (1x1) dimension of the latent temporal state
+        k=[];                               %[integer]    (1x1) number of coregionalization components for the point level variables
+        n_beta=[];                          %[integer]    (1x1)
+        correlation_type='exponential';     %[string]     (1x1) spatial correlation function type  
+        theta_clustering=0;                 %[double >=0] (1x1) parameter of the spatial correlation fo clustering
         
         %estimated parameters
-        beta=[];                            %[dim(n_beta) x 1 double] beta parameters
-        alpha_rg=[];                        %[2q x 1 double] alpha remote/ground parameters
-        alpha_g=[];                         %[q x 1 double] alpha ground parameters;
-        theta_r=[];                         %[1 x 1 or q x 1 double] coregionalization theta parameter for the remote sensing variables
-        theta_g=[];                         %[k x 1 double] coregionalization theta parameters for the ground level variables
-        v_r=[];                             %[q x q double] correlation matrix for the remote sensing variables
-        v_g=[];                             %[q x q x k double] correlation matrices for the ground level variables
-        G=[];                               %[p x p double] transition matrix of the temporal component
-        sigma_eta=[];                       %[p x p double] error variance-covariance matrix of the temporal component
-        sigma_eps=[];                       %[q x q | 2q x 2q] measurement-error variance-covariance matrix
+        beta=[];                            %[double]     (N_bx1) beta parameters
+        alpha_rg=[];                        %[double]     (2qx1) alpha pixel/point parameters
+        alpha_g=[];                         %[double]     (qx1) alpha point parameters;
+        theta_r=[];                         %[double >0]  (q|1x1) coregionalization theta parameter for the pixel sensing variables
+        theta_g=[];                         %[double >0]  (Kx1) coregionalization theta parameters for the point level variables
+        v_r=[];                             %[double]     (qxq) correlation matrix for the pixel sensing variables
+        v_g=[];                             %[double]     (qxqxK) correlation matrices for the point level variables
+        G=[];                               %[double]     (pxp) transition matrix of the temporal component
+        sigma_eta=[];                       %[double]     (pxp) error variance-covariance matrix of the temporal component
+        sigma_eps=[];                       %[double]     (qxq|2qx2q) measurement-error variance-covariance matrix
     end
     
     methods
         
-        function obj = stem_par(stem_data,correlation_type,remote_correlated,time_diagonal,clustering,theta_clustering)
-            %costructor
+        function obj = stem_par(stem_data,correlation_type,pixel_correlated,time_diagonal,clustering,theta_clustering)
+            %DESCRIPTION: object constructor
+            %
+            %INPUT
+            %[stem_data]                 - [stem_data object] (1x1)
+            %<correlation_type>          - [string] (default:'exponential') (1x1) spatial correlation function type 
+            %<pixel_correlated>          - [boolean] (default: 0) (1x1) 1: pixel variables are correlated; 0: otherwise 
+            %<time_diagonal>             - [boolean] (default: 0) (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
+            %<clustering>                - [boolean] (dafault: 0) (1x1) 1: the property X_time of stem_data is estimated for clustering; 0: X_time is fixed and not estimated 
+            %<theta_clustering>          - [double>=0] parameter of the spatial correlation for clustering
+            %
+            %OUTPUT
+            %obj - [stem_par object] (1x1)
+            
             if nargin<1
                 error('The first input argument must be provided');
             end
@@ -79,7 +89,6 @@ classdef stem_par
                     tot=tot+size(stem_data.stem_varset_g.X_beta{i},2);
                 end
             end
-            
             if not(isempty(stem_data.stem_varset_r))
                 if not(isempty(stem_data.stem_varset_r.X_beta))
                     for i=1:length(stem_data.stem_varset_r.dim)
@@ -95,7 +104,7 @@ classdef stem_par
             %k
             if isempty(stem_data.stem_varset_g.X_g)
                 obj.k=0;
-                disp('No geostatistical ground level component considered');
+                disp('No geostatistical point level component considered');
             else
                 obj.k=size(stem_data.stem_varset_g.X_g{1},4);
             end
@@ -115,11 +124,11 @@ classdef stem_par
             end
             
             if nargin>=3
-                if not(isempty(remote_correlated))
+                if not(isempty(pixel_correlated))
                     if isempty(stem_data.stem_varset_r)
-                        disp('WARNING: Remote sensing data are not provided. The remote_correlated input argument is ignored');
+                        disp('WARNING: Pixel data are not provided. The pixel_correlated input argument is ignored');
                     else
-                        obj.remote_correlated=remote_correlated;
+                        obj.pixel_correlated=pixel_correlated;
                     end
                 end
             end
@@ -141,7 +150,7 @@ classdef stem_par
                             error('The clustering option is only available in the univariate case (q=1)');
                         end
                         if not(isempty(stem_data.stem_varset_r))
-                            error('The clustering option is only available for ground level data');
+                            error('The clustering option is only available for point level data');
                         end
                         if isempty(stem_data.stem_varset_g.X_time)
                             error('X_time must be provided when the clustering option is enabled');
@@ -169,16 +178,16 @@ classdef stem_par
             if not(isempty(stem_data.stem_varset_r))
                 obj.alpha_rg=zeros(obj.q*2,1);
                 obj.sigma_eps=zeros(obj.q*2);
-                if strcmp(obj.correlation_type,'exponential') && obj.remote_correlated
+                if strcmp(obj.correlation_type,'exponential') && obj.pixel_correlated
                     obj.theta_r=0;
                 end
-                if strcmp(obj.correlation_type,'matern') && obj.remote_correlated
+                if strcmp(obj.correlation_type,'matern') && obj.pixel_correlated
                     obj.theta_r=zeros(1,2);
                 end
-                if strcmp(obj.correlation_type,'exponential') && not(obj.remote_correlated)
+                if strcmp(obj.correlation_type,'exponential') && not(obj.pixel_correlated)
                     obj.theta_r=zeros(obj.q,1);
                 end                
-                if strcmp(obj.correlation_type,'matern') && not(obj.remote_correlated)
+                if strcmp(obj.correlation_type,'matern') && not(obj.pixel_correlated)
                     obj.theta_r=zeros(obj.q,2);
                 end 
                 obj.v_r=eye(obj.q);
@@ -206,6 +215,14 @@ classdef stem_par
         end
         
         function all_par = vec(obj)
+            %DESCRIPTION: vectorize the model parameters (only the estimated parameters with the exclusion of structural zeroes and repeated elements of symmetric matrices)
+            %
+            %INPUT
+            %obj     - [stem_par object] (1x1) 
+            %
+            %OUTPUT
+            %all_par - [double]          (Hx1)
+                  
             all_par=[];
             all_par=[all_par; obj.beta];
             all_par=[all_par; diag(obj.sigma_eps)];
@@ -216,8 +233,8 @@ classdef stem_par
             else
                 all_par=[all_par; obj.theta_r(:)];
             end
-            if obj.remote_correlated
-                all_par=[all_par; stem_par.from_upper_triangular_to_vector(obj.v_r)];
+            if obj.pixel_correlated
+                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_r)];
             end
 
             all_par=[all_par; obj.alpha_g(:)];
@@ -227,7 +244,7 @@ classdef stem_par
                 all_par=[all_par;obj.theta_g(:)];
             end
             for i=1:obj.k
-                all_par=[all_par; stem_par.from_upper_triangular_to_vector(obj.v_g(:,:,i))];
+                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_g(:,:,i))];
             end
             
             if obj.p>0
@@ -242,6 +259,13 @@ classdef stem_par
         end
         
         function print(obj)
+            %DESCRIPTION: print the stem_par object
+            %
+            %INPUT
+            %obj     - [stem_par object] (1x1) 
+            %
+            %OUTPUT
+            %none: the stem_par object is printed in the command window        
             disp('****************');
             disp('PARAMETER VALUES');
             disp('****************');
@@ -258,7 +282,7 @@ classdef stem_par
                 disp(['theta_g: ',num2str(obj.theta_g')]);
             end
             if not(isempty(obj.v_r))
-                if (obj.remote_correlated)&&(obj.q>1)
+                if (obj.pixel_correlated)&&(obj.q>1)
                     disp(['v_r: ']);
                     disp(obj.v_r);
                 end
@@ -286,6 +310,7 @@ classdef stem_par
             end
         end
 
+        %Class set methods
         function obj = set.q(obj,q)
             obj.q=q;
         end
@@ -317,10 +342,10 @@ classdef stem_par
         
         function obj = set.theta_r(obj,theta_r)
             if strcmp(obj.correlation_type,'exponential')
-                if not(obj.remote_correlated) && not(length(theta_r)==obj.q)
+                if not(obj.pixel_correlated) && not(length(theta_r)==obj.q)
                     error(['The length of theta_r must be equal to ',num2str(obj.q)]);
                 end
-                if obj.remote_correlated && not(length(theta_r)==1)
+                if obj.pixel_correlated && not(length(theta_r)==1)
                     error('theta_r must be a scalar');
                 end
                 if sum(theta_r<0)>0
@@ -328,10 +353,10 @@ classdef stem_par
                 end
             end
             if strcmp(obj.correlation_type,'matern')
-                if not(obj.remote_correlated) && not(size(theta_r,2)==2) && not(size(theta_r,1)==obj.q*2)
+                if not(obj.pixel_correlated) && not(size(theta_r,2)==2) && not(size(theta_r,1)==obj.q*2)
                     error(['The size of theta_r must be ',num2str(2*obj.q),' x 2']);
                 end
-                if obj.remote_correlated && not(size(theta_r,2)==2) && not(size(theta_r,1)==1)
+                if obj.pixel_correlated && not(size(theta_r,2)==2) && not(size(theta_r,1)==1)
                     error('The size of theta_r must be 1 x 2');
                 end                
             end
@@ -359,10 +384,10 @@ classdef stem_par
             if not(size(v_r,1)==obj.q)||(size(v_r,2)~=obj.q)
                 error('v_r must be qxq');
             end
-            if not(obj.remote_correlated)
+            if not(obj.pixel_correlated)
                 temp=v_r-eye(size(v_r,1));
                 if sum(temp(:))>0
-                    error('v_r must be the identity matrix since the remote variables are uncorrelated');
+                    error('v_r must be the identity matrix since the pixel variables are uncorrelated');
                 end
             else
                 if not(sum(diag(v_r-eye(size(v_r,1))))==0)
@@ -418,21 +443,5 @@ classdef stem_par
             obj.theta_clustering=theta_clustering;
         end        
         
-    end
-    
-    methods (Static)
-        function vec = from_upper_triangular_to_vector(mat)
-            d=size(mat,1);
-            vec=zeros(d*(d-1)/2,1);
-            
-            counter=1;
-            for i=1:d-1
-                for j=i+1:d
-                    vec(counter)=mat(i,j);
-                    counter=counter+1;
-                end
-            end
-            
-        end
     end
 end

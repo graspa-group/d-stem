@@ -10,12 +10,28 @@
 
 classdef stem_kalman < handle
     
+    %CONSTANTS
+    %N   = n1_g+...+nq_g+n1_r+...+nq_r - total number of observation sites
+    %N_g = n1_g+...+nq_g - total number of point sites
+    %N_r = n1_r+...+nq_r - total number of pixel sites
+    %N_b = n1_b+...+nq_b+n1_r+...+nq_r - total number of covariates
+    %T   - number of temporal steps
+    %TT = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant    
+    
     properties
-        stem_model=[];
+        stem_model=[];  %[stem_model object] (1x1) stem_model object
     end
     
     methods
         function obj = stem_kalman(stem_model)
+            %DESCRIPTION: constructor of the class stem_kalman
+            %
+            %INPUT
+            %
+            %stem_model      - [stem_model object]    (1x1) stem_model object
+            %
+            %OUTPUT
+            %obj             - [stem_kalman object]   (1x1) stem_kalman object            
             if strcmp(class(stem_model),'stem_model')
                 obj.stem_model=stem_model;
             else
@@ -24,6 +40,27 @@ classdef stem_kalman < handle
         end
         
         function [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+            %DESCRIPTION: Kalman filter front-end method
+            %
+            %INPUT
+            %
+            %obj                            - [stem_kalman object]    (1x1)  stem_kalman object
+            %<compute_logL>                 - [boolean]               (1x1)  (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %<enable_varcov_computation>    - [boolean]               (1x1)  (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %<time_steps>                   - [integer >0]            (dTx1) (default: []) the subset of time steps with respect to which compute the Kalman filter
+            %<pathparallel>                 - [string]                (1x1)  (defalut: []) full or relative path of the folder to use for distributed computation
+            %    
+            %OUTPUT
+            %st_kalmanfilter_result         - [stem_kalmanfilter_result object] (1x1)     
+            %sigma_eps                      - [double]                          (NxN) the sigma_eps matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_r                      - [double]                          (N_rxN_r) sigma_W_r matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_g                      - [double]                          {k}(N_gx_Ng) the sigma_W_g matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_Z                        - [double]                          (pxp) the sigma_Z matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_rg                          - [double]                          (Nx1) the aj_rg vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_g                           - [double]                          (Nx1) the aj_g vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %M                              - [integer >0]                      (N_gx1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_geo                      - [double]                          (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            
             if nargin<2
                 compute_logL=0;
             end
@@ -62,6 +99,27 @@ classdef stem_kalman < handle
         end
         
         function [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+            %DESCRIPTION: Kalman smoother front-end method
+            %
+            %INPUT
+            %
+            %obj                            - [stem_kalman object]    (1x1)  stem_kalman object
+            %<compute_logL>                 - [boolean]               (1x1)  (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %<enable_varcov_computation>    - [boolean]               (1x1)  (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %<time_steps>                   - [integer >0]            (dTx1) (default: []) the subset of time steps with respect to which compute the Kalman filter
+            %<pathparallel>                 - [string]                (1x1)  (defalut: []) full or relative path of the folder to use for distributed computation
+            %    
+            %OUTPUT
+            %st_kalmansmoother_result       - [stem_kalmansmoother_result object] (1x1)     
+            %sigma_eps                      - [double]                            (NxN) the sigma_eps matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_r                      - [double]                            (N_rxN_r) sigma_W_r matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_g                      - [double]                            {K}(N_gxN_g) the sigma_W_g matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_Z                        - [double]                            (pxp) the sigma_Z matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_rg                          - [double]                            (Nx1) the aj_rg vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_g                           - [double]                            (Nx1) the aj_g vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %M                              - [integer >0]                        (N_gx1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_geo                      - [double]                            (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+              
             if nargin<2
               compute_logL=0;
             end
@@ -100,7 +158,42 @@ classdef stem_kalman < handle
     methods (Static)
         
         function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation)
-            if nargin<13
+            %DESCRIPTION: Kalman filter implementation
+            %
+            %INPUT
+            %
+            %Y                              - [double]     (NxT)      the full observation matrix
+            %X_rg                           - [double]     (Nx1xTT)   the full X_rg matrix
+            %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
+            %X_time                         - [double]     (NxpxTT)   the full X_time matrix
+            %X_g                            - [double]     (Nx1xTTxK) the full X_g matrix
+            %beta                           - [double]     (N_bx1)    the beta model parameter
+            %G                              - [double]     (pxp)      the G model parameter
+            %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
+            %sigma_W_r                      - [double]     (N_rxN_r)  variance-covariance matrix of W_r
+            %sigma_W_g                      - [double]     {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
+            %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
+            %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
+            %aj_rg                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %aj_g                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_gx1)    see the details of the method update_M of the class stem_data            
+            %z0                             - [double]     (px1)      the value of z at time t=0
+            %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
+            %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %tapering                       - [boolean]    (1x1)      1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)      1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]    (1x1)      1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            % 
+            %OUTPUT 
+            %zk_f                           - [double]     (pxT+1)    the filtered state
+            %zk_u                           - [double]     (pxT+1)    the updated state
+            %Pk_f                           - [double]     (pxpxT+1)  variance-covariance matrix of the filtered state
+            %Pk_u                           - [double]     (pxpxT+1)  variance-covariance matrix of the updated state
+            %J_last                         - [double]     (pxN)      innovation vector at time t=T
+            %J                              - [double]     (pxNxT+1)  innovation vector from time t=0 to time t=T
+            %logL                           - [double]     (1x1)      observed-data log-likelihood
+            
+            if nargin<20
                 error('You have to provide all the input arguments');
             end
                         
@@ -338,6 +431,43 @@ classdef stem_kalman < handle
         end
         
         function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter_parallel(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
+            %DESCRIPTION: distributed Kalman filter implementation
+            %
+            %INPUT
+            %
+            %Y                              - [double]     (NxT)      the full observation matrix
+            %X_rg                           - [double]     (Nx1xTT)   the full X_rg matrix
+            %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
+            %X_time                         - [double]     (NxpxTT)   the full X_time matrix
+            %X_g                            - [double]     (Nx1xTTxK) the full X_g matrix
+            %beta                           - [double]     (N_bx1)    the beta model parameter
+            %G                              - [double]     (pxp)      the G model parameter
+            %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
+            %sigma_W_r                      - [double]     (N_rxN_r)  variance-covariance matrix of W_r
+            %sigma_W_g                      - [double]     {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
+            %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
+            %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
+            %aj_rg                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %aj_g                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_gx1)    see the details of the method update_M of the class stem_data            
+            %z0                             - [double]     (px1)      the value of z at time t=0
+            %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
+            %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %time_steps                     - [integer >0] (dTx1)     time steps with respect to which compute the Kalman filter
+            %pathparallel                   - [string]     (1x1)      full or relative path of the folder to use for distributed computation
+            %tapering                       - [boolean]    (1x1)      1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)      1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]    (1x1)      1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            % 
+            %OUTPUT 
+            %zk_f                           - [double]     (pxT+1)    the filtered state
+            %zk_u                           - [double]     (pxT+1)    the updated state
+            %Pk_f                           - [double]     (pxpxT+1)  variance-covariance matrix of the filtered state
+            %Pk_u                           - [double]     (pxpxT+1)  variance-covariance matrix of the updated state
+            %J_last                         - [double]     (pxN)      innovation vector at time t=T
+            %J                              - [double]     (pxNxT+1)  innovation vector from time t=0 to time t=T
+            %logL                           - [double]     (1x1)      observed-data log-likelihood
+            
             if nargin<20
                 error('You have to provide all the input arguments');
             end
@@ -729,6 +859,40 @@ classdef stem_kalman < handle
         end
         
         function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
+            %DESCRIPTION: distributed Kalman filter implementation
+            %
+            %INPUT
+            %
+            %Y                              - [double]     (NxT)      the full observation matrix
+            %X_rg                           - [double]     (Nx1xTT)   the full X_rg matrix
+            %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
+            %X_time                         - [double]     (NxpxTT)   the full X_time matrix
+            %X_g                            - [double]     (Nx1xTTxK) the full X_g matrix
+            %beta                           - [double]     (N_bx1)    the beta model parameter
+            %G                              - [double]     (pxp)      the G model parameter
+            %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
+            %sigma_W_r                      - [double]     (N_rxN_r)  variance-covariance matrix of W_r
+            %sigma_W_g                      - [double]     {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
+            %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
+            %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
+            %aj_rg                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %aj_g                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_gx1)    see the details of the method update_M of the class stem_data            
+            %z0                             - [double]     (px1)      the value of z at time t=0
+            %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
+            %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %time_steps                     - [integer >0] (dTx1)     time steps with respect to which compute the Kalman filter
+            %pathparallel                   - [string]     (1x1)      full or relative path of the folder to use for distributed computation
+            %tapering                       - [boolean]    (1x1)      1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)      1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]    (1x1)      1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            % 
+            %OUTPUT 
+            %zk_s                           - [double]     (pxT+1)    the smoothed state
+            %Pk_s                           - [double]     (pxpxT+1)  variance-covariance matrix of the smoothed state
+            %PPk_s                          - [double]     (pxpxT+1)  lag-one variance-covariance matrix of the smoothed state
+            %logL                           - [double]     (1x1)      observed-data log-likelihood
+        
             if isempty(pathparallel)
                 [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_rg,X_beta,X_time,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
             else

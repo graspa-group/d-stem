@@ -254,16 +254,16 @@ if flag_estimate
     end
     
     if flag_remote_data
-        remote_correlated=0;
+        pixel_correlated=0;
     else
-        remote_correlated=[];
+        pixel_correlated=[];
     end
     
     %data
-    st_data=stem_data(st_varset_g,st_gridlist_g,st_varset_r,st_gridlist_r,st_datestamp,[],[],st_crossval,remote_correlated);
+    st_data=stem_data(st_varset_g,st_gridlist_g,st_varset_r,st_gridlist_r,st_datestamp,[],[],st_crossval,pixel_correlated);
     %par
     time_diagonal=1;
-    st_par=stem_par(st_data,'exponential',remote_correlated,time_diagonal);
+    st_par=stem_par(st_data,'exponential',pixel_correlated,time_diagonal);
     
     st_model=stem_model(st_data,st_par);
     st_model.set_system_size();

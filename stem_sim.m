@@ -9,17 +9,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 classdef stem_sim < handle
-    %stem simulator class
     
     properties
-        stem_model=[];      %stem_model object
-        nan_rate=[0 0];     %missing data rate percentage
-        nan_pattern_par=[]; %spatial missing data pattern parameter theta. Missing data pattern is simulated by considering an exponential correlation function in the form exp(-d/theta) with d the euclidean distance between two sites.
+        stem_model=[];      %[stem_model object]    (1x1) stem_model object
+        nan_rate=[0 0];     %[double >0 and <1]     (2x1) missing data rates for the point data and the pixel data
+        nan_pattern_par=[]; %[double >0]            (2x1) missing data spatial-pattern parameters for point data and pixel data. The missing data spatial pattern is simulated by considering an exponential correlation function in the form exp(-d/theta) with d the euclidean distance between two sites.
     end
     
     methods
         function obj = stem_sim(stem_model)
-            % constructor
+            %DESCRIPTION: object constructor
+            %
+            %INPUT
+            %stem_model  - [stem_model object] (1x1)
+            %
+            %OUTPUT
+            %obj         - [stem_sim object]   (1x1)
+            
             if nargin>=1
                 if strcmp(class(stem_model),'stem_model')
                     obj.stem_model=stem_model;
@@ -30,8 +36,16 @@ classdef stem_sim < handle
         end
         
         function simulate(obj,nan_rate,nan_pattern_par)
-            % simulate STEM3 data
-            % see properties for details
+            %DESCRIPTION: data simulation. Note that only the Y matrix is simulated. The loading vectors are taken from the stem_model object
+            %
+            %INPUT
+            %obj                - [stem_sim object]      (1x1)
+            %<nan_rate>         - [double >0 and <1]     (2x1) missing data rates for the point data and the pixel data
+            %<nan_pattern_par>  - [double >0]            (2x1) missing data spatial-pattern parameters for point data and pixel data. The missing data spatial pattern is simulated by considering an exponential correlation function in the form exp(-d/theta) with d the euclidean distance between two sites.
+            %
+            %OUTPUT
+            %none: the matrix Y of the stem_data object in the stem_model object is updated
+            
             disp('Simulation started...');
             T=obj.stem_model.stem_data.T;
             N=obj.stem_model.stem_data.N;
@@ -71,7 +85,7 @@ classdef stem_sim < handle
                 end
             end            
             
-            [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,j_rg,j_g] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_r,sigma_W_g,~,~,j_rg,j_g] = obj.stem_model.get_sigma();
 
             if obj.stem_model.stem_par.p>0
                 mu0=zeros(obj.stem_model.stem_par.p,1);
@@ -165,6 +179,7 @@ classdef stem_sim < handle
             disp('');
         end
         
+        %Class set methods
         function set.nan_rate(obj,nan_rate)
             if not(isempty(nan_rate))
                 if not(isempty(obj.stem_model.stem_data.stem_varset_r))

@@ -9,18 +9,29 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 classdef stem_datestamp < handle
+    
     properties
-        date_start=[];
-        date_end=[];
-        T=[];
+        date_start=[];      %[integer>0]  (1x1) the date of the first time step. It can be a date in the Matlab format (the output of the datenum function) or a numeric index
+        date_end=[];        %[integer>0]  (1x1) the date of the last  time step. It can be a date in the Matlab format (the output of the datenum function) or a numeric index
+        T=[];               %[integer>0]  (1x1) the total number of time steps
     end
     
     properties (SetAccess = private)
-        stamp=[];
+        stamp=[];           %[integer >0] (Tx1) all the date stamps
     end
     
     methods
         function obj = stem_datestamp(date_start,date_end,T)
+            %DESCRIPTION: object constructor
+            %
+            %INPUT
+            %date_start    - [string|integer>0]     (1x1) the date related to the first time step. It can be a string in the format dd-mm-yyyy or an integer index 
+            %date_end      - [string|integer>0]     (1x1) the date related to the last  time step. It can be a string in the format dd-mm-yyyy or an integer index
+            %T             - [integer>0]            (1x1) the total number of time steps
+            %
+            %OUTPUT
+            %obj           - [stem_datestamp object](1x1)  
+            
             if nargin<3
                 error('Not enough input arguments');
             end
@@ -42,6 +53,15 @@ classdef stem_datestamp < handle
         end
         
         function subset_stamps(obj,indices)
+            %DESCRIPTION: removes a subset of the date stamps
+            %
+            %INPUT
+            %obj           - [stem_datestamp object]    (1x1)  stem_datestamp object
+            %indices       - [integer>0]                (dTx1) the indices of the temporal steps to keep
+            %
+            %OUTPUT
+            %none: the properties of the object are updated
+            
             obj.stamp=obj.stamp(indices);
             obj.date_start=min(obj.stamp);
             obj.date_end=max(obj.stamp);
@@ -49,6 +69,15 @@ classdef stem_datestamp < handle
         end
         
         function average_stamps(obj,indices)
+            %DESCRIPTION: averages the date stamps. This method is used when the time_average method of the class stem_data is called
+            %
+            %INPUT
+            %obj           - [stem_datestamp object]    (1x1) stem_datestamp object
+            %indices       - [integer>0]                (1x1) the indices of the reference temporal steps. The average is evaluated on date stamps between indices(i)+1 and indices(i+1) included
+            %
+            %OUTPUT
+            %none: the properties of the object are updated   
+            
             stamp_temp=[];
             for i=1:length(indices)-1
                 stamp_temp(i)=mean(obj.stamp(indices(i)+1):obj.stamp(indices(i+1)));
@@ -57,17 +86,6 @@ classdef stem_datestamp < handle
             obj.date_start=min(obj.stamp);
             obj.date_end=max(obj.stamp);
             obj.T=length(obj.stamp);
-        end
-        
-    end
-    
-    methods (Static)
-        function res = compare(stem_datestamp1,stem_datestamp2)
-            if sum(stem_datestamp1.stamp-stem_datestamp2.stamp)==0
-                res=1;
-            else
-                res=0;
-            end
         end
     end
 end

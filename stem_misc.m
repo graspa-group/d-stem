@@ -12,12 +12,24 @@ classdef stem_misc
     
     methods (Static)
         
-        function R = autocorr(y,nlag,fl_plot)
+        function R = autocorr(y,nlag,flag_plot)
+            %DESCRIPTION: evaluate and plot the temporal autocorrelation of the time series y
+            %
+            %INPUT
+            %
+            %y                  - [double]      (Nx1)  the time series
+            %nlag               - [integer]     (1x1)  number of temporal lags to evaluate
+            %flag_plot          - [boolean]     (1x1)  1: plot the result; 0: no plot
+            %pixel_side_h=[];   - [double]      (1x1)          the height of the pixel (in the same unit of measure of the unit property)
+            %
+            %OUTPUT
+            %
+            %R                  - [double]      (1x1) the autocorrelation evaluation for nlag lags
             if nargin < 2
                 nlag = 24;
             end
             if nargin < 3
-                fl_plot=1;
+                flag_plot=1;
             end
             if size(y,2) > 1
                 error('Multivariate time series not supported');
@@ -33,7 +45,7 @@ classdef stem_misc
                 r = r' / r(1);
                 sigma2 = 2 ./ sqrt(n - (0:mnlag));
                 sigma3 = 3 ./ sqrt(n - (0:mnlag));
-                if fl_plot
+                if flag_plot
                     plot(0:mnlag,r,'-k', 0:mnlag,[sigma2' -sigma2'],'-g', 0:mnlag,[sigma3' -sigma3'],'-r', [0; mnlag], [0; 0]);
                     axis tight
                     title('Autocorrelation (bands at \pm 2 and \pm 3\sigma)' );
@@ -45,6 +57,17 @@ classdef stem_misc
         end
         
         function res = chol_solve(c,b,trim)
+            %DESCRIPTION: linear system solving using Cholesky decomposition - res=a\b
+            %
+            %INPUT
+            %
+            %c                  - [double]      (NxN)  the Cholesky decomposition of the s.s.d. matrix a
+            %b                  - [double]      (NxM)  the matri b
+            %trim               - [boolean]     (1x1)  1: force to zero the elements of the matrix y=c'\b and the elements of the matrix res=c\y that are close to zero  
+            %
+            %OUTPUT
+            %
+            %res                - [double]      (NxM)  the result of the linear system a\b
             if nargin<3
                 trim=0;
             end
@@ -69,6 +92,17 @@ classdef stem_misc
         end
         
         function corr = correlation_function(theta,DistMat,type)
+            %DESCRIPTION: evaluation of the spatial correlation function
+            %
+            %INPUT
+            %
+            %theta              - [double]      (1|2x1) the parameter scalar or vector of the spatial correlation function
+            %DistMat            - [double]      (NxN)   the distance matrix
+            %type               - [string]      (1x1)   'exponential': exponential spatial correlation function; 'matern': Matern spatial correlation function 
+            %
+            %OUTPUT
+            %
+            %corr               - [double]      (NxN)   spatial correlation matrix           
             if strcmp(type,'exponential')
                 %theta(1)=theta
                 if not(isscalar(theta))
@@ -101,10 +135,18 @@ classdef stem_misc
         end
         
         function res = D_apply(a,d,type)
-            %res=d*a
-            %a must be either a vector or a matrix!
-            %d must be a column vector representing the diagonal of a diagonal matrix
-            %type must be 'l' for left, 'r' for right or 'b' for both
+            %DESCRIPTION: this method is used in EM estimation to avoid full matrix multiplication
+            %
+            %INPUT
+            %
+            %a              - [double]      (Nx1|N) vector or matrix
+            %d              - [double]      (Mx1)   the vector to pre and/or post multiply. The vector is the diagonal of diagonal matrix
+            %type           - [string]      (1x1)   'l': left pre multiplication; 'r': right post multiplication; 'b' pre and post multiplication
+            %
+            %OUTPUT
+            %
+            %res            - [double]      (Nx1|N) the result of the multiplication               
+
             if nargin<3
                 error('All the input arguments must be provided');
             end
@@ -289,6 +331,16 @@ classdef stem_misc
         end
         
         function str = decode_time(s)
+            %DESCRIPTION: convert an interval of time in seconds into a string with hours, minutes and seconds
+            %
+            %INPUT
+            %
+            %s              - [double]      (1x1)   the interval of time in seconds
+            %
+            %OUTPUT
+            %
+            %str            - [string]      (1x1)   the output string               
+            
             h=floor(s/3600);
             s=s-h*3600;
             m=floor(s/60);
@@ -308,6 +360,16 @@ classdef stem_misc
         end
         
         function disp_star(string)
+            %DESCRIPTION: embed and display a string into a frame of *
+            %
+            %INPUT
+            %
+            %string           - [string]      (1x1)   the string to display
+            %
+            %OUTPUT
+            %
+            %none: the string is displayed              
+                        
             l=length(string);
             s=[];
             for i=1:l+8
@@ -320,6 +382,15 @@ classdef stem_misc
         end
         
         function mat = from_vector_to_symmetric_matrix(vec)
+            %DESCRIPTION: a correlation matrix is built from the vector vec
+            %
+            %INPUT
+            %
+            %vec           - [double]      (dx1)    the vector of the upper extra-diagonal elements
+            %
+            %OUTPUT
+            %
+            %mat:          - [double]      (qxq)    the correlation matrix           
             d=(1+sqrt(1+8*length(vec)))/2;
             mat=eye(d);
             counter=1;
@@ -333,12 +404,42 @@ classdef stem_misc
             
         end
         
-        function [B,block_i,block_j] = get_block(dim_r,i,dim_c,j,A)
-            % [B,block_i,block,j] = get_block(dim_r,i,dim_c,j,A)
+        function vec = from_upper_triangular_to_vector(mat)
+            %DESCRIPTION: return the vector of the upper triangular part of a matrix
             %
-            % rende B=A(block_i,block,j)
-            % dim_r = struttura a blocchi delle righe
-            % dim_c = struttura a blocchi delle colonne
+            %INPUT
+            %mat          - [double]      (dxd) the input matrix
+            %
+            %OUTPUT
+            %vec:         - [double]      (d*(d-1)/2x1) the vector of the upper extra-diagonal elements  
+            
+            d=size(mat,1);
+            vec=zeros(d*(d-1)/2,1);
+            counter=1;
+            for i=1:d-1
+                for j=i+1:d
+                    vec(counter)=mat(i,j);
+                    counter=counter+1;
+                end
+            end
+        end        
+        
+        function [B,block_i,block_j] = get_block(dim_r,i,dim_c,j,A)
+            %DESCRIPTION: returns the block of a block matrix
+            %
+            %INPUT
+            %
+            %dim_r           - [integer]      (cx1)   the number of rows in each sub-block
+            %i               - [integer]      (1x1)   the row index of the sub-block to extract
+            %dim_c           - [integer]      (dx1)   the number of columns in each sub-block
+            %j               - [integer]      (1x1)   the column index of the sub-block to extract
+            %A               - [double]       (NxN)   the block matrix
+            %
+            %OUTPUT
+            %
+            %B               - [double]       (GxH)   the matrix sub-block
+            %block_i         - [integer]      (Gx1)   the indices of the extracted rows
+            %block_j         - [integer]      (Hx1)   the indices of the extracted columns
             
             rr=cumsum(dim_r);
             block_i = rr(i)-dim_r(i)+1:rr(i);
@@ -362,6 +463,18 @@ classdef stem_misc
         end
         
         function color = get_rainbow_color(value,min_value,max_value)
+            %DESCRIPTION: given a value within a range, the respective color in the rainbow colormap is returned
+            %
+            %INPUT
+            %
+            %value          - [double]       (1x1)   the value within the range
+            %min_value      - [double]       (1x1)   the lower limit of the range
+            %max_value      - [double]       (1x1)   the upper limit of the range
+            %
+            %OUTPUT
+            %
+            %color          - [double >=0 and <=1] (3x1)    the RGB color 
+            
             value=(value-min_value)/(max_value-min_value);
             if value<0.25
                 color(1)=0;
@@ -387,6 +500,15 @@ classdef stem_misc
         end
             
         function result = isdiagonal(a)
+            %DESCRIPTION: test if a matrix is diagonal
+            %
+            %INPUT
+            %
+            %a          - [double]       (NxN)   the input matrix
+            %
+            %OUTPUT
+            %
+            %result     - [boolean]      (1x1)   1: the matrix is diagonal; 0: otherwise
             [i,j] = find(a);
             if ~isempty(i)
                 result = all(i == j);
@@ -396,9 +518,18 @@ classdef stem_misc
         end
         
         function res = M_apply(a,M,type)
-            %a must be either a vector or a simmetric matrix!
-            %M must be a vector of indices
-            %type must be 'l' for left, 'r' for right or 'b' for both
+            %DESCRIPTION: this method is used in EM estimation to avoid full matrix multiplication
+            %
+            %INPUT
+            %
+            %a              - [double]      (Nx1|N) vector or matrix
+            %M              - [integer >0]  (N_gx1) vector of indices
+            %type           - [string]      (1x1)   'l': left pre multiplication; 'r': right post multiplication; 'b' pre and post multiplication
+            %
+            %OUTPUT
+            %
+            %res            - [double]      (Nx1|N) the result of the multiplication            
+
             if nargin<3
                 error('All the input arguments must be provided');
             end
@@ -485,6 +616,18 @@ classdef stem_misc
         end
         
         function plot_map(lat,lon,data,shape)
+            %DESCRIPTION: plot geolocated data over a map (if given)
+            %
+            %INPUT
+            %
+            %lat            - [double]      (Nx1) vector of latitude
+            %lon            - [double]      (Nx1) vector of longitude
+            %data           - [double]      (Nx1) the data to plot
+            %<shape>        - [shape file]  (1x1) the shape file of the map
+            %
+            %OUTPUT
+            %
+            %none: the data are plotted
             if nargin<3
                 error('lat, lon and data must be provided');
             end
@@ -512,8 +655,6 @@ classdef stem_misc
                     maxval=nanmax(data);
                     for i=1:length(lat)
                         if not(isnan(data(i)))
-                            %temp1=(data(i)-minval)/(maxval-minval);
-                            %color=[temp1 temp1 temp1];
                             color = stem_misc.get_rainbow_color(data(i),minval,maxval);
                             mapshow(lon(i),lat(i),'DisplayType','point','MarkerFaceColor',color, 'MarkerEdgeColor','k','Marker','o','MarkerSize',5);
                             hold on
@@ -526,6 +667,16 @@ classdef stem_misc
         end
         
         function v = triuv(mat)
+            %DESCRIPTION: extract the diagonal and the upper triangular part of a matrix into a vector
+            %
+            %INPUT
+            %
+            %mat            - [double]      (dxd) the input matrix
+            %
+            %OUTPUT
+            %
+            %v              - [double]      (d*(d+1)/2x1) the output vector
+            
             d=size(mat,1);
             v=zeros(d*(d+1)/2,1);
             l=1;
@@ -537,26 +688,46 @@ classdef stem_misc
             end
         end
         
-        function weights = wendland(DistMat,gamma,resh)
+        function weights = wendland(DistMat,gamma,flag_reshape)
+            %DESCRIPTION: compute the tapering weights using the Wendland function
+            %
+            %INPUT
+            %
+            %DistMat           - [double]      (NxN)    the distance matrix
+            %gamma             - [double >0]   (1x1)    the gamma parameter of the wendland function
+            %flag_reshape      - [boolean]     (1x1)    1:the weights are reshaped to have the same dimension of the distance matrix; 0: the weights are given only for the non-zero elements
+            %
+            %OUTPUT
+            %
+            %weights:          - [double]      (NxN | dNx1) the tapering weights. The dimension of the output depends on the flag_reshape value
+            
             if gamma<=0
                 error('The gamma tapering parameter must be > 0');
             end
             if nargin<3
-                resh=0;
+                flag_reshape=0;
             end
             %find the indices of the non-zero elements of DistMat;
             idx=find(DistMat);
             %evaluate the wendland function only on the non-zero elements
             c=DistMat(idx)./gamma;
-            %weights=((1-c).^6).*(35*c.^2+18*c+3);
-            weights=((1-c).^4).*(4*c+1);
-            if resh
+            weights=((1-c).^4).*(4*c+1); %or %weights=((1-c).^6).*(35*c.^2+18*c+3);
+            if flag_reshape
                 [I,J]=ind2sub(size(DistMat),idx);
                 weights=sparse(I,J,weights,size(DistMat,1),size(DistMat,2));
             end
         end
         
         function density = zero_density(matrix)
+            %DESCRIPTION: returns the density of zero elements within the matrix
+            %
+            %INPUT
+            %
+            %matrix          - [double]       (NxN)   the input matrix
+            %
+            %OUTPUT
+            %
+            %density         - [double]       (1x1)   the percentage of zero elements            
             density=100-nnz(matrix)/(size(matrix,1)*size(matrix,2))*100;
         end
 

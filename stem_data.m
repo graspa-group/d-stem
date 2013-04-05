@@ -12,62 +12,65 @@
 classdef stem_data < handle
     
     %CONSTANTS
-    %N  = n1_g+...+nq_g+n1_r+...+nq_r - total number of observation sites
-    %Ng = n1_g+...+nq_g - total number of ground level sites
-    %Nr = n1_r+...+nq_r - total number of remote sensing sites
-    %M = 2 if both ground level and remote sense data are considered. M = 1 if only ground level data are considered.
-    %T - number of temporal steps
-    %TT = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
+    %N_g = n1_g+...+nq_g - total number of point sites
+    %N_r = n1_r+...+nq_r - total number of pixel sites
+    %N   = N_g+N_r - total number of observation sites
+    %N_b = n1_b+...+nq_b+n1_r+...+nq_r - total number of covariates
+    %S   = 2 if both point and pixel data are considered. S = 1 if only point data are considered.
+    %T   - number of temporal steps
+    %TT  = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
+    %p   - dimension of the latent temporal variable z
     
     properties
-        stem_varset_g=[];       %[stem_varset object] (1x1) stem_varset object for the ground level variables
-        stem_varset_r=[];       %[stem_varset object] (1x1) stem_varset object for the remote sensing variables
-        stem_gridlist_g=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the ground level variables        
-        stem_gridlist_r=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the remote sensing variables
-        stem_datestamp=[]       %[stem_datestamp object] (1x1) stem_datestamp object with information on time steps
+        stem_varset_g=[];       %[stem_varset object]   (1x1) stem_varset object for the point variables
+        stem_varset_r=[];       %[stem_varset object]   (1x1) stem_varset object for the pixel variables
+        stem_gridlist_g=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the point variables        
+        stem_gridlist_r=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the pixel variables
+        stem_datestamp=[]       %[stem_datestamp object](1x1) stem_datestamp object with information on time steps
         stem_crossval=[];       %[stem_crossval object] (1x1) stem_crossval object with information on crossvalidation
         
-        shape=[];               %[struct] geographic data structure loaded from a shapefile with the boundary of the geographic region
-        simulated=0;            %[boolean] (1x1) 1 if the data have been simulated, 0 otherwise.
-        remote_correlated=0;    %[boolean] (1x1) 1 if the remote variables are cross-correlated
-        X_time=[];              %[double]     (NxpxTT) the full X_time matrix
+        shape=[];               %[struct]               (1x1) boundary of the geographic region loaded from a shape file
+        simulated=0;            %[boolean]              (1x1) 1: the data have been simulated; 0: observed data
+        pixel_correlated=0;     %[boolean]              (1x1) 1: the pixel data are cross-correlated
+        X_time=[];              %[double]               (NxpxTT) the full X_time matrix
     end
     
     properties (SetAccess = private) 
         Y=[];                   %[double]     (NxT) the full observation matrix
-        X_rg=[];                %[double]     (Nx1XTT) the full X_rg matrix
-        X_beta=[];              %[double]     (NxBxTT) the full X_beta matrix
+        X_rg=[];                %[double]     (Nx1xTT) the full X_rg matrix
+        X_beta=[];              %[double]     (NxN_bxTT) the full X_beta matrix
         X_g=[];                 %[double]     (Nx1xTTxK) the full X_g matrix
-        DistMat_g=[];           %[double]     (Ng x Ng) distance matrix of the ground level sites
-        DistMat_r=[];           %[double]     (Nr x Nr) distance matrix of the remote sensing sites
-        M=[];                   %[integer >1] (Ngx1) vector of indices of the remote sensing pixels related to the ground level sites
+        DistMat_g=[];           %[double]     (N_gxN_g) distance matrix of the point sites
+        DistMat_r=[];           %[double]     (N_rxN_r) distance matrix of the pixel sites
+        M=[];                   %[integer >1] (N_gx1) vector of indices of the pixel mapped on the point sites
         %flags
-        can_reset=0;            %[boolean]    (1x1) 1 if data are saved to disk and can be reloaded
-        X_rg_tv=0;              %[boolean]    (1x1) 1 if X_rg is time variant 0 otherwise
-        X_beta_tv=0;            %[boolean]    (1x1) 1 if X_beta is time variant 0 otherwise
-        X_time_tv=0;            %[boolean]    (1x1) 1 if X_time is time variant 0 otherwise
-        X_g_tv=0;               %[boolean]    (1x1) 1 if X_g is time variant 0 otherwise
-        X_tv=0;                 %[boolean]    (1x1) 1 if all the space-time varying coefficients are time variant 0 is they are all not
+        can_reset=0;            %[boolean]    (1x1) 1: data are saved on disk and can be reloaded; 0: data are only on RAM
+        X_rg_tv=0;              %[boolean]    (1x1) 1: X_rg is time variant; 0: otherwise
+        X_beta_tv=0;            %[boolean]    (1x1) 1: X_beta is time variant; 0: otherwise
+        X_time_tv=0;            %[boolean]    (1x1) 1: X_time is time variant; 0: otherwise
+        X_g_tv=0;               %[boolean]    (1x1) 1: X_g is time variant; 0: otherwise
+        X_tv=0;                 %[boolean]    (1x1) 1: at least one between X_rg, X_beta, X_time and X_g is time variant; 0:otherwise
     end
     
     methods
         
-        function obj = stem_data(stem_varset_g,stem_gridlist_g,stem_varset_r,stem_gridlist_r,stem_datestamp,shape,can_reset,stem_crossval,remote_correlated)
+        function obj = stem_data(stem_varset_g,stem_gridlist_g,stem_varset_r,stem_gridlist_r,stem_datestamp,shape,can_reset,stem_crossval,pixel_correlated)
             %DESCRIPTION: is the constructor of the class stem_data
             %
             %INPUT
             %
-            %stem_varset_g      - [stem_varset object]    (1x1) stem_varset object for the ground level variables
-            %stem_gridlist_g    - [stem_gridlist object]  (1x1) stem_gridlist object for the ground level variables  
-            %<stem_varset_r>    - [stem_varset object]    (1x1) (default: []) stem_varset object for the remote sensing variables
-            %<stem_gridlist_r>  - [stem_gridlist object]  (1x1) (default: []) stem_gridlist object for the remote sensing variables
+            %stem_varset_g      - [stem_varset object]    (1x1) stem_varset object for the point variables
+            %stem_gridlist_g    - [stem_gridlist object]  (1x1) stem_gridlist object for the point variables  
+            %<stem_varset_r>    - [stem_varset object]    (1x1) (default: []) stem_varset object for the pixel variables
+            %<stem_gridlist_r>  - [stem_gridlist object]  (1x1) (default: []) stem_gridlist object for the pixel variables
             %<stem_datestamp>   - [stem_datestamp object] (1x1) (default: []) stem_datestamp object with information on time steps
             %<shape>            - [struct]                      (default: world boundaries) geographic data structure loaded from a shapefile with the boundary of the geographic region
-            %<can_reset>        - [boolean]               (1x1) (default: 0) if 1 the data are saved on disk and they can be reloaded using the method reset of this class after, for example, data transformation
+            %<can_reset>        - [boolean]               (1x1) (default: 0) 1: the data are saved on disk and they can be reloaded using the method reset of this class after, for example, data transformation
             %<stem_crossval>    - [stem_crossval object]  (1x1) (default: []) stem_crossval object with information on crossvalidation
             %
             %OUTPUT
             %obj                - [stem_data object]      (1x1) the stem_data object
+            
             if nargin<2
                 error('Not enough input parameters');
             end
@@ -118,8 +121,8 @@ classdef stem_data < handle
             end
             
             if nargin>=9
-                if not(isempty(remote_correlated))
-                    obj.remote_correlated=remote_correlated;
+                if not(isempty(pixel_correlated))
+                    obj.pixel_correlated=pixel_correlated;
                 end
             end
             
@@ -136,7 +139,7 @@ classdef stem_data < handle
         end
         
         function update_data(obj)
-            %DESCRIPTION: generates the matrices Y,X_rg,X_beta,X_time,X_g 
+            %DESCRIPTION: generates the matrices Y, X_rg, X_beta, X_time and X_g 
             %
             %INPUT
             %obj - [stem_data object] (1x1) the stem_data object
@@ -447,8 +450,8 @@ classdef stem_data < handle
             %OUTPUT         
             %
             %none: the vector M is generated ad updated
+            
             disp('Generating M replication vector...');
-            %M
             M=[];
             blocks=[0 cumsum(obj.stem_varset_r.dim)];
             for j=1:obj.stem_varset_g.nvar
@@ -457,7 +460,7 @@ classdef stem_data < handle
                     d=distdim(distance(obj.stem_gridlist_g.grid{j}.coordinate(i,:),obj.stem_gridlist_r.grid{j}.coordinate), obj.stem_gridlist_g.grid{1}.unit, 'km');
                     [m,idx]=min(d);
                     if d>dmax
-                        warning(['Point ',num2str(i),' of ground level variable ',num2str(j),' does not belong to any pixel. The nearest pixel at ',num2str(m),' km is considered']);
+                        warning(['Point ',num2str(i),' of point variable ',num2str(j),' does not belong to any pixel. The nearest pixel at ',num2str(m),' km is considered']);
                     end
                     M=[M;idx+blocks(j)];
                 end
@@ -470,126 +473,142 @@ classdef stem_data < handle
             %DESCRIPTION: generates the distance matrices
             %
             %INPUT
-            %obj  - [stem_data object] (1x1) the stem_data object
-            %<type> - [string]         (1x1) (Default: 'both') if type='ground' only the distance matrix for the ground level data is evaluated. 
-                                                              %if type='remote' only the distance matrix for the remote sensing data is evaluated.
-                                                              %if type='both' both the matrices are evaluated.
+            %obj    - [stem_data object] (1x1) the stem_data object
+            %<type> - [string]           (1x1) (Default: 'both') 'point': only the distance matrix for the point data is evaluated. 
+            %                                                    'pixel': only the distance matrix for the pixel data is evaluated.
+            %                                                    'both':  both the matrices are evaluated.
+            %
             %OUTPUT         
             %
-            %none: the distance matrices are generated and updated
-            
-            %Distance matrices
+            %none: the DistMat_g and DistMat_r property are generated and updated
+
             if nargin<2
                 type='both';
             end
             if nargin<3
                 force=0;
             end
-            cmp=strcmp(type,{'both','ground','remote'});
+            cmp=strcmp(type,{'both','point','pixel'});
             if sum(cmp)==0
-                error('type must be ground, remote or both');
+                error('type must be point, pixel or both');
             end
             
-            if strcmp(type,'ground')||strcmp(type,'both')
+            if strcmp(type,'point')||strcmp(type,'both')
                 if not(isempty(obj.stem_varset_g.X_g))||force
-                    disp('Generating ground level distance matrices...');
+                    disp('Generating point distance matrices...');
                     obj.DistMat_g=obj.stem_gridlist_g.get_distance_matrix();
                     disp('Generation ended.');
                 end
             end
-            if strcmp(type,'remote')||strcmp(type,'both')
+            if strcmp(type,'pixel')||strcmp(type,'both')
                 if not(isempty(obj.stem_gridlist_r))&&not(isempty(obj.stem_varset_r.X_rg))
-                    disp('Generating remote data distance matrices...');
-                    obj.DistMat_r=obj.stem_gridlist_r.get_distance_matrix(obj.remote_correlated);
+                    disp('Generating pixel data distance matrices...');
+                    obj.DistMat_r=obj.stem_gridlist_r.get_distance_matrix(obj.pixel_correlated);
                     disp('Generation ended.');
                 end
             end
-        end
-        
-%         function google_map(obj,name,type)
-%             if sum(strcmp(type,{'ground','remote'}))==0
-%                 error('type must be either ground or remote');
-%             end
-%             if strcmp(type,'ground')
-%                 %not supported yet
-%             else
-%                 if isempty(obj.stem_varset_r)
-%                     disp('No remote variables in this model');
-%                 else
-%                     idx=find(strcmp(name,obj.stem_varset_r.Y_name));
-%                     T=size(obj.stem_varset_r.Y{idx},2);
-%                     datafile=[1,T,obj.stem_gridlist_r.grid{idx}.pixel_side_w];
-%                     csvwrite('..\Data\google_bridge\parameters_kriging.csv',datafile);
-%                     for t=1:T
-%                         t
-%                         min_value=nanmin(nanmin(obj.stem_varset_r.Y{idx}(:,t)));
-%                         max_value=nanmax(nanmax(obj.stem_varset_r.Y{idx}(:,t)));
-%                         data=obj.stem_varset_r.Y{idx}(:,t);
-%                         value=(data-min_value)/(max_value-min_value);
-%                         %color=stem_krig_result.toColor(value);
-%                         datafile=[obj.stem_gridlist_r.grid{idx}.coordinate(:,1),obj.stem_gridlist_r.grid{idx}.coordinate(:,2),value,data];
-%                         csvwrite(['..\Data\google_bridge\kriging',num2str(t),'.csv'],datafile);
-%                     end
-%                     winopen('..\Data\google_bridge\open_kriging.bat');
-%                 end
-%             end
-%         end
-        
-        %data transform
-        
-        function detrend(obj)
-            disp('Ground level data detrend started...');
+        end     
+       
+        %Data transform
+        function detrend_Y(obj)
+            %DESCRIPTION: remove the mean from each time series in Y
+            %
+            %INPUT
+            %obj - [stem_data object] (1x1) the stem_data object
+            %
+            %OUTPUT
+            %
+            %none: the Y property is updated
+            
+            disp('Point level data detrend started...');
             obj.stem_varset_g.detrend;
-            disp('Ground level data detrend ended.');
+            disp('Point level data detrend ended.');
             if not(isempty(obj.stem_varset_r))
-                disp('Remote sensing data detrend started...');
+                disp('Pixel data detrend started...');
                 obj.stem_varset_r.detrend;
-                disp('Remote sensing data detrend ended.');
+                disp('Pixel data detrend ended.');
             end
             disp('Updtaing data matrices after detrend...');
             obj.update_data;            
         end
         
-        function standardize_sbs(obj)
-            disp('Ground level data site by site standardization started...');
-            obj.stem_varset_g.standardize_sbs;
-            disp('Ground level data site by site standardization ended.');
+        function standardize_Y(obj)
+            %DESCRIPTION: each time series in Y is standardized
+            %
+            %INPUT
+            %obj - [stem_data object] (1x1) the stem_data object
+            %
+            %OUTPUT
+            %
+            %none: the Y property is updated            
+            
+            disp('Point level data site by site standardization started...');
+            obj.stem_varset_g.standardize_Y;
+            disp('Point level data site by site standardization ended.');
             if not(isempty(obj.stem_varset_r))
-                disp('Remote sensing data site by site standardization started...');
-                obj.stem_varset_r.standardize_sbs;
-                disp('Remote sensing data site by site standardization ended.');
+                disp('Pixel data site by site standardization started...');
+                obj.stem_varset_r.standardize_Y;
+                disp('Pixel data site by site standardization ended.');
             end
             disp('Updtaing data matrices after site by site standardization...');
             obj.update_data;
         end
         
         function standardize(obj)
-            disp('Ground level data standardization started...');
+            %DESCRIPTION: standardize the matrices Y, X_rg, X_beta, X_time and X_g with respect to their overall mean and overall standard deviation
+            %
+            %INPUT
+            %obj - [stem_data object] (1x1) the stem_data object
+            %
+            %OUTPUT
+            %
+            %none: the matrices listed above are updated
+            
+            disp('Point level data standardization started...');
             obj.stem_varset_g.standardize;
-            disp('Ground level data standardization ended.');
+            disp('Point level data standardization ended.');
             if not(isempty(obj.stem_varset_r))
-                disp('Remote sensing data standardization started...');
+                disp('Pixel data standardization started...');
                 obj.stem_varset_r.standardize;
-                disp('Remote sensing data standardization ended.');
+                disp('Pixel data standardization ended.');
             end
             disp('Updtaing data matrices after standardization...');
             obj.update_data;
         end
         
         function log_transform(obj)
-            disp('Ground level data log-transformation started...');
+            %DESCRIPTION: log-transforms the matrix Y
+            %
+            %INPUT
+            %obj - [stem_data object] (1x1) the stem_data object
+            %
+            %OUTPUT
+            %
+            %none: the matrix Y is updated            
+            
+            disp('Point level data log-transformation started...');
             obj.stem_varset_g.log_transform;
-            disp('Ground level data log-transformation ended.');
+            disp('Point level data log-transformation ended.');
             if not(isempty(obj.stem_varset_r))
-                disp('Remote sensing data log-transformation started...');
+                disp('Pixel data log-transformation started...');
                 obj.stem_varset_r.log_transform;
-                disp('Remote sensing data log-transformation ended.');
+                disp('Pixel data log-transformation ended.');
             end
             disp('Updtaing data matrices after log-transformation...');
             obj.update_data;
         end
         
         function time_average(obj,n_steps)
+            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_rg, X_beta, X_time and X_g
+            %
+            %INPUT
+            %obj        - [stem_data object] (1x1) the stem_data object
+            %n_steps    - [integer >0]       (1x1) the number of temporal steps to average
+            %
+            %OUTPUT
+            %
+            %none: the matrices listed above are updated
+            
             if nargin<2
                 error('The subsampling factor must be provided');
             end
@@ -639,18 +658,17 @@ classdef stem_data < handle
                 end
             end
             
-%             %da attivare per stem
-%             if not(isempty(obj.stem_varset_g.X_time))
-%                 if obj.stem_varset_g.X_time_tv
-%                     for i=1:length(obj.stem_varset_g.X_time)
-%                         for j=1:length(indices)-1
-%                             X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
-%                         end
-%                     end
-%                     obj.stem_varset_g.X_time=X_time_temp;
-%                     clear X_time_temp
-%                 end
-%             end   
+            if not(isempty(obj.stem_varset_g.X_time))
+                if obj.stem_varset_g.X_time_tv
+                    for i=1:length(obj.stem_varset_g.X_time)
+                        for j=1:length(indices)-1
+                            X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
+                        end
+                    end
+                    obj.stem_varset_g.X_time=X_time_temp;
+                    clear X_time_temp
+                end
+            end   
             
             if not(isempty(obj.stem_varset_g.X_g))
                 if obj.stem_varset_g.X_g_tv
@@ -698,17 +716,16 @@ classdef stem_data < handle
                     end
                 end
                 
-%                 %da attivare per stem
-%                 if not(isempty(obj.stem_varset_r.X_time))
-%                     if obj.stem_varset_r.X_time_tv
-%                         for i=1:length(obj.stem_varset_r.X_time)
-%                             for j=1:length(indices)-1
-%                                 X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
-%                             end
-%                         end
-%                         obj.stem_varset_r.X_time=X_time_temp;
-%                     end
-%                 end
+                if not(isempty(obj.stem_varset_r.X_time))
+                    if obj.stem_varset_r.X_time_tv
+                        for i=1:length(obj.stem_varset_r.X_time)
+                            for j=1:length(indices)-1
+                                X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            end
+                        end
+                        obj.stem_varset_r.X_time=X_time_temp;
+                    end
+                end
                 
             end
 
@@ -717,8 +734,16 @@ classdef stem_data < handle
         end
         
         function time_crop(obj,dates_or_indices)
-            % cut data in time
-            % dates_or_indices: can be either a {2x1} cell vector of starting and ending date in the format dd-mm-yyyy or a T'x1 vector of (possibly non consecutive) indices. T'<=T.
+            %DESCRIPTION: crop the matrices Y, X_rg, X_beta, X_time and X_g with respect to time
+            %
+            %INPUT
+            %obj                 - [stem_data object]       (1x1) the stem_data object
+            %dates_or_indices    - [string | integer >0]    {2x1}|(dTx1) a {2x1} cell vector of starting and ending date in the format dd-mm-yyyy or a dTx1 vector of (possibly non consecutive) temporal indices
+            %
+            %OUTPUT
+            %
+            %none: the matrices listed above are updated            
+
             if iscell(dates_or_indices)
                 start_date=datenum(dates_or_indices{1},'dd-mm-yyyy');
                 end_date=datenum(dates_or_indices{2},'dd-mm-yyyy');
@@ -822,7 +847,7 @@ classdef stem_data < handle
             end
             
             obj.stem_datestamp.subset_stamps(indices);
-            %looks for line of all missing for the sparse grids of the ground level data
+            %looks for line of all missing for the sparse grids of the point data
             changed=0;
             for i=1:obj.stem_varset_g.nvar
                 indices=sum(isnan(obj.stem_varset_g.Y{i}),2)==size(obj.stem_varset_g.Y{i},2);
@@ -841,13 +866,13 @@ classdef stem_data < handle
                         obj.stem_varset_g.X_rg{i}(indices,:,:)=[];
                     end
                     obj.stem_gridlist_g.grid{i}.coordinate(indices,:)=[];
-                    disp(['Deleted ',num2str(sum(indices)),' site(s) for the ground variable ',obj.stem_varset_g.Y_name{i},' due to all missing.']);
+                    disp(['Deleted ',num2str(sum(indices)),' site(s) for the point variable ',obj.stem_varset_g.Y_name{i},' due to all missing.']);
                     changed=1;
                 end
             end
             if changed
-                disp('Updating ground distance matrix after time crop...');
-                obj.update_distance('ground'); %only ground because the remote data are not deleted from the data matrix even if they are NaN for all th time steps
+                disp('Updating point distance matrix after time crop...');
+                obj.update_distance('point'); %only point because the pixel data are not deleted from the data matrix even if they are NaN for all th time steps
                 disp('Update ended.');
                 if not(isempty(obj.stem_varset_r))
                     disp('Updating M replication vector after time crop...');
@@ -862,7 +887,16 @@ classdef stem_data < handle
         end     
         
         function space_crop(obj,box)
-            % cut data in space
+            %DESCRIPTION: crop the matrices Y, X_rg, X_beta, X_time and X_g with respect to space
+            %
+            %INPUT
+            %obj                 - [stem_data object]   (1x1) the stem_data object
+            %box                 - [double]             (4x1) the geographic box [lat_min,lat_max,lon_min,lon_max]
+            %
+            %OUTPUT
+            %
+            %none: the matrices listed above are updated   
+            
             lat_min=box(1);
             lat_max=box(2);
             lon_min=box(3);
@@ -876,7 +910,7 @@ classdef stem_data < handle
             if lon_min>lon_max
                 error('The lon_min value must be lower than the lon_max value');
             end
-            disp('Ground level data space crop started...');
+            disp('Point level data space crop started...');
             for i=1:obj.stem_varset_g.nvar
                 GY=obj.stem_gridlist_g.grid{i}.coordinate;
                 indices = GY(:,2) >= lon_min & ...
@@ -921,9 +955,9 @@ classdef stem_data < handle
                     error(['    Variable ',obj.stem_varset_g.Y_name{i},' does not have sites in the crop area.']);
                 end
             end
-            disp('Ground level data space crop ended.');
+            disp('Point level data space crop ended.');
             if not(isempty(obj.stem_varset_r))
-                disp('Remote sensing data space crop started...');
+                disp('Pixel data space crop started...');
                 for i=1:obj.stem_varset_r.nvar
                     GY=obj.stem_gridlist_r.grid{i}.coordinate;
                     indices = GY(:,2) >= lon_min & ...
@@ -963,7 +997,7 @@ classdef stem_data < handle
                         error(['    Variable ',obj.stem_varset_r.Y_name{i},' does not have sites in the crop area.']);
                     end
                 end
-                disp('Remote sensing data space crop ended.');
+                disp('Pixel data space crop ended.');
             end
             disp('Updating data matrices after space crop...');
             obj.update_data;
@@ -981,13 +1015,25 @@ classdef stem_data < handle
         end   
         
         function site_crop(obj,type,var_name,indices)
-            if sum(strcmp(type,{'ground','remote'}))==0
-                error('Type must be either ground or remote');
+            %DESCRIPTION: remove specific sites from the dataset
+            %
+            %INPUT
+            %obj                 - [stem_data object]   (1x1) the stem_data object
+            %type                - [string]             (1x1) 'point': remove the sites from the point dataset; 'pixel': remove the sites from the pixel dataset
+            %var_name            - [string]             (1x1) the name of the variable from which to remove the sites
+            %indices             - [integer >0]         (dNx1) the indices of the sites to remove
+            %
+            %OUTPUT
+            %
+            %none: the matrices Y, X_rg, X_beta, X_time and X_g with are updated
+            
+            if sum(strcmp(type,{'point','pixel'}))==0
+                error('Type must be either point or pixel');
             end
             if min(indices<1)
                 error('The minimum value of indices cannot be lower than 1');
             end
-            if strcmp(type,'ground')
+            if strcmp(type,'point')
                 idx_var=obj.stem_varset_g.get_Y_index(var_name);
                 if isempty(idx_var)
                     error('Variable not found');
@@ -1013,7 +1059,7 @@ classdef stem_data < handle
                 end
             else
                 if isempty(obj.stem_varset_r)
-                    error('No remote data');
+                    error('No pixel data');
                 end
                 idx_var=obj.stem_varset_r.get_Y_index(var_name);
                 if isempty(idx_var)
@@ -1042,15 +1088,21 @@ classdef stem_data < handle
         end
         
         function remove_duplicated_sites(obj)
-            %toll is the distance below which two sites are considered
-            %colocated
+            %DESCRIPTION: remove the duplicated sites from each variable
+            %
+            %INPUT
+            %obj        - [stem_data object]   (1x1) the stem_data object
+            %
+            %OUTPUT
+            %
+            %none: the matrices Y, X_rg, X_beta, X_time and X_g with are updated
             
             disp('Look for duplicated sites...')
             for i=1:obj.stem_varset_g.nvar
                 idx=obj.stem_gridlist_g.grid{i}.duplicated_sites;
                 if not(isempty(idx))
-                    disp(['Removing ',num2str(length(idx)),' replicated sites for ground variable ',obj.stem_varset_g.Y_name{i}]);
-                    obj.site_crop('ground',obj.stem_varset_g.Y_name{i},idx);
+                    disp(['Removing ',num2str(length(idx)),' replicated sites for point variable ',obj.stem_varset_g.Y_name{i}]);
+                    obj.site_crop('point',obj.stem_varset_g.Y_name{i},idx);
                     obj.stem_gridlist_g.grid{i}.duplicated_sites=[];
                 end
             end
@@ -1059,8 +1111,8 @@ classdef stem_data < handle
                 for i=1:obj.stem_varset_r.nvar
                     idx=obj.stem_gridlist_r.grid{i}.duplicated_sites;
                     if not(isempty(idx))
-                        disp(['Removing ',num2str(length(idx)),' replicated sites for remote variable ',obj.stem_varset_r.Y_name{i}]);
-                        obj.site_crop('remote',obj.stem_varset_r.Y_name{i},idx);
+                        disp(['Removing ',num2str(length(idx)),' replicated sites for pixel variable ',obj.stem_varset_r.Y_name{i}]);
+                        obj.site_crop('pixel',obj.stem_varset_r.Y_name{i},idx);
                         obj.stem_gridlist_r.grid{i}.duplicated_sites=[];
                     end
                 end
@@ -1068,9 +1120,8 @@ classdef stem_data < handle
             disp('Operation ended.')
         end        
         
-        %export functions
+        %Export methods
         function N = N(obj)
-            %return the value of N from the stem_varset_g and the stem_varset_r objects
             N=obj.stem_varset_g.N;
             if not(isempty(obj.stem_varset_r))
                 N=N+obj.stem_varset_r.N;
@@ -1090,12 +1141,10 @@ classdef stem_data < handle
         end
         
         function T = T(obj)
-            %return the value of T from the stem_varset_g and the stem_varset_r objects
             T=obj.stem_varset_g.T;
         end
         
         function nvar = nvar(obj)
-            %return the value of nvar from the stem_varset_g and the stem_varset_r objects
             nvar=obj.stem_varset_g.nvar;
             if not(isempty(obj.stem_varset_r))
                 nvar=nvar+obj.stem_varset_r.nvar;
@@ -1103,15 +1152,13 @@ classdef stem_data < handle
         end
         
         function dim = dim(obj)
-            %return the value of dim from the stem_varset_g and the stem_varset_r objects
             dim=obj.stem_varset_g.dim;
             if not(isempty(obj.stem_varset_r))
                 dim=[dim obj.stem_varset_r.dim];
             end
         end
         
-        %set methods
-        
+        %Class set methods
         function set.stem_varset_g(obj,stem_varset_g)
            if not(isa(stem_varset_g,'stem_varset'))
                error('stem_varset must be of class stem_varset');
@@ -1200,71 +1247,43 @@ classdef stem_data < handle
             end
             obj.stem_datestamp=stem_datestamp;
         end
-
+        
         function set.shape(obj,shape)
             obj.shape=shape;
         end
         
+    end
+end
 
-       
-%         function remove_var(obj,indices)
-%             indices=sort(indices);
-%             if (min(indices)<1)||(max(indices)>obj.stem_varset.nvar)
-%                 error('Indices out of bounds');
+%         function google_map(obj,name,type)
+%             if sum(strcmp(type,{'point','pixel'}))==0
+%                 error('type must be either point or pixel');
 %             end
-%             if length(indices)>1
-%                 temp1=indices';
-%                 temp2=circshift(temp1,1);
-%                 temp=temp1-temp2;
-%                 if nnz(temp)~=length(temp)
-%                     error('Indices cannot be replicated');
-%                 end
-%             end
-%             disp('Variable subsetting started...');
-%             for i=1:length(indices)
-%                 disp(['    Variable ',obj.stem_varset.name{indices(i)},' removed']);
-%             end
-%             obj.stem_varset.Y(indices)=[];
-%             obj.stem_varset.name(indices)=[];
-%             obj.Y=obj.stem_varset.get_Y;
-%             if not(isempty(obj.stem_covset))
-%                 obj.stem_covset.X(indices)=[];
-%                 obj.stem_covset.name(indices)=[];
-%                 obj.X=obj.stem_covset.get_X;
-%             end
-%             obj.stem_gridlist.grid(indices)=[];
-%             obj.DistMat = obj.get_distance_matrix(obj.stem_gridlist); 
-%             disp('Variable subsetting ended.');
-%         end
-        
-%         function remove_cov(obj,variable_name,covariate_name)
-%             if not(isempty(obj.stem_covset))
-%                 if nargin<3
-%                     error('All inputs must be provided');
-%                 end
-%                 if isempty(variable_name)
-%                     index_var=1:obj.stem_varset.nvar;
-%                 else
-%                     index_var=obj.stem_varset.get_index(variable_name);
-%                 end
-%                 if not(isempty(index_var))
-%                     for i=index_var
-%                         index_cov=obj.stem_covset.get_index(i,covariate_name);
-%                         if not(isempty(index_cov))
-%                             obj.stem_covset.X{i}(:,index_cov,:)=[];
-%                             obj.stem_covset.name{i}(index_cov)=[];
-%                         else
-%                             error('Covariate name not recognized for at least one variable');
-%                         end
-%                     end
-%                 else
-%                     error('Variable name not recognized');
-%                 end
-%                 obj.X=obj.stem_covset.get_X;
+%             if strcmp(type,'point')
+%                 %not supported yet
 %             else
-%                 warning('No covariates in stem_data object');
+%                 if isempty(obj.stem_varset_r)
+%                     disp('No pixel variables in this model');
+%                 else
+%                     idx=find(strcmp(name,obj.stem_varset_r.Y_name));
+%                     T=size(obj.stem_varset_r.Y{idx},2);
+%                     datafile=[1,T,obj.stem_gridlist_r.grid{idx}.pixel_side_w];
+%                     csvwrite('..\Data\google_bridge\parameters_kriging.csv',datafile);
+%                     for t=1:T
+%                         t
+%                         min_value=nanmin(nanmin(obj.stem_varset_r.Y{idx}(:,t)));
+%                         max_value=nanmax(nanmax(obj.stem_varset_r.Y{idx}(:,t)));
+%                         data=obj.stem_varset_r.Y{idx}(:,t);
+%                         value=(data-min_value)/(max_value-min_value);
+%                         %color=stem_krig_result.toColor(value);
+%                         datafile=[obj.stem_gridlist_r.grid{idx}.coordinate(:,1),obj.stem_gridlist_r.grid{idx}.coordinate(:,2),value,data];
+%                         csvwrite(['..\Data\google_bridge\kriging',num2str(t),'.csv'],datafile);
+%                     end
+%                     winopen('..\Data\google_bridge\open_kriging.bat');
+%                 end
 %             end
 %         end
+       
         
 %         function reset(obj)
 %             % restore original data
@@ -2020,6 +2039,5 @@ classdef stem_data < handle
 %       else
 %         color=[1 1-(color_value-0.5)*2 0];
 %       end
-    end
-end
+
 

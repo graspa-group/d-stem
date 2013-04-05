@@ -11,24 +11,44 @@
 
 classdef stem_grid
     
+    %CONSTANTS
+    %
+    %ni_g - the number of point sites for the i-th variable
+    %ni_r - the number of pixel sites for the i-th variable
+    
     properties
-        coordinate=[];
-        unit='';
-        grid_size=[];
-        grid_type=[];
-        site_type=[];
-        pixel_shape='';
-        pixel_side_w=[];
-        pixel_side_h=[];
-        duplicated_sites=[];
+        coordinate=[];              %[double]    (ni_g|ni_rx2)  matrix of spatial coordinates composed of either x and y vectors or latitude and longitude vectors
+        unit='';                    %[string]    (1x1)          unit of measure of the coordinates. 'deg': degree; 'km': kilometers; 'm': meters
+        grid_type=[];               %[string]    (1x1)          'sparse': sparse spatial locations; 'regular': spatial locations at fixed intervals in space
+        grid_size=[];               %[integer >0](2x1)          if grid_type='regular', then grid_size is the number of rows and columns of the grid
+        site_type=[];               %[string]    (1x1)          'point': the spatial coordinates relate to point data; 'pixel': the spatial coordinates related to pixel data
+        pixel_shape='';             %[string]    (1x1)          'square': square pixels; 'rectangular': rectangular pixels
+        pixel_side_w=[];            %[double]    (1x1)          the width of the pixel (in the same unit of measure of the unit property)
+        pixel_side_h=[];            %[double]    (1x1)          the height of the pixel (in the same unit of measure of the unit property)
+        duplicated_sites=[];        %[integer]   (hx1)          indices of the duplicated spatial locations in the coordinate property 
     end
     
     properties (SetAccess = private)
-        box=[];
+        box=[];                     %[double]    (4x1) the bounding box of the geographic area covered by the grid [lat_min,lat_max,lon_min,lon_max]
     end
     
     methods
         function obj = stem_grid(coordinate,unit,grid_type,site_type,grid_size,pixel_shape,pixel_side_w,pixel_side_h)
+            %DESCRIPTION: is the constructor of the class stem_data
+            %
+            %INPUT
+            %
+            %coordinate         - [double]              (ni_g|ni_rx2)  matrix of spatial coordinates composed of either x and y vectors or latitude and longitude vectors
+            %unit='';           - [string]              (1x1)          unit of measure of the coordinates. 'deg': degree; 'km': kilometers; 'm': meters
+            %grid_type=[];      - [string]              (1x1)          'sparse': sparse spatial locations; 'regular': spatial locations at fixed intervals in space
+            %grid_size=[];      - [integer >0]          (2x1)          if grid_type='regular', then grid_size is the number of rows and columns of the grid
+            %site_type=[];      - [string]              (1x1)          'point': the spatial coordinates relate to point data; 'pixel': the spatial coordinates related to pixel data
+            %pixel_shape='';    - [string]              (1x1)          'square': square pixels; 'rectangular': rectangular pixels
+            %pixel_side_w=[];   - [double]              (1x1)          the width of the pixel (in the same unit of measure of the unit property)
+            %pixel_side_h=[];   - [double]              (1x1)          the height of the pixel (in the same unit of measure of the unit property)
+            %
+            %OUTPUT
+            %obj                - [stem_grid object]    (1x1)
             if nargin<4
                 error('Not enough input arguments');
             end
@@ -63,34 +83,38 @@ classdef stem_grid
             end
         end
        
-        function google_map(obj)
-            datafile=[obj.coordinate(:,1),obj.coordinate(:,2)];
-            csvwrite('..\Data\google_bridge\gridplot.csv',datafile);
-            winopen('..\Data\google_bridge\open_gridplot.bat');
-        end
+        %         function google_map(obj)
+        %             datafile=[obj.coordinate(:,1),obj.coordinate(:,2)];
+        %             csvwrite('..\Data\google_bridge\gridplot.csv',datafile);
+        %             winopen('..\Data\google_bridge\open_gridplot.bat');
+        %         end
         
-        %set functions
+        % Class set methods
         function obj = set.coordinate(obj,coordinate)
             if not(size(coordinate,2)==2)
                 error('coordinate must be a Nx2 matrix');
             end
             
-%             if not(strcmp(obj.grid_type,'regular'))
-%                 obj.duplicated_sites=[];
-%                 for i=1:length(coordinate)-1
-%                     temp=coordinate(i,:);
-%                     temp2=coordinate((i+1):end,:);
-%                     temp_lat=temp2(:,1);
-%                     temp_lon=temp2(:,2);
-%                     a=temp_lat==temp(1);
-%                     b=temp_lon==temp(2);
-%                     c=a&b;
-%                     if sum(c)>0
-%                         obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
-%                         disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
-%                     end
-%                 end
-%             end
+            if not(strcmp(obj.grid_type,'regular'))
+                if length(coordinate)<5000
+                    obj.duplicated_sites=[];
+                    for i=1:length(coordinate)-1
+                        temp=coordinate(i,:);
+                        temp2=coordinate((i+1):end,:);
+                        temp_lat=temp2(:,1);
+                        temp_lon=temp2(:,2);
+                        a=temp_lat==temp(1);
+                        b=temp_lon==temp(2);
+                        c=a&b;
+                        if sum(c)>0
+                            obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
+                            disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
+                        end
+                    end
+                else
+                    disp(['WARNING: too many spatial locations. The test for duplicate spatial locations is skipped');
+                end
+            end
 
             obj.coordinate=coordinate;
             obj.box(1)=min(coordinate(:,1));
@@ -136,8 +160,8 @@ classdef stem_grid
         end
         
         function obj = set.pixel_shape(obj,pixel_shape)
-            if not(strcmp(pixel_shape,'square') || strcmp(pixel_shape,'rectangular') || strcmp(pixel_shape,'irregular'))
-                error('pixel_shape can be only ''square'', ''rectangular'' or ''irregular''');
+            if not(strcmp(pixel_shape,'square') || strcmp(pixel_shape,'rectangular'))
+                error('pixel_shape can be only ''square'' or ''rectangular''');
             end
             obj.pixel_shape=pixel_shape;
         end

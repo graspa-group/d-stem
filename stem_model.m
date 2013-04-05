@@ -12,29 +12,25 @@ classdef stem_model < handle
     
     %CONSTANTS
     %N  = n1_g+...+nq_g+n1_r+...+nq_r - total number of observation sites
-    %Ng = n1_g+...+nq_g - total number of ground level sites
-    %Nr = n1_r+...+nq_r - total number of remote sensing sites
-    %M = 2 if both ground level and remote sense data are considered. M = 1 if only ground level data are considered.
+    %N_g = n1_g+...+nq_g - total number of point sites
+    %N_r = n1_r+...+nq_r - total number of pixel sites
+    %S = 1 if only point data are considered and S=2 if both point and pixel data are considered
     
     properties
         stem_data=[];           %[stem_data object] (1x1) object containing all the data used to estimated the model
-        stem_par=[];            %[stem_par object]  (1x1) updated at each iteration of the EM algorithm
-        stem_par_initial=[];    %[stem_par object]  (1x1) parameter starting values
-        stem_par_sim=[];        %[stem_par object]  (1x1) parameter values used to simulate data
-        note=[];
-        estimated=0;            %[boolean] (1x1) 0: the model is not estimated; 
+        stem_par=[];            %[stem_par object]  (1x1) parameter set updated at each iteration of the EM algorithm
+        stem_par_initial=[];    %[stem_par object]  (1x1) starting parameter set
+        stem_par_sim=[];        %[stem_par object]  (1x1) parameter set used to simulate data (if data are simulated)
+        estimated=0;            %[boolean] (1x1) 0: the model has not been estimated; 1: the model has been estimated
     end
     
     properties (SetAccess = private)
         stem_EM_result=[];      %[stem_EM_result object] (1x1) object containing all the results of the EM estimation
-
-                                                %1: the model has been estimated.
-        cross_validation=0;     %[boolean] (1x1) 0: the model has been estimated considering all the data; 
-                                                %1: the model has bee estimated excluding the cross-validation data.
+        cross_validation=0;     %[boolean] (1x1) 0: the model has been estimated considering all the data; 1: the model has bee estimated excluding the cross-validation data.
         system_size=100;        %[integer] (1x1) if N > system_size than only the diagonal is computed in matrix multiply operations
-        tapering=[];
-        tapering_r=[];
-        tapering_g=[];
+        tapering=[];            %[boolean] (1x1) 0:tapering is not enabled; 1:tapering is enabled on point sites or pixel sites
+        tapering_r=[];          %[boolean] (1x1) 0:tapering is not enabled on pixel sites; 1:tapering is enabled on pixel sites
+        tapering_g=[];          %[boolean] (1x1) 0:tapering is not enabled on point sites; 1:tapering is enabled on point sites
     end
     
     methods
@@ -78,7 +74,7 @@ classdef stem_model < handle
         end
         
         function [aj_rg,aj_g] = get_aj(obj)
-            %DESCRIPTION: provides the vector aj_rg and aj_g useful in the EM estimation
+            %DESCRIPTION: provides the vector aj_rg and aj_g used in the EM estimation
             %
             %INPUT
             %obj   - [stem_model object] (1x1)
@@ -89,7 +85,7 @@ classdef stem_model < handle
             
             %NOTE
             %The elements of aj_g from Ng+1 to N are all zeros. This allows the
-            %use of stem_misc.D_apply both for the remote sensing data and the ground
+            %use of stem_misc.D_apply both for the pixel data and the point
             %level data avoiding the use of J_rg and J_g
             if not(isempty(obj.stem_data.stem_varset_r))
                 aj_rg=zeros(obj.stem_data.N,1);
@@ -114,7 +110,7 @@ classdef stem_model < handle
         end
         
         function [aj_rg_r,j_r] = get_jrg(obj,r)
-            %DESCRIPTION: provides the vectors aj_rg_r and j_r useful in the EM estimation
+            %DESCRIPTION: provides the vectors aj_rg_r and j_r used in the EM estimation
             %
             %INPUT
             %obj     - [stem_model object] (1x1)
@@ -136,7 +132,7 @@ classdef stem_model < handle
         end
         
         function [aj_g_rs,j_r] = get_jg(obj,r,s)
-            %DESCRIPTION: provides the vectors aj_g_rs and j_r useful in the EM estimation
+            %DESCRIPTION: provides the vectors aj_g_rs and j_r used in the EM estimation
             %
             %INPUT
             %obj     - [stem_model object] (1x1)
@@ -158,24 +154,23 @@ classdef stem_model < handle
         end        
         
         function [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = get_sigma(obj,sigma_W_r)
-            %DESCRIPTION: provides the variance-covariance matrices and some 
-            %vectors that are needed by the EM algorithm
+            %DESCRIPTION: provides the variance-covariance matrices and some vectors that are used in the EM algorithm
             %
             %INPUT
             %
             %obj         - [stem_model object] (1x1)
-            %<sigma_W_r> - [double]            (NrXNr) (default: []) variance-covariance matrix of W_r. It is provided as input argument during kriging when sigma_W_r does not change across blocks  
+            %<sigma_W_r> - [double]            (NrxNr) (default: []) variance-covariance matrix of W_r. It is provided as input argument during kriging when sigma_W_r does not change across blocks  
             %
             %OUTPUT
             %
             %sigma_eps   - [double]            (NxN) variance-covariance matrix of epsilon
-            %sigma_W_r   - [double]            (NrxNr) variance-covariance matrix of W_r
-            %sigma_W_g   - [double]            (NgxN1xq) variance-covariance matrices of the q W_g_i
+            %sigma_W_r   - [double]            (N_rxN_r) variance-covariance matrix of W_r
+            %sigma_W_g   - [double]            {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
             %sigma_geo   - [double]            (NxN) variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
             %sigma_Z     - [double]            (pxp) variance-covariance of Z
-            %aj_rg       - [double]            (Nx1) see the details of the function get_aj;
-            %aj_g        - [double]            (Nx1) see the details of the function get_aj;
-            %M           - [integer >0]        (Ngx1) see the details of the function update_M of the class stem_data
+            %aj_rg       - [double]            (Nx1) see the details of the method get_aj;
+            %aj_g        - [double]            (Nx1) see the details of the method get_aj;
+            %M           - [integer >0]        (N_gx1) see the details of the method update_M of the class stem_data
             %
             %NOTE
             %sigma_geo is provided only if it is time-invariant otherwise it is evaluated at each step of the EM algorithm
@@ -209,7 +204,7 @@ classdef stem_model < handle
                             sigma_W_r=zeros(obj.stem_data.stem_varset_r.N);
                         end
                         blocks=[0 cumsum(obj.stem_data.stem_varset_r.dim)];
-                        if obj.stem_par.remote_correlated
+                        if obj.stem_par.pixel_correlated
                             if obj.tapering_r
                                 I=zeros(nnz(obj.stem_data.DistMat_r),1);
                                 J=zeros(nnz(obj.stem_data.DistMat_r),1);
@@ -384,8 +379,8 @@ classdef stem_model < handle
             %INPUT
             %
             %obj               - [stem_model object] (1x1)
-            %<nan_rate>        - [double [0,1]]      (Mx1) (default: []) missing rate of the simulated data
-            %<nan_pattern_par> - [double >0]         (Mx1) (default: []) (UoM: km) parameter of the exponential spatial correlation function used to define the spatial pattern of the missing data
+            %<nan_rate>        - [double [0,1]]      (Sx1) (default: []) missing rate of the simulated data
+            %<nan_pattern_par> - [double >0]         (Sx1) (default: []) (UoM: km) parameter of the exponential spatial correlation function used to define the spatial pattern of the missing data
             %
             %OUTPUT
             %
@@ -407,11 +402,8 @@ classdef stem_model < handle
             %
             %INPUT
             %
-            %obj                - [stem_model object] (1x1)
-            %<exit_toll>        - [double >0]         (1x1) (default: 0.0001) the EM algorithm stops if the relative norm between two consecutive iterations is below exit_toll
-            %<max_iterations>   - [integer >0]        (1x1) (default: 1000)  the EM algorithm stops if the number of iterations exceed max_iterations
-            %<numeric_opt_type> - [string]            (1x1) (default: 'single') if 'single' then elements of the V_i matrices are numerically estimated one-by-one. If 'full' the elements are jointly estimated.
-            %<pathparallel>     - [string]            (1x1) (default: []) full or relative path of the folder to use for parallel computation
+            %obj                - [stem_model object]      (1x1)
+            %stem_EM_options    - [stem_EM_options object] (1x)
             %
             %OUTPUT
             %
@@ -424,12 +416,8 @@ classdef stem_model < handle
                     error('Variable not found. Has it been deleted?');
                 end
                 
-                %recover the cross-validation sites from the step defined
-                %in the stem_crossval object
-                step=obj.stem_data.stem_crossval.idx_step;
-                indices=1:size(obj.stem_data.stem_varset_g.Y{idx_var},1);
-                indices(not(mod(indices,step)==0))=[];
-                
+                %recover the indices of the cross-validation sites 
+                indices=obj.stem_data.stem_crossval.indices;
                 Y={obj.stem_data.stem_varset_g.Y{idx_var}(indices,:)};
                 Y_name={obj.stem_data.stem_varset_g.Y_name{idx_var}};
                 if not(isempty(obj.stem_data.stem_varset_g.X_rg))
@@ -486,8 +474,7 @@ classdef stem_model < handle
             end
             
             st_EM=stem_EM(obj,stem_EM_options);
-            %set the current parameter value with the estimated initial
-            %value
+            %set the current parameter value with the estimated initial value
             obj.stem_par=obj.stem_par_initial;
             if isempty(stem_EM_options.pathparallel)
                 obj.stem_EM_result=st_EM.estimate();
@@ -497,7 +484,7 @@ classdef stem_model < handle
             obj.estimated=1;
             if obj.cross_validation
                 st_krig=stem_krig(obj);
-                block_size=1100;
+                block_size=1000;
                 back_transform=0;
                 no_varcov=1;
                 crossval=1;
@@ -505,28 +492,24 @@ classdef stem_model < handle
                 obj.stem_data.stem_crossval.res=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}-obj.stem_data.stem_crossval.stem_krig_result.y_hat;
                 obj.stem_data.stem_crossval.mse=nanvar(obj.stem_data.stem_crossval.res');
                 obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}');
-                obj.stem_data.stem_crossval.avg_relative_mse=nanmean(obj.stem_data.stem_crossval.relative_mse);
-                if not(isempty(obj.stem_data.stem_crossval.min_distance))
-                    obj.stem_data.stem_crossval.avg_relative_mse_higher50km=nanmean(obj.stem_data.stem_crossval.relative_mse(obj.stem_data.stem_crossval.min_distance>50));
-                end
-                for i=1:size(obj.stem_data.stem_crossval.stem_varset.Y{idx_var},1)
-                    obj.stem_data.stem_crossval.relative_res(i,:)=obj.stem_data.stem_crossval.res(i,:)./nanstd(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}(i,:));
-                end
-                
+
                 s=obj.stem_data.stem_varset_g.Y_stds{idx_var};
                 m=obj.stem_data.stem_varset_g.Y_means{idx_var};
                 if (obj.stem_data.stem_varset_g.standardized)&&not(obj.stem_data.stem_varset_g.log_transformed)
                     y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat*s+m;
                     y=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m;
+                    obj.stem_data.stem_crossval.res_backtransformed=y-y_hat_back;
+                    obj.stem_data.stem_crossval.y_back=y;
+                    obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
                 end
                 if (obj.stem_data.stem_varset_g.standardized)&&(obj.stem_data.stem_varset_g.log_transformed)
                     y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat;
                     y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
                     y=exp(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m);
+                    obj.stem_data.stem_crossval.res_backtransformed=y-y_hat_back;
+                    obj.stem_data.stem_crossval.y_back=y;
+                    obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
                 end
-                obj.stem_data.stem_crossval.res_backtransformed=y-y_hat_back;
-                obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
-                obj.stem_data.stem_crossval.y_back=y;
             end
         end
         
@@ -564,6 +547,15 @@ classdef stem_model < handle
         end
         
         function set_logL(obj)
+            %DESCRIPTION: evaluate the observed data log-likelihood
+            %
+            %INPUT
+            %
+            %obj - [stem_model object] (1x1)
+            %
+            %OUTPUT
+            %
+            %none: the logL property of the object stem_EM_result is updated
             disp('Log-Likelihood computation...');
             st_kalman=stem_kalman(obj);
             [st_kalmansmoother_result,~,~,~,~,~,~,~,~] = st_kalman.smoother(1);
@@ -572,6 +564,16 @@ classdef stem_model < handle
         end
         
         function set_varcov(obj)
+            %DESCRIPTION: evaluate the variance-covariance matrix of the model parameters
+            %
+            %INPUT
+            %
+            %obj - [stem_model object] (1x1)
+            %
+            %OUTPUT
+            %
+            %none: the varcov property of the object stem_EM_result is updated    
+            
             %parameter order: beta,sigma_eps,alpha_rg,theta_r,v_r,alpha_g,theta_g,v_g,G,sigma_eta
             
             if obj.estimated==0
@@ -605,7 +607,7 @@ classdef stem_model < handle
                        
             if not(isempty(data.X_rg))
                 n_rg_alpha=2*q;
-                if par.remote_correlated
+                if par.pixel_correlated
                     n_rg_v=q*(q-1)/2; %v_rg extra-diagonal and univoc
                     n_rg_theta=1;
                 else
@@ -789,7 +791,7 @@ classdef stem_model < handle
             %theta_rg
             if n_rg_theta>0
                 d=stem_misc.M_apply(obj.stem_data.DistMat_r,M,'b');
-                if not(par.remote_correlated)&&(q>1)
+                if not(par.pixel_correlated)&&(q>1)
                     for j=1:q
                         Id=[];
                         Jd=[];
@@ -821,7 +823,7 @@ classdef stem_model < handle
             end
             %v_rg
             if n_rg_v>0
-                if par.remote_correlated
+                if par.pixel_correlated
                     error('Da testare!');
                     z=1;
                     for j=1:q
@@ -1330,6 +1332,15 @@ classdef stem_model < handle
         end      
         
         function set_initial_values(obj,stem_par)
+            %DESCRIPTION: set the initial values of the model parameters
+            %
+            %INPUT
+            %
+            %obj - [stem_model object] (1x1)
+            %
+            %OUTPUT
+            %
+            %none: the stem_par_initial property is updated                
             if not(isa(stem_par,'stem_par'))
                 error('The input argument must be of class stem_par');
             end
@@ -1485,9 +1496,8 @@ classdef stem_model < handle
             
         end
         
-        %export functions
+        %Export functions. Useful to avoid access to the properties of nested objects
         function N = N(obj)
-            %return the value of N from the stem_data object
             N=obj.stem_data.N();
         end
         
@@ -1500,22 +1510,18 @@ classdef stem_model < handle
         end
         
         function T = T(obj)
-            %return the value of T from the stem_data object
             T=obj.stem_data.T();
         end
         
         function nvar=nvar(obj)
-            %return the value of nvar from the stem_data object
             nvar=obj.stem_data.nvar();
         end
         
         function dim=dim(obj)
-            %return the value of dim from the stem_data object
             dim=obj.stem_data.dim();
         end
         
-        %initial values estimation functions
-        
+        %Initial values estimation functions (only beta at the moment)
         function [beta0] = get_beta0(obj)
             if obj.stem_par.n_beta>0
                 N = size(obj.stem_data.X_beta,1);
@@ -1540,7 +1546,41 @@ classdef stem_model < handle
                 beta0=[];
             end
         end
+      
+        %Class set functions 
+        function set.stem_data(obj,stem_data)
+            if strcmp(class(stem_data),'stem_data')
+                obj.stem_data=stem_data;
+            else
+                error('The argument must be of class stem_data');
+            end
+        end
         
+        function set.stem_par(obj,stem_par)
+            if not(isa(stem_par,'stem_par'))
+                error('stem_par_initial must be of class stem_par');
+            end
+            obj.stem_par=stem_par;
+            if not(length(stem_par.beta)==size(obj.stem_data.X_beta,2))
+                error(['The length of beta in stem_par must be equal to ',num2str(size(obj.stem_data.X_beta,2))]);
+            end
+        end        
+       
+        function set.stem_par_initial(obj,stem_par_initial)
+            if not(isa(stem_par_initial,'stem_par'))
+                error('stem_par_initial must be of class stem_par');
+            else
+                if obj.stem_par.time_diagonal
+                    stem_par_initial.G=diag(diag(stem_par_initial.G));
+                    stem_par_initial.sigma_eta=diag(diag(stem_par_initial.sigma_eta));
+                end
+                obj.stem_par_initial=stem_par_initial;
+            end
+        end
+    end
+
+end
+
 %         function stem_par = get_initial_value_estimation(obj)
 %             % beta OLS
 %             if isempty(obj.stem_data.X)==0
@@ -1752,63 +1792,6 @@ classdef stem_model < handle
 %             end
 %         end
 
-%         function st_loo_residual = leave_one_out(obj,stem_par_alldata,EM_toll,EM_iter,varset)
-%             if nargin<3
-%                 EM_iter=100;
-%             end
-%             if nargin<4
-%                 EM_toll=0.001;
-%             end
-%             if EM_iter<=0
-%                 error('EM_iter must be >0');
-%             end
-%             if EM_toll<=0
-%                 error('EM_toll must be >0');
-%             end
-%             if (nargin<2)||isempty(stem_par_alldata)
-%                 cdisp('Full data model estimation started...');
-%                 obj.stem_par_initial=obj.get_initial_value_estimation();
-%                 obj.EM_estimate(EM_toll,EM_iter,'single');
-%                 kriging_Var_W_bar_hat=obj.stem_EM_result.Var_W_bar_hat;
-%                 cdisp('Full data model estimation ended');
-%                 stem_par_alldata=obj.stem_par;
-%             else
-%                 kriging_Var_W_bar_hat=[]; 
-%             end
-%             
-%             cdisp('Leave one out procedure started...');
-%             blocks=[0 cumsum(obj.stem_data.dim)];
-%             for j=1:obj.stem_data.nvar
-%                 if sum(varset==j)>0
-%                     residual{j}=nan(obj.stem_data.stem_varset.dim(j),obj.T);
-%                     for i=1:obj.stem_data.stem_varset.dim(j)
-%                         cdisp(['Site ',num2str(i),'/',num2str(obj.stem_data.stem_varset.dim(j)),' of ',obj.stem_data.stem_varset.name{j}]);
-%                         obj.stem_par_initial=stem_par_alldata;
-%                         chunk=obj.stem_data.Y(blocks(j)+i,:);
-%                         obj.stem_data.set_Y_row(blocks(j)+i,chunk*NaN);
-%                         obj.EM_estimate(EM_toll,EM_iter,'single');
-%                         logL{j}(i)=obj.stem_EM_result.logL;
-%                         chunk_full=obj.stem_EM_result.Y_hat(blocks(j)+i,:);
-%                         residual{j}(i,:)=chunk-chunk_full;
-%                         obj.stem_data.set_Y_row(blocks(j)+i,chunk);
-%                     end
-%                     rmse(j)=sum(sum(residual{j}(isnotnan(residual{j})).^2))/(sum(sum(isnotnan(residual{j}))));
-%                     rmse(j)=sqrt(rmse(j));
-%                 end
-%             end
-%             name=obj.stem_data.stem_varset.name;
-%             for i=1:length(name)
-%                 name{i}=['LOO Residuals - ',name{i}];
-%             end
-%             st_varsetstub=stem_varset(residual,name);
-%             st_loo_residual=stem_residual(obj.stem_data,st_varsetstub);
-%             st_loo_residual.kriging_Var_W_bar_hat=kriging_Var_W_bar_hat;
-%             st_loo_residual.rmse=rmse;
-%             st_loo_residual.logL=logL;
-%             cdisp('Leave one out procedure ended');
-%         end
-        
-
 %         function data_reset(obj)
 %             obj.stem_data.reset();
 %         end
@@ -1946,46 +1929,9 @@ classdef stem_model < handle
 %                 drawnow
 %             end
 %         end  %dovrebbe diventare un metodo di stem_par?
-        
-        %set functions
-        
-        function set.stem_data(obj,stem_data)
-            if strcmp(class(stem_data),'stem_data')
-                obj.stem_data=stem_data;
-            else
-                error('The argument must be of class stem_data');
-            end
-        end
-        
-        function set.stem_par(obj,stem_par)
-            if not(isa(stem_par,'stem_par'))
-                error('stem_par_initial must be of class stem_par');
-            end
-            obj.stem_par=stem_par;
-            if not(length(stem_par.beta)==size(obj.stem_data.X_beta,2))
-                error(['The length of beta in stem_par must be equal to ',num2str(size(obj.stem_data.X_beta,2))]);
-            end
-        end        
-       
-        function set.stem_par_initial(obj,stem_par_initial)
-            if not(isa(stem_par_initial,'stem_par'))
-                error('stem_par_initial must be of class stem_par');
-            else
-                if obj.stem_par.time_diagonal
-                    stem_par_initial.G=diag(diag(stem_par_initial.G));
-                    stem_par_initial.sigma_eta=diag(diag(stem_par_initial.sigma_eta));
-                end
-                obj.stem_par_initial=stem_par_initial;
-            end
-        end
-        
-        
-       
-    end
-    
+
 %     methods (Static)
 %         
-%         %far diventare il metodo non static?
 %         function [G sigma_eta sigma_eps]=method_of_moment(Y,dim)
 %             n_var=length(dim);
 %             
@@ -2027,6 +1973,4 @@ classdef stem_model < handle
 %             end
 %         end
 %     end
-    
-end
 

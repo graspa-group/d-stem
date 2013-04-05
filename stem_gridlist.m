@@ -10,16 +10,23 @@
 
 classdef stem_gridlist < handle
     properties
-        grid={};
-        tap=[];
+        grid={};    %[stem_grid object] {qx1} a cell-array of stem_grid objects (one for each variable)
+        tap=[];     %[double >0]        (1x1) the tapering parameter. It is the maximum distance after which the spatial correlation is zero
     end
     
     properties (SetAccess=private)
-        box=[];
+        box=[];     %[double]           (4x1) the bounding box of the geographic area covered by all the grids [lat_min,lat_max,lon_min,lon_max]
     end
     
     methods
         function obj = stem_gridlist(tap)
+            %DESCRIPTION: object constructor
+            %
+            %INPUT
+            %<tap>        - [double >0]             (1x1) the tapering parameter. It is the maximum distance after which the spatial correlation is zero. If it is empty the full distance matrix is evaluated
+            %
+            %OUTPUT
+            %obj          - [stem_gridlist object]  (1x1)            
             if nargin>=1
                 if not(isempty(tap))
                     obj.tap=tap;
@@ -28,6 +35,13 @@ classdef stem_gridlist < handle
         end
         
         function coordinates = get_jointcoordinates(obj)
+            %DESCRIPTION: get the coordinates of all the spatial locations of all the variables (pixel or points)
+            %
+            %INPUT
+            %obj            - [stem_gridlist object]    (1x1)
+            %
+            %OUTPUT
+            %coordinates    - [double]                  (N_r|N_gx2)              
             coordinates=[];
             for i=1:length(obj.grid)
                 coordinates=[coordinates;obj.grid{i}.coordinate];
@@ -38,7 +52,14 @@ classdef stem_gridlist < handle
         end        
         
         function DistMat = get_distance_matrix(obj,type)
-            % return the distance matrix given a cell vector of grids
+            %DESCRIPTION: get the distance matrix of all the variables
+            %
+            %INPUT
+            %obj        - [stem_gridlist object]    (1x1)
+            %<type>     - [boolean]                 (1x1) 1: also the cross-distances are evaluated (distances between different variables); 0: the distance matrix is block-diagonal with respect to the variables
+            %
+            %OUTPUT
+            %DistMat    - [double]                  (N_rxN_r|N_gxN_g)  The distance matrix
             if nargin<2
                 type=1;
             end
@@ -129,6 +150,14 @@ classdef stem_gridlist < handle
         end
         
         function add(obj,stem_grid)
+            %DESCRIPTION: add a stem_grid object to the stem_gridlist object
+            %
+            %INPUT
+            %obj        - [stem_gridlist object]    (1x1)
+            %stem_grid  - [stem_grid object]        (1x1) the stem_grid object to add
+            %
+            %OUTPUT
+            %none: the stem_grid object is added to the list          
             if not(isa(stem_grid,'stem_grid'))
                 error('The argument must be of class stem_grid');
             end
@@ -143,6 +172,14 @@ classdef stem_gridlist < handle
         end
         
         function remove(obj,indices)
+            %DESCRIPTION: remove a stem_grid object from the stem_gridlist object
+            %
+            %INPUT
+            %obj        - [stem_gridlist object]    (1x1)
+            %indices    - [integer >0]              (1x1) the index of the stem_grid object to remove
+            %
+            %OUTPUT
+            %none: the stem_grid object is removed from the list               
             if min(indices)<1
                 error('The minimum index must be higher than zero');
             end
@@ -153,6 +190,7 @@ classdef stem_gridlist < handle
             obj.updatebox();
         end
         
+        %Class set methods
         function set.grid(obj,grid)
             obj.grid=grid;
             obj.updatebox();
@@ -168,6 +206,13 @@ classdef stem_gridlist < handle
     
     methods (Access=private)
         function updatebox(obj)
+            %DESCRIPTION: update the box property of the object
+            %
+            %INPUT
+            %obj        - [stem_gridlist object] (1x1)
+            %
+            %OUTPUT
+            %none: the box property is updated            
             temp=[];
             for i=1:length(obj.grid)
                 temp=[temp obj.grid{i}.box(1)];

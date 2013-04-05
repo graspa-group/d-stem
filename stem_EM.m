@@ -10,16 +10,32 @@
 
 
 classdef stem_EM < EM
+    
+    %CONSTANTS
+    %N_g = n1_g+...+nq_g - total number of point sites
+    %N_r = n1_r+...+nq_r - total number of pixel sites
+    %N   = N_g+N_r - total number of observation sites
+    %N_b = n1_b+...+nq_b+n1_r+...+nq_r - total number of covariates
+    %S   = 2 if both point and pixel data are considered. S = 1 if only point data are considered.
+    %T   - number of temporal steps
+    %TT  = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
+    %p   - dimension of the latent temporal variable z    
    
     properties
-        stem_model=[];               %stem_model object
-        stem_EM_options=[];
+        stem_model=[];               %[stem_model object] (1x1)
+        stem_EM_options=[];          %[stem_EM_options]   (1x1)
     end
     
     methods
         function obj = stem_EM(stem_model,stem_EM_options)
-            % constructor
-            % see properties description
+            %DESCRIPTION: object constructor
+            %
+            %INPUT
+            %stem_model        - [stem_model object] (1x1)
+            %stem_EM_options   - [stem_EM_options]   (1x1)
+            %
+            %OUTPUT
+            %obj               - [stem_EM object]    (1x1)
             if nargin<2
                 error('All the arguments must be provided');
             end
@@ -42,7 +58,14 @@ classdef stem_EM < EM
         end
         
         function st_EM_result = estimate(obj)
-            % EM estimation
+            %DESCRIPTION: EM estimation
+            %
+            %INPUT
+            %obj            - [stem_EM object]      (1x1)
+            %
+            %OUTPUT
+            %st_EM_result   - [st_EM_result object] (1x1)
+            
             t1_full=clock;
             if isempty(obj.stem_model)&&(nargin==0)
                 error('You have to set the stem_model property first');
@@ -115,8 +138,8 @@ classdef stem_EM < EM
             st_EM_result.stem_kalmansmoother_result=st_kalmansmoother_result;
             st_EM_result.E_wg_y1=E_wg_y1;
             st_EM_result.E_wr_y1=E_wr_y1;
-            st_EM_result.Var_wg_y1=diag_Var_wg_y1;
-            st_EM_result.Var_wr_y1=diag_Var_wr_y1;
+            st_EM_result.diag_Var_wg_y1=diag_Var_wg_y1;
+            st_EM_result.diag_Var_wr_y1=diag_Var_wr_y1;
             st_EM_result.y_hat=obj.stem_model.stem_data.Y;
             st_EM_result.y_hat(isnan(st_EM_result.y_hat))=0;
             st_EM_result.y_hat=st_EM_result.y_hat-E_e_y1;
@@ -149,7 +172,14 @@ classdef stem_EM < EM
         end
         
         function st_EM_result = estimate_parallel(obj,pathparallel)
-            % EM estimation
+            %DESCRIPTION: EM parallel estimation
+            %
+            %INPUT
+            %obj                  - [stem_EM object]      (1x1)
+            %pathparallel         - [string]              (1x1)  full or relative path of the folder to use for distributed computation
+            %
+            %OUTPUT
+            %st_EM_result         - [st_EM_result object] (1x1)            
             t1_full=clock;
             if isempty(obj.stem_model)&&(nargin==0)
                 error('You have to set the stem_model property first');
@@ -657,22 +687,38 @@ classdef stem_EM < EM
             st_EM_result.stem_kalmansmoother_result=st_kalmansmoother_result;
             st_EM_result.E_wg_y1=E_wg_y1;
             st_EM_result.E_wr_y1=E_wr_y1;
-            st_EM_result.Var_wg_y1=diag_Var_wg_y1;
-            st_EM_result.Var_wr_y1=diag_Var_wr_y1;
+            st_EM_result.diag_Var_wg_y1=diag_Var_wg_y1;
+            st_EM_result.diag_Var_wr_y1=diag_Var_wr_y1;
             st_EM_result.iterations=iteration;
             st_EM_result.computation_time=etime(t2_full,t1_full);
         end        
         
         function [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_r,sigma_W_g,Xbeta,st_kalmansmoother_result] = E_step(obj,T)
+            %DESCRIPTION: E-step of the EM algorithm
+            %
             %INPUT
-            %T: e' fornito solo nel caso di stima parallela e vengono
-            %elaborati i time steps da 1 a T
+            %obj                            - [stem_EM object]  (1x1)
+            %<T>                            - [integer >0]      (1x1) The E-step is computed only for the data related to the time steps between 1 and T
+            %
+            %OUTPUT
+            %E_wr_y1                        - [double]          (N_rxT) E[wr|Y(1)] conditional expectation of w_r_t with respect to the observed data Y(1)
+            %sum_Var_wr_y1                  - [doulbe]          (N_rxN_r) sum(Var[wr|Y(1)]) sum with respect to time of the conditional variance of w_r_t with respect to the observed data
+            %diag_Var_wr_y1                 - [double]          (N_rxT) diagonals of Var[wr|Y(1)]
+            %cov_wr_z_y1                    - [double]          (N_rxpxT) cov[wr,z_t|Y(1)]
+            %E_wg_y1                        - [double]          (N_gxTxK) E[wg|Y(1)]
+            %sum_Var_wg_y1                  - [double]          {k}(N_gxN_g) sum(Var[wg_k|Y(1)])
+            %diag_Var_wg_y1                 - [double]          (N_gxTxK) diagonals of Var[wg|Y(1)]
+            %cov_wg_z_y1                    - [double]          (N_gxpxTxK) cov[wg,z|Y(1)]
+            %M_cov_wr_wg_y1                 - [double]          (NxTxK)
+            %cov_wgk_wgh_y1                 - [double]          {KxK}(N_gxT) cov[wg_k,wg_h|Y(1)] k,h=1,...,K
+            %diag_Var_e_y1                  - [double]          (NxT) diagonals of Var[e|Y(1)]
+            %E_e_y1                         - [double]          (NxT) E[e|Y(1)]
+            %sigma_eps                      - [double]          (NxN) sigma_eps
+            %sigma_W_r                      - [double]          (N_rxN_r) sigma_wr
+            %sigma_W_g                      - [double]          {k}(N_gxN_g) sigma_wg
+            %Xbeta                          - [double]          (NxT) X*beta'
+            %st_kalmansmoother_result       - [stem_kalmansmoother_result object] (1x1)
 
-            %Nota: dalla funzione E-step e' ricavata la funzione di kriging.
-            %Le modifiche di questa funzione devono riperquotersi (quando
-            %necessario) sulla funzione di kriging
-
-            %E-Step
             if nargin==1
                 T=obj.stem_model.stem_data.T;
             end
@@ -961,7 +1007,7 @@ classdef stem_EM < EM
                 end
                 
                 if not(isempty(obj.stem_model.stem_data.X_rg))
-                    %check if the remote loadings are time variant
+                    %check if the pixel loadings are time variant
                     if obj.stem_model.stem_data.X_rg_tv
                         %cov_wr_yz time variant case
                         cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),obj.stem_model.stem_data.X_rg(:,1,tRG),'r'),aj_rg,'r');
@@ -1006,9 +1052,9 @@ classdef stem_EM < EM
                             end
                             for i=1:length(blocks)-1
                                 if orlated
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %note 2*
                                 else
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %note 2*
                                 end
                             end
                         else
@@ -1029,7 +1075,7 @@ classdef stem_EM < EM
                     %update E(e|y1)
                     E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                     %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                 else
                     E_wr_y1=[];
                     diag_Var_wr_y1=[];
@@ -1038,7 +1084,7 @@ classdef stem_EM < EM
                 end
                 clear temp_r
                 if not(isempty(obj.stem_model.stem_data.X_g))
-                    %check if the ground loadings are time variant
+                    %check if the point loadings are time variant
                     if obj.stem_model.stem_data.X_g_tv
                         %cov_wg_yz time invariant case
                         for k=1:K
@@ -1086,9 +1132,9 @@ classdef stem_EM < EM
                                 end
                                 for i=1:length(blocks)-1
                                     if orlated
-                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %note 2*
                                     else
-                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %note 2*
                                     end
                                 end
                             else
@@ -1109,14 +1155,13 @@ classdef stem_EM < EM
                         diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
                         
                         if not(isempty(obj.stem_model.stem_data.X_rg))
-                            %compute M_cov(w_r,w_g|y1); cioe' M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                            %compute M_cov(w_r,w_g|y1) namely M*cov(w_r,w_g|y1)
                             if length(M)>obj.stem_model.system_size
                                 blocks=0:80:length(M);
                                 if not(blocks(end)==length(M))
                                     blocks=[blocks length(M)];
                                 end
                                 for i=1:length(blocks)-1
-                                    %tested
                                     if p>0
                                         M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'stem_misc.M_apply su left!!
                                     else
@@ -1130,7 +1175,7 @@ classdef stem_EM < EM
                                     M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
                                 end
                             end
-                            %update diag(Var(e|y1)) - tested
+                            %update diag(Var(e|y1))
                             temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                             temp=stem_misc.D_apply(stem_misc.D_apply(temp,[obj.stem_model.stem_data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
                             diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
@@ -1197,6 +1242,29 @@ classdef stem_EM < EM
         end
         
         function M_step(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,iteration)
+            %DESCRIPTION: M-step of the EM algorithm
+            %
+            %INPUT
+            %obj                            - [stem_EM object]  (1x1)
+            %E_wr_y1                        - [double]          (N_rxT) E[wr|Y(1)] conditional expectation of w_r_t with respect to the observed data Y(1)
+            %sum_Var_wr_y1                  - [doulbe]          (N_rxN_r) sum(Var[wr|Y(1)]) sum with respect to time of the conditional variance of w_r_t with respect to the observed data
+            %diag_Var_wr_y1                 - [double]          (N_rxT) diagonals of Var[wr|Y(1)]
+            %cov_wr_z_y1                    - [double]          (N_rxpxT) cov[wr,z_t|Y(1)]
+            %E_wg_y1                        - [double]          (N_gxTxK) E[wg|Y(1)]
+            %sum_Var_wg_y1                  - [double]          {k}(N_gxN_g) sum(Var[wg|Y(1)])
+            %diag_Var_wg_y1                 - [double]          (N_gxTxK) diagonals of Var[wg|Y(1)]
+            %cov_wg_z_y1                    - [double]          (N_gxpxTxK) cov[wg,z|Y(1)]
+            %M_cov_wr_wg_y1                 - [double]          (NxTxK)
+            %cov_wgk_wgh_y1                 - [double]          {KxK}(N_gxT) cov[wg_k,wg_h|Y(1)] k,h=1,...,K
+            %diag_Var_e_y1                  - [double]          (NxT) diagonals of Var[e|Y(1)]
+            %E_e_y1                         - [double]          (NxT) E[e|Y(1)]
+            %sigma_eps                      - [double]          (NxN) sigma_eps
+            %st_kalmansmoother_result       - [st_kalmansmoother_result object] (1x1)
+            %iteration                      - [double]          (1x1) EM iteration number     
+            %
+            %OUTPUT
+            %none: the stem_par property of the stem_model object is updated
+            
             disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
@@ -1407,7 +1475,7 @@ classdef stem_EM < EM
                 %MANCA LA STIMA A BLOCCHI COS� COME FATTO PER THETA!
                 
                 
-                if par.remote_correlated
+                if par.pixel_correlated
                     r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
                     %indices are permutated in order to avoid deadlock
                     kindex=randperm(size(par.v_r,1));
@@ -1436,7 +1504,7 @@ classdef stem_EM < EM
                 disp('    theta_r updating started...');
                 ct1=clock;
                 initial=par.theta_r;
-                if par.remote_correlated
+                if par.pixel_correlated
                     if Nr<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
                             obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
@@ -1467,8 +1535,6 @@ classdef stem_EM < EM
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
                             end
                             st_par_em_step.theta_r=exp(mean(min_result));
-                            %min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta2(x,par.v_r,par.correlation_type,data.DistMat_r,...
-                            %data.stem_varset_r.dim,E_wr_y1,sum_Var_wr_y1,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',25,'TolX',1e-3,'UseParallel','always'));
                         end
                     end
                 else
@@ -1796,7 +1862,27 @@ classdef stem_EM < EM
         end
             
         function [E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1] = E_step_parallel(obj,time_steps,st_kalmansmoother_result)
-            %E-Step
+            %DESCRIPTION: parallel version of the E-step of the EM algorithm
+            %
+            %INPUT
+            %obj                            - [stem_EM object]  (1x1)
+            %time_steps                     - [double]          (dTx1) The E-step is computed only for the data related to the time steps in the time_steps vector
+            %st_kalmansmoother_result       - [stem_kalmansmoother_result object] (1x1)
+            %
+            %OUTPUT
+            %E_wr_y1                        - [double]          (N_rxT) E[wr|Y(1)] conditional expectation of w_r_t with respect to the observed data Y(1)
+            %sum_Var_wr_y1                  - [doulbe]          (N_rxN_r) sum(Var[wr|Y(1)]) sum with respect to time of the conditional variance of w_r_t with respect to the observed data
+            %diag_Var_wr_y1                 - [double]          (N_rxT) diagonals of Var[wr|Y(1)]
+            %cov_wr_z_y1                    - [double]          (N_rxpxT) cov[wr,z_t|Y(1)]
+            %E_wg_y1                        - [double]          (N_gxTxK) E[wg|Y(1)]
+            %sum_Var_wg_y1                  - [double]          {k}(N_gxN_g) sum(Var[wg|Y(1)])
+            %diag_Var_wg_y1                 - [double]          (N_gxTxK) diagonals of Var[wg|Y(1)]
+            %cov_wg_z_y1                    - [double]          (N_gxpxTxK) cov[wg,z|Y(1)]
+            %M_cov_wr_wg_y1                 - [double]          (NxTxK)
+            %cov_wgk_wgh_y1                 - [double]          {KxK}(N_gxT) cov[wg_k,wg_h|Y(1)] k,h=1,...,K
+            %diag_Var_e_y1                  - [double]          (NxT) diagonals of Var[e|Y(1)]
+            %E_e_y1                         - [double]          (NxT) E[e|Y(1)]
+            
             N=obj.stem_model.stem_data.N;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                 Nr=obj.stem_model.stem_data.stem_varset_r.N;
@@ -2077,7 +2163,7 @@ classdef stem_EM < EM
                 end
                 
                 if not(isempty(obj.stem_model.stem_data.X_rg))
-                    %check if the remote loadings are time variant
+                    %check if the pixel loadings are time variant
                     if obj.stem_model.stem_data.X_rg_tv
                         %cov_wr_yz time variant case
                         cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),obj.stem_model.stem_data.X_rg(:,1,tRG),'r'),aj_rg,'r');
@@ -2122,9 +2208,9 @@ classdef stem_EM < EM
                             end
                             for i=1:length(blocks)-1
                                 if orlated
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %note 2*
                                 else
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %note 2*
                                 end
                             end
                         else
@@ -2145,7 +2231,7 @@ classdef stem_EM < EM
                     %update E(e|y1)
                     E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                     %update diag(Var(e|y1))
-                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                    diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),obj.stem_model.stem_data.X_rg(:,1,tRG),'b'),aj_rg,'b');
                 else
                     E_wr_y1=[];
                     diag_Var_wr_y1=[];
@@ -2154,7 +2240,7 @@ classdef stem_EM < EM
                 end
                 clear temp_r
                 if not(isempty(obj.stem_model.stem_data.X_g))
-                    %check if the ground loadings are time variant
+                    %check if the point loadings are time variant
                     if obj.stem_model.stem_data.X_g_tv
                         %cov_wg_yz time invariant case
                         for k=1:K
@@ -2202,9 +2288,9 @@ classdef stem_EM < EM
                                 end
                                 for i=1:length(blocks)-1
                                     if orlated
-                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %note 2*
                                     else
-                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %notare 2*
+                                        diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+diag(2*temp(blocks(i)+1:blocks(i+1),:)*obj.stem_model.stem_data.X_time(blocks(i)+1:blocks(i+1),:,tT)'); %note 2*
                                     end
                                 end
                             else
@@ -2222,13 +2308,12 @@ classdef stem_EM < EM
                         %update E(e|y1)
                         E_e_y1(:,t)=E_e_y1(:,t)-stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
                         %update diag(Var(e|y1))
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),obj.stem_model.stem_data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b');
                         
                         if not(isempty(obj.stem_model.stem_data.X_rg))
-                            %compute M_cov(w_r,w_g|y1); cio� M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                            %compute M_cov(w_r,w_g|y1) namely M*cov(w_r,w_g|y1)
                             if length(M)>obj.stem_model.system_size
                                 for i=1:length(M)
-                                    %tested
                                     if p>0
                                         M_cov_wr_wg_y1(i,t,k)=-cov_wr_y1z(M(i),:)*temp_g{k}(:,i)+cov_wr_z_y1(M(i),:,t)*temp_g{k}(end-p+1:end,i); %ha gi� l'stem_misc.M_apply su left!!
                                     else
@@ -2242,7 +2327,7 @@ classdef stem_EM < EM
                                     M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
                                 end
                             end
-                            %update diag(Var(e|y1)) - tested
+                            %update diag(Var(e|y1))
                             temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),obj.stem_model.stem_data.X_rg(:,1,tRG),'l'),aj_rg,'l');
                             temp=stem_misc.D_apply(stem_misc.D_apply(temp,[obj.stem_model.stem_data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
                             diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
@@ -2303,6 +2388,30 @@ classdef stem_EM < EM
         end
         
         function M_step_parallel(obj,E_wr_y1,sum_Var_wr_y1,diag_Var_wr_y1,cov_wr_z_y1,E_wg_y1,sum_Var_wg_y1,diag_Var_wg_y1,cov_wg_z_y1,M_cov_wr_wg_y1,cov_wgk_wgh_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index,iteration)
+            %DESCRIPTION: parallel version of the M-step of the EM algorithm
+            %
+            %INPUT
+            %obj                            - [stem_EM object]  (1x1)
+            %E_wr_y1                        - [double]          (N_rxT) E[wr|Y(1)] conditional expectation of w_r_t with respect to the observed data Y(1)
+            %sum_Var_wr_y1                  - [doulbe]          (N_rxN_r) sum(Var[wr|Y(1)]) sum with respect to time of the conditional variance of w_r_t with respect to the observed data
+            %diag_Var_wr_y1                 - [double]          (N_rxT) diagonals of Var[wr|Y(1)]
+            %cov_wr_z_y1                    - [double]          (N_rxpxT) cov[wr,z_t|Y(1)]
+            %E_wg_y1                        - [double]          (N_gxTxK) E[wg|Y(1)]
+            %sum_Var_wg_y1                  - [double]          {k}(N_gxN_g) sum(Var[wg|Y(1)])
+            %diag_Var_wg_y1                 - [double]          (N_gxTxK) diagonals of Var[wg|Y(1)]
+            %cov_wg_z_y1                    - [double]          (N_gxpxTxK) cov[wg,z|Y(1)]
+            %M_cov_wr_wg_y1                 - [double]          (NxTxK)
+            %cov_wgk_wgh_y1                 - [double]          {KxK}(N_gxT) cov[wg_k,wg_h|Y(1)] k,h=1,...,K
+            %diag_Var_e_y1                  - [double]          (NxT) diagonals of Var[e|Y(1)]
+            %E_e_y1                         - [double]          (NxT) E[e|Y(1)]
+            %sigma_eps                      - [double]          (NxN) sigma_eps
+            %st_kalmansmoother_result       - [st_kalmansmoother_result object] (1x1)
+            %index                          - [integer >0]      (dKx1) the subset of indices from 1 to K with respect to which estimate the elements of theta_g and v_g          
+            %iteration                      - [double]          (1x1) EM iteration number     
+            %
+            %OUTPUT
+            %none: the stem_par property of the stem_model object is updated            
+            
             disp('  M step started...');
             ct1_mstep=clock;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
@@ -2500,7 +2609,7 @@ classdef stem_EM < EM
                     temp=temp+sum_Var_wr_y1;
                 end
                 
-                if par.remote_correlated
+                if par.pixel_correlated
                     r = symamd(sum_Var_wr_y1); %note that sum_Var_wr_y1 and sigma_W_r have the same sparseness structure
                     %indices are permutated in order to avoid deadlock
                     kindex=randperm(size(par.v_r,1));
@@ -2527,7 +2636,7 @@ classdef stem_EM < EM
                 disp('    theta_r updating started...');
                 ct1=clock;
                 initial=par.theta_r;
-                if par.remote_correlated
+                if par.pixel_correlated
                     if Nr<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
                             obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
@@ -2690,13 +2799,12 @@ classdef stem_EM < EM
                 st_par_em_step.alpha_g=alpha_g;
                 ct2=clock;
                 disp(['    alpha_g update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
+                
                 %indices are permutated in order to avoid deadlock
                 disp('    v_g and theta_g update started...');
                 ct1=clock;
-                
-                %LA DIFFERENZA TRA M-STEP E M-STEP_PARALLEL E' QUESTO CICLO FOR!!! CHE NON VA 1:K MA SU INDEX
                 r = symamd(sum_Var_wg_y1{1}); %note that sum_Var_wr_y1 and sigma_W_g{k} have the same sparseness structure
-                for z=index
+                for z=index %note that z moves over index and not from 1 to K 
                     if Ng<=obj.stem_EM_options.mstep_system_size
                         temp=zeros(size(sum_Var_wg_y1{z}));
                         for t=1:T
@@ -2817,6 +2925,18 @@ classdef stem_EM < EM
         end
         
         function st_par_em_step = M_step_vg_and_theta(obj,E_wg_y1,sum_Var_wg_y1,index,r)
+            %DESCRIPTION: parallel version of the M-step of the EM algorithm only for the parameters v_g and theta_g
+            %
+            %INPUT
+            %obj                            - [stem_EM object]  (1x1)
+            %E_wg_y1                        - [double]          (N_gxTxK) E[wg_k|Y(1)]
+            %sum_Var_wg_y1                  - [double]          {k}(N_gxN_g) sum(Var[wg_k|Y(1)])
+            %diag_Var_wg_y1                 - [double]          (N_gxTxK) diagonals of Var[wg_k|Y(1)]
+            %index                          - [integer >0]      (dKx1) the subset of indices from 1 to K with respect to which estimate the elements of theta_g and v_g          
+            %r                              - [integer >0]      (N_gx1) output of the symamd command on the sparse matrix Var_wg_y1
+            %
+            %OUTPUT
+            %none: the stem_par property of the stem_model object is updated               
             st_par_em_step=obj.stem_model.stem_par;
             Ng=obj.stem_model.stem_data.stem_varset_g.N;
             for z=index
@@ -2881,6 +3001,7 @@ classdef stem_EM < EM
             end
         end
         
+        %Class set function
         function set.stem_model(obj,stem_model)
             if strcmp(class(stem_model),'stem_model')
                 obj.stem_model=stem_model;
@@ -2892,16 +3013,28 @@ classdef stem_EM < EM
 
     
     methods (Static)
-        function f = geo_coreg_function_theta(log_theta,v_full,correlation_type,DistMat,var_dims,U,T,tapering_par,r)
-            %only theta is estimated
-            theta=exp(log_theta);
+        function f = geo_coreg_function_theta(log_theta,v,correlation_type,DistMat,var_dims,U,T,tapering_par,r)
+            %DESCRIPTION: log-likelihood evaluation with respect to the theta_r or theta_g parameter
+            %
+            %INPUT
+            %log_theta          - [double]      (1x1) natural logarithm of theta
+            %v                  - [double]      (qxq) the v_r of v_q matrix
+            %correlation type   - [double]      (1x1) either 'exponential' or 'matern'
+            %DistMat            - [double]      (N_g|N_rxN_g|N_r) the distance matrix
+            %var_dims           - [double]      (qx1) the number of time series for each variable
+            %U                  - [double]      (N_g|N_rxN_g|N_r) sum(Var[w|Y(1)]+E[w|Y(1)]*E[w|Y(1)]') there w is w_r of w_g
+            %T                  - [integer >0]  (1x1) number of time steps
+            %tapering_par       - [double >0]   (1x1) maximum distance after which the spatial correlation is zero
+            %r                  - [integer >0]  (N_g|N_rx1) output of the symamd command
+            %
+            %OUTPUT
+            %f: the log-likelihood value
             
+            theta=exp(log_theta);
             n_var=length(var_dims);
-            v=v_full;
             
             if min(eig(v))>0
                 if not(isempty(tapering_par))
-                    sigma_W=DistMat;
                     I=zeros(nnz(DistMat),1);
                     J=zeros(nnz(DistMat),1);
                     elements=zeros(nnz(DistMat),1);
@@ -2962,83 +3095,27 @@ classdef stem_EM < EM
             end
         end
         
-        function f = geo_coreg_function_theta2(theta,v_full,correlation_type,DistMat,var_dims,E_w_y1,sum_Var_w_y1,tapering_par,r)
-            %only theta is estimated
-            if isempty(tapering_par)
-                error('This method is available only with tapering');
-            end
+        function f = geo_coreg_function_velement(v_element,row,col,v,theta,correlation_type,DistMat,var_dims,U,T,tapering_par,r)
+            %DESCRIPTION: log-likelihood evaluation with respect to an extra-diagonal element of v_r or v_g
+            %
+            %INPUT
+            %v_element          - [double]      (1x1) the extra-diagonal element of v_r or v_g
+            %row                - [double]      (1x1) the row index of the v_element
+            %col                - [double]      (1x1) the column index of the v_element
+            %v                  - [double]      (qxq) the full v_r or v_g matrix
+            %theta              - [double>0]    (1x1) the value of theta_r or theta_g
+            %correlation type   - [double]      (1x1) either 'exponential' or 'matern'
+            %DistMat            - [double]      (N_g|N_rxN_g|N_r) the distance matrix
+            %var_dims           - [double]      (qx1) the number of time series for each variable
+            %U                  - [double]      (N_g|N_rxN_g|N_r) sum(Var[w|Y(1)]+E[w|Y(1)]*E[w|Y(1)]') there w is w_r of w_g
+            %T                  - [integer >0]  (1x1) number of time steps
+            %tapering_par       - [double >0]   (1x1) maximum distance after which the spatial correlation is zero
+            %r                  - [integer >0]  (N_g|N_rx1) output of the symamd command
+            %
+            %OUTPUT
+            %f: the log-likelihood value
             
-            block_size=2000;
-            
-            T=size(E_w_y1,2);
             n_var=length(var_dims);
-            v=v_full;
-            
-            if min(eig(v))>0
-                sigma_W=DistMat;
-                
-                I=zeros(nnz(DistMat),1);
-                J=zeros(nnz(DistMat),1);
-                elements=zeros(nnz(DistMat),1);
-                idx=0;
-                blocks=[0 cumsum(var_dims)];
-                for j=1:n_var
-                    for i=j:n_var
-                        [B,block_i,block_j] = stem_misc.get_block(var_dims,i,var_dims,j,DistMat);
-                        corr_result=stem_misc.correlation_function(theta,B,correlation_type);
-                        weights=stem_misc.wendland(B,tapering_par); %possibile calcolarli una sola volta???
-                        corr_result.correlation=v(i,j)*corr_result.correlation.*weights;
-                        l=length(corr_result.I);
-                        I(idx+1:idx+l)=corr_result.I+blocks(i);
-                        J(idx+1:idx+l)=corr_result.J+blocks(j);
-                        elements(idx+1:idx+l)=corr_result.correlation;
-                        idx=idx+l;
-                        if not(i==j)
-                            I(idx+1:idx+l)=corr_result.J+blocks(j);
-                            J(idx+1:idx+l)=corr_result.I+blocks(i);
-                            elements(idx+1:idx+l)=corr_result.correlation;
-                            idx=idx+l;
-                        end
-                    end
-                end
-                sigma_W=sparse(I,J,elements);
-                
-                if strcmp(correlation_type,'matern')
-                    for i=1:size(sigma_W,1)
-                        sigma_W(i,i)=1;
-                    end
-                    sigma_W(isnan(sigma_W_core))=0;
-                end
-                
-                blocks=0:block_size:length(r);
-                if blocks(end)<length(r)
-                    blocks=[blocks,length(r)];
-                end
-                E_w_y1=E_w_y1(r,:);
-                sum_Var_w_y1=sum_Var_w_y1(r,r);
-                c=chol(sigma_W(r,r));
-                f=2*T*sum(log(diag(c)));
-                for i=1:length(blocks)-1
-                    idx=blocks(i)+1:blocks(i+1);
-                    total=zeros(size(E_w_y1,1),length(idx));
-                    for t=1:size(E_w_y1,2)
-                        total=total+E_w_y1(:,t)*E_w_y1(idx,t)';
-                    end
-                    total=total+sum_Var_w_y1(:,idx);
-                    res=sigma_W(r,r)\total;
-                    res=res((1:length(idx))+blocks(i),:);
-                    f=f+trace(res);
-                end
-            else
-                f=10^10;
-            end
-        end
-        
-        function f = geo_coreg_function_velement(v_element,row,col,v_full,theta,correlation_type,DistMat,var_dims,U,T,tapering_par,r)
-            %only V is estimated
-            n_var=length(var_dims);
-            
-            v=v_full;
             v(row,col)=v_element;
             v(col,row)=v_element;
             
@@ -3050,7 +3127,6 @@ classdef stem_EM < EM
                 end
                 
                 if not(isempty(tapering_par))
-                    sigma_W=DistMat;
                     I=zeros(nnz(DistMat),1);
                     J=zeros(nnz(DistMat),1);
                     elements=zeros(nnz(DistMat),1);
@@ -3097,71 +3173,11 @@ classdef stem_EM < EM
                     sigma_W(isnan(sigma_W_core))=0;
                 end
                 if not(isempty(tapering_par))
-                    %r = symamd(sigma_W);
                     c=chol(sigma_W(r,r));
                     f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(c,U(r,r)));
                 else
                     c=chol(sigma_W);
                     f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(c,U));
-                end
-            else
-                f=10^10;
-            end
-        end
-        
-        function f = geo_coreg_function_velement2(v_element,row,col,v_full,theta,correlation_type,DistMat,var_dims,E_w_y1,sum_Var_w_y1,tapering_par,r)
-            %only V is estimated
-            if isempty(tapering_par)
-                error('This method is available only with tapering');
-            end
-            
-            block_size=5000;
-            
-            n_var=length(var_dims);
-            
-            v=v_full;
-            v(row,col)=v_element;
-            v(col,row)=v_element;
-            
-            if min(eig(v))>0
-                sigma_W=DistMat;
-                
-                for j=1:n_var
-                    for i=j:n_var
-                        [B,block_i,block_j] = stem_misc.get_block(var_dims,i,var_dims,j,DistMat);
-                        sigma_W(block_i,block_j)=v(i,j)*stem_misc.correlation_function(theta,B,correlation_type);
-                        sigma_W(block_i,block_j)=sigma_W(block_i,block_j).*stem_misc.wendland(DistMat(block_i,block_j),tapering_par);
-                        if (i~=j)
-                            sigma_W(block_j,block_i)=sigma_W(block_i,block_j)';
-                        end
-                    end
-                end
-                if strcmp(correlation_type,'matern')
-                    for i=1:size(sigma_W,1)
-                        sigma_W(i,i)=1;
-                    end
-                    sigma_W(isnan(sigma_W_core))=0;
-                end
-                
-                blocks=0:block_size:length(r);
-                if blocks(end)<length(r)
-                    blocks=[blocks,length(r)];
-                end
-                
-                E_w_y1=E_w_y1(r,:);
-                sum_Var_w_y1=sum_Var_w_y1(r,r);
-                c=chol(sigma_W(r,r));
-                f=2*T*sum(log(diag(c)));
-                for i=1:length(blocks)-1
-                    idx=blocks(i)+1:blocks(i+1);
-                    total=zeros(size(E_w_y1,1),length(idx));
-                    for t=1:size(E_w_y1,2)
-                        total=total+E_w_y1(:,t)*E_w_y1(idx,t)';
-                    end
-                    total=total+sum_Var_w_y1(:,idx);
-                    res=sigma_W(r,r)\total;
-                    res=res((1:length(idx))+blocks(i),:);
-                    f=f+trace(res);
                 end
             else
                 f=10^10;

@@ -9,17 +9,30 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 classdef stem_krig < handle
-    %stem kriging class
+    
+    %CONSTANTS
+    %NN  - number of kriging sites
+    %N_b = n1_b+...+nq_b+n1_r+...+nq_r - total number of covariates
+    %T   - number of temporal steps
     
     properties
-        stem_model=[];
-        X_all=[];
-        idx_notnan=[];
+        stem_model=[];  %[stem_model object] (1x1) the stem_model object from which to extract the information for kriging. The model must be estimated.
+        X_all=[];       %[double]            (NNxN_bxT) all the loading coefficients evaluated at the kriging sites and for t=1,...,T
+        idx_notnan=[];  %[integer >0]        (dNx1) the indices of the non-masked kriging sites (all the kriging sites if they are not masked)
     end
     
     methods
         
         function obj = stem_krig(stem_model)
+            %DESCRIPTION: constructor of the class stem_krig
+            %
+            %INPUT
+            %
+            %stem_model      - [stem_model object] (1x1) the stem_model object
+            %
+            %OUTPUT
+            %obj             - [stem_krig object]  (1x1) the stem_krig object      
+            
             if nargin<1
                 error('All the input arguments must be provided');
             end
@@ -27,58 +40,71 @@ classdef stem_krig < handle
         end
         
         function st_krig_result = kriging(obj,variable_name,grid,block_size,mask,X,back_transform,no_varcov,crossval)
-            %This is the function that actually implements the kriging
+            %DESCRIPTION: kriging implementation
+            %
+            %INPUT
+            %
+            %obj                - [stem_krig object]  (1x1) the stem_krig object 
+            %variable_name      - [string]            (1x1) the name of the variable to krige
+            %grid               - [stem_grid object]  (1x1) a stem_grid object with the information on the kriging sites
+            %<block_size>       - [integer >=0]       (1x1) (default: 0) the maximum number of sites to krige at once. If 0 all the sites are kriged in one step
+            %<mask>             - [1 | NaN]           (NNx1) (default: []) a vector mask the elements of which are 1 for the sites that must be kriged and NaN for the sites that do not need kriging
+            %<X>                - [double|string]     (NNxN_bxT | 1x1) (default: []) the loading coefficient evaluated at the kriging sites. See Note 2 below.
+            %<back_transform>   - [boolean]           (1x1) (default: 1) 1: the kriged variable is back-transformed; 0: no back-transform
+            %<no_varcov>        - [boolean]           (1x1) (default: 0) 1: the variance of the kriged variable is not computed; 0: the variance is computed;
+            %<crossval>         - [boolean]           (1x1) (default: 0) 1: the variable is kriged over the cross-validation sites. This flag is reserved to the EM algorithm and should not be used by the user.
+            %
+            %OUTPUT
+            %st_krig_result     - [stem_krig_result object]  (1x1)              
             
-            %block_size: when the number of kriging sites is large the
-            %kriging can be implemented block by block with dimension given
-            %by block_size>=0. If block_size=0 all the kriging sites are
-            %considered in one block.
-            
-            %variable_name: the name of the variable to be kriged
-            
-            %grid: the stem_grid object with the sites where the kriging
-            %has to be implemented
-            
-            %mask: a column vector with dimension the number of sites in
-            %grid the elements of which are NaN if kriging is not needed at
-            %the respective site
-            
-            %X: the kriging covariates. X has to be provided when the model
-            %has space-time varying coefficients (covariates). X can be
-            %either a structure or the name of a folder. When X is a
-            %structure it must contain:
-                %X_krig.X_all: the matrix of all the coefficients needed
-                %X_krig.name: the names of each column of coefficients
-                %X_krig.date_stamp: a stem_datestamp object
-            %When X is a folder name it must contain the name of the folder
+            %NOTE 1
+            %When the number of kriging sites is large, kriging can be 
+            %implemented block by block with dimension given by block_size. 
+            %If block_size=0 all the kriging sites are considered in one block.
+          
+            %NOTE 2
+            %X must be provided when the model is based on loading coefficients.
+            %X can be either a structure or a string with the path of a folder. 
+            %
+            %When X is a structure it must have the following structure:
+                 %X.X_all       - [double] (NNxN_bxT) the matrix of all the loading coefficients
+                 %X.name        - {N_bx1} a cell array with the names of each column of coefficients
+                 %X.date_stamp  - (1x1) a stem_datestamp object with the date stamps of the T time steps
+            %    
+            %When X is a string it must contain the path of the folder
             %where the coefficients are saved block by block. The blocks
             %must contain only the coefficients related to the non-masked
-            %sites. The structure of the blocks is specified in ????
+            %sites.
             
-            %back_transform: is a flag that specify if the kriged variable
-            %has to be back transformed
+            %NOTE 3
+            %The structure of each block must be the following
+                 %block.data       - (dNxN_bxT) the loading coefficients
+                 %block.lat        - (dNx1) the vector of latitudes of the sites of the block
+                 %block.lon        - (dNx1) the vector of longitudes of the sites of the block
+                 %block.label      - {N_bx1} the name of the N_b loading coefficients
+                 %block.idx        - (1x1) the sequence number of the block
+                 %block.size       - (1x1) the number of sites of the block
+                 %block.date_stamp - (1xT) the date stamps of the T time steps
             
-            %no_varcov: when this flag is 1, the kriging
-            %variance-covariance is not evaluated (to save time)
-            
-            %crossval: when this flag is 1, the variable is kriged over the
-            %cross-validation sites. In this case X and grid should not be
-            %provided. NOTE THAT THE CROSS-VALIDATION KRIGING IS
-            %AUTOMATICALLY IMPLEMENTED AFTER THE EM-ESTIMATION IN THE CASE
-            %THE CROSS-VALIDATION INFORMATION IS PROVIDED!
-            
-            if isempty(obj.stem_model)
-                error('The stem_model property is not setted');
+            if nargin<3
+                error('Not enough input arguments');
             end
-            if block_size<0||isempty(block_size)
-                error('block_size must be >=0');
-            end
+            
             index_var=obj.stem_model.stem_data.stem_varset_g.get_Y_index(variable_name);
             if isempty(index_var)
                 error('The variable name is incorrect');
             end
+            
             if not(isa(grid,'stem_grid'))
                 error('The grid input argument must be of class stem_grid');
+            end
+            
+            if nargin>3
+                if block_size<0||isempty(block_size)
+                    error('block_size must be >=0');
+                end
+            else
+                block_size=0;
             end
             
             if nargin<5
@@ -86,18 +112,29 @@ classdef stem_krig < handle
                 obj.idx_notnan=[1:length(grid.coordinate)]';
             else
                 if not(isempty(mask))
-                    obj.idx_notnan=find(not(isnan(mask(:))));
+                    if not(strcmp(grid.grid_type,'regular'))
+                        error('mask can be provided only in the case of a regular grid');
+                    end
+                    if size(mask,2)>1
+                        error('mask must be a vector');
+                    end
+                    if not(length(mask)==length(grid.coordinate))
+                        error('mask must be a vector with the dimension of the kriging sites');
+                    end
+                    obj.idx_notnan=find(not(isnan(mask)));
                 else
                     obj.idx_notnan=[1:length(grid.coordinate)]';
                 end
             end
             if nargin<6
-                X_all=[];
+                obj.X_all=[];
             end
             if (nargin<7)||isempty(back_transform)
                 back_transform=1;
             end
-            
+            if nargin<8
+                no_varcov=0;
+            end
             if nargin<9
                 crossval=0;
             end
@@ -105,12 +142,11 @@ classdef stem_krig < handle
             if (crossval)&&not(obj.stem_model.cross_validation)
                 error('The stem_model object does not contain cross-validation information');
             end
-            %verificare se corretto e se non è meglio passare grid e X nella chiamata di cross-val in stem_model
             if (crossval)&&(not(isempty(X)))
-                disp('WARNING: the X provided in not considered as the covariates of cross validation are used');
+                disp('WARNING: the X provided is not considered as the covariates of cross validation are used');
             end
             if (crossval)&&(not(isempty(grid)))
-                disp('WARNING: the grid provided in not considered as the grid of cross validation is used');
+                disp('WARNING: the grid provides in not considered as the grid of cross validation is used');
             end                
             if crossval
                 grid=obj.stem_model.stem_data.stem_crossval.stem_gridlist.grid{1};
@@ -133,11 +169,6 @@ classdef stem_krig < handle
                 if not(isempty(X))
                     if isstruct(X)
                         %the X are directly provided
-                        if not(isempty(mask))
-                            if not(size(mask,1)*size(mask,2)==size(grid.coordinate,1))
-                                error('The mask size does not match the number of coordinates');
-                            end
-                        end
                         if not(isempty(X.X_all))
                             if not(size(X.X_all,1)==size(grid.coordinate,1))
                                 error('The size of X_all does not match the number of coordinates');
@@ -350,7 +381,7 @@ classdef stem_krig < handle
             st_krig_result=stem_krig_result(variable_name,grid,obj.stem_model.stem_data.shape);
             st_krig_result.y_hat=zeros(size(grid.coordinate,1),obj.stem_model.T);
             if not(no_varcov)
-                st_krig_result.var_y_hat=zeros(size(grid.coordinate,1),obj.stem_model.T);
+                st_krig_result.diag_Var_y_hat=zeros(size(grid.coordinate,1),obj.stem_model.T);
             end
             if K>0
                 st_krig_result.E_wg_y1=zeros(size(grid.coordinate,1),obj.stem_model.T,K);
@@ -475,16 +506,16 @@ classdef stem_krig < handle
                 %Grid manage
                 obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate=cat(1,obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate,[block.lat,block.lon]);
                 obj.stem_model.stem_data.update_data();
-                obj.stem_model.stem_data.update_distance('ground');
+                obj.stem_model.stem_data.update_distance('point');
                 if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                     obj.stem_model.stem_data.update_M();
                 end
                 
                 %kriging
-                [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1]=obj.E_step(no_varcov);
+                [y_hat,diag_Var_y_hat,E_wg_y1,diag_Var_wg_y1]=obj.E_step(no_varcov);
                 st_krig_result.y_hat(obj.idx_notnan(block_krig),:)=y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
                 if not(no_varcov)
-                    st_krig_result.var_y_hat(obj.idx_notnan(block_krig),:)=var_y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
+                    st_krig_result.diag_Var_y_hat(obj.idx_notnan(block_krig),:)=diag_Var_y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
                     st_krig_result.diag_Var_wg_y1(obj.idx_notnan(block_krig),:,:)=diag_Var_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
                 end
                 if K>0
@@ -506,12 +537,11 @@ classdef stem_krig < handle
                     obj.stem_model.stem_data.stem_varset_g.X_time{index_var}(end-block_krig_length+1:end,:,:)=[];
                 end
                 obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate(end-block_krig_length+1:end,:)=[];
-                obj.stem_model.stem_data.update_data(); %verificare se conviene salvare invece di ricalcolare
-                obj.stem_model.stem_data.update_distance(); %verificare se conviene salvare invece di ricalcolare
+                obj.stem_model.stem_data.update_data(); 
+                obj.stem_model.stem_data.update_distance(); 
                 ct2=clock;
                 disp(['Kriging block ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
-
 
             if back_transform&&obj.stem_model.stem_data.stem_varset_g.standardized
                 disp('Back-transformation...');
@@ -520,15 +550,15 @@ classdef stem_krig < handle
                 if (obj.stem_model.stem_data.stem_varset_g.standardized)&&not(obj.stem_model.stem_data.stem_varset_g.log_transformed)
                     st_krig_result.y_hat=st_krig_result.y_hat*s+m;
                     if not(no_varcov)
-                        st_krig_result.var_y_hat=st_krig_result.var_y_hat*s^2;
+                        st_krig_result.diag_Var_y_hat=st_krig_result.diag_Var_y_hat*s^2;
                     end
                 end
                 if (obj.stem_model.stem_data.stem_varset_g.standardized)&&(obj.stem_model.stem_data.stem_varset_g.log_transformed)
                     y_hat=st_krig_result.y_hat;
-                    var_y_hat=st_krig_result.var_y_hat;
+                    diag_Var_y_hat=st_krig_result.diag_Var_y_hat;
                     st_krig_result.y_hat=exp(y_hat*s+m+(s^2)/2);
                     if not(no_varcov)
-                        st_krig_result.var_y_hat=(var_y_hat*s^2)*(exp(m)^2);
+                        st_krig_result.diag_Var_y_hat=(diag_Var_y_hat*s^2)*(exp(m)^2);
                     end
                 end
                 disp('Back-transformation ended.');
@@ -538,7 +568,7 @@ classdef stem_krig < handle
                 disp('Data reshaping...');
                 st_krig_result.y_hat=reshape(st_krig_result.y_hat,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T);
                 if not(no_varcov)
-                    st_krig_result.var_y_hat=reshape(st_krig_result.var_y_hat,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T);
+                    st_krig_result.diag_Var_y_hat=reshape(st_krig_result.diag_Var_y_hat,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T);
                 end
                 if K>0
                     st_krig_result.E_wg_y1=reshape(st_krig_result.E_wg_y1,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T,K);
@@ -549,11 +579,11 @@ classdef stem_krig < handle
             
             if not(isempty(mask))&&strcmp(grid.grid_type,'regular')
                 disp('Applying mask...');
-                mask(not(isnan(mask)))=1;
+                mask=reshape(mask,grid.grid_size(1),grid.grid_size(2));
                 for t=1:size(st_krig_result.y_hat,3)
                     st_krig_result.y_hat(:,:,t)=st_krig_result.y_hat(:,:,t).*mask;
                     if not(no_varcov)
-                        st_krig_result.var_y_hat(:,:,t)=st_krig_result.var_y_hat(:,:,t).*mask;
+                        st_krig_result.diag_Var_y_hat(:,:,t)=st_krig_result.diag_Var_y_hat(:,:,t).*mask;
                     end
                     for k=1:K
                         st_krig_result.E_wg_y1(:,:,t,k)=st_krig_result.E_wg_y1(:,:,t,k).*mask;
@@ -565,7 +595,19 @@ classdef stem_krig < handle
             st_krig_result.variable_name=variable_name;
         end
         
-        function [y_hat,var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj,no_varcov)
+        function [y_hat,diag_Var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj,no_varcov)
+            %DESCRIPTION: kriging is based on the E-step of the EM algorithm
+            %
+            %INPUT
+            %obj                            - [stem_krig object]  (1x1)
+            %no_varcov                      - [boolean]           (1x1) the variance of the kriged variable is not computed; 0: the variance is computed;
+            %
+            %OUTPUT
+            %y_hat                          - [double]            (NNxT) the variable estimated over the kriging sites
+            %diag_Var_y_hat                 - [double]            (NNxT) the variance of the variable estimated over the kriging sites
+            %E_wg_y1                        - [double]            (NNxTxK) E[wg|Y(1)] over the kriging sites
+            %diag_Var_wg_y1                 - [double]            (NNxTxK) diagonals of Var[wg|Y(1)] over the kriging sites
+
             N=obj.stem_model.stem_data.N;
             if not(isempty(obj.stem_model.stem_data.stem_varset_r))
                 Nr=obj.stem_model.stem_data.stem_varset_r.N;
@@ -805,7 +847,7 @@ classdef stem_krig < handle
                 end
                 
                 if not(isempty(data.X_rg))
-                    %check if the remote loadings are time variant
+                    %check if the pixel loadings are time variant
                     if data.X_rg_tv
                         %cov_wr_yz time variant case
                         cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
@@ -870,7 +912,7 @@ classdef stem_krig < handle
                 end
                 
                 if not(isempty(data.X_g))
-                    %check if the ground loadings are time variant
+                    %check if the point loadings are time variant
                     if data.X_g_tv
                         %cov_wg_yz time invariant case
                         for k=1:K
@@ -996,11 +1038,11 @@ classdef stem_krig < handle
                     clear temp_g
                 end
                 t_partial2=clock;
-                %disp(['      Time step ',num2str(t),' evaluated in ',stem_misc.decode_time(etime(t_partial2,t_partial1)),' - Non missing: ',num2str(sum(Lt))]);
             end
-            var_y_hat=diag_Var_e_y1;
+            diag_Var_y_hat=diag_Var_e_y1;
         end
-           
+          
+        %Class set methods
         function set.stem_model(obj,stem_model)
             if isa(stem_model,'stem_model')
                 obj.stem_model=stem_model;
