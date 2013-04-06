@@ -112,7 +112,7 @@ classdef stem_grid
                         end
                     end
                 else
-                    disp(['WARNING: too many spatial locations. The test for duplicate spatial locations is skipped');
+                    disp(['WARNING: too many spatial locations. The test for duplicate spatial locations is skipped']);
                 end
             end
 

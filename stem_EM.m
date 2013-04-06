@@ -1485,11 +1485,11 @@ classdef stem_EM < EM
                             initial=par.v_r(k,h);
                             if Nr<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             else
                                 disp('WARNING: this operation will take a long time');
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             end
                             st_par_em_step.v_r(k,h)=min_result;
                             st_par_em_step.v_r(h,k)=min_result;
@@ -1507,13 +1507,13 @@ classdef stem_EM < EM
                 if par.pixel_correlated
                     if Nr<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                            obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                         st_par_em_step.theta_r=exp(min_result);
                     else
                         if obj.stem_model.stem_data.stem_varset_r.nvar>1
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                                obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             st_par_em_step.theta_r=exp(min_result);
                         else
                             s=ceil(Nr/obj.stem_EM_options.mstep_system_size);
@@ -1532,7 +1532,7 @@ classdef stem_EM < EM
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
-                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('MaxIter',500,'TolX',1e-5,'useparallel','always'));
                             end
                             st_par_em_step.theta_r=exp(mean(min_result));
                         end
@@ -1543,7 +1543,7 @@ classdef stem_EM < EM
                         for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
                             r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
-                                obj.stem_model.stem_data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                obj.stem_model.stem_data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             st_par_em_step.theta_r(i)=exp(min_result);
                         end
                     else
@@ -1566,7 +1566,7 @@ classdef stem_EM < EM
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
-                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('MaxIter',500,'TolX',1e-5,'useparallel','always'));
                             end
                             st_par_em_step.theta_r(i)=exp(mean(min_result));
                         end
@@ -1698,11 +1698,11 @@ classdef stem_EM < EM
                             initial=par.v_g(k,h,z);
                             if Ng<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5));
                             else
                                 disp('WARNING: this operation will take a long time');
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5));
                             end
                             st_par_em_step.v_g(k,h,z)=min_result;
                             st_par_em_step.v_g(h,k,z)=min_result;
@@ -1712,13 +1712,13 @@ classdef stem_EM < EM
                     initial=par.theta_g(z);
                     if Ng<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                            obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                            obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5));
                         st_par_em_step.theta_g(z)=exp(min_result);
                     else
                         if obj.stem_model.stem_data.stem_varset_g.nvar>1
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                                obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5));
                             st_par_em_step.theta_g(z)=exp(min_result);
                         else
                             s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
@@ -1737,7 +1737,7 @@ classdef stem_EM < EM
                                 temp=temp+sum_Var_wg_y1{z}(idx,idx);
                                 r_partial=symamd(sum_Var_wg_y1{z}(idx,idx));
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g(idx,idx),...
-                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_g.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_g.tap,r_partial),log(initial),optimset('MaxIter',500,'TolX',1e-5,'useparallel','always'));
                             end
                             st_par_em_step.theta_g(z)=exp(mean(min_result));
                         end
@@ -2619,11 +2619,11 @@ classdef stem_EM < EM
                             initial=par.v_r(k,h);
                             if Nr<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             else
                                 disp('WARNING: this operation will take a long time');
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_r,par.theta_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                    obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             end
                             st_par_em_step.v_r(k,h)=min_result;
                             st_par_em_step.v_r(h,k)=min_result;
@@ -2639,13 +2639,13 @@ classdef stem_EM < EM
                 if par.pixel_correlated
                     if Nr<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                            obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                            obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                         st_par_em_step.theta_r=exp(min_result);
                     else
                         if obj.stem_model.stem_data.stem_varset_r.nvar>1
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r,...
-                                obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                obj.stem_model.stem_data.stem_varset_r.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             st_par_em_step.theta_r=exp(min_result);
                         else
                             s=ceil(Nr/obj.stem_EM_options.mstep_system_size);
@@ -2664,7 +2664,7 @@ classdef stem_EM < EM
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
-                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial),optimset('MaxIter',500,'TolX',1e-5,'useparallel','always'));
                             end
                             st_par_em_step.theta_r=exp(mean(min_result));
                         end
@@ -2675,7 +2675,7 @@ classdef stem_EM < EM
                         for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
                             r = symamd(sum_Var_wr_y1(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)));
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
-                                obj.stem_model.stem_data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',50,'TolX',1e-3,'UseParallel','always'));
+                                obj.stem_model.stem_data.stem_varset_r.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_r.tap,r),log(initial(i)),optimset('MaxIter',500,'TolX',1e-5,'UseParallel','always'));
                             st_par_em_step.theta_r(i)=exp(min_result);
                         end
                     else
@@ -2698,7 +2698,7 @@ classdef stem_EM < EM
                                 temp=temp+sum_Var_wr_y1(idx,idx);
                                 r_partial=symamd(sum_Var_wr_y1(idx,idx));
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_r,par.correlation_type,obj.stem_model.stem_data.DistMat_r(idx,idx),...
-                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_r.tap,r_partial),log(initial(i)),optimset('MaxIter',500,'TolX',1e-5,'useparallel','always'));
                             end
                             st_par_em_step.theta_r(i)=exp(mean(min_result));
                         end
@@ -2820,11 +2820,11 @@ classdef stem_EM < EM
                             initial=par.v_g(k,h,z);
                             if Ng<=obj.stem_EM_options.mstep_system_size
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5));
                             else
                                 disp('WARNING: this operation will take a long time');
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_g(:,:,z),par.theta_g(z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                    obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5));
                             end
                             st_par_em_step.v_g(k,h,z)=min_result;
                             st_par_em_step.v_g(h,k,z)=min_result;
@@ -2834,13 +2834,13 @@ classdef stem_EM < EM
                     initial=par.theta_g(z);
                     if Ng<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                            obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                            obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5));
                         st_par_em_step.theta_g(z)=exp(min_result);
                     else
                         if obj.stem_model.stem_data.stem_varset_g.nvar>1
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',50,'TolX',1e-3));
+                                obj.stem_model.stem_data.stem_varset_g.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),log(initial),optimset('MaxIter',500,'TolX',1e-5));
                             st_par_em_step.theta_g(z)=exp(min_result);
                         else
                             s=ceil(Ng/obj.stem_EM_options.mstep_system_size);
@@ -2859,7 +2859,7 @@ classdef stem_EM < EM
                                 temp=temp+sum_Var_wg_y1{z}(idx,idx);
                                 r_partial=symamd(sum_Var_wg_y1{z}(idx,idx));
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_g(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_g(idx,idx),...
-                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_g.tap,r_partial),log(initial),optimset('maxiter',50,'tolx',1e-3,'useparallel','always'));
+                                    length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_g.tap,r_partial),log(initial),optimset('MaxIter',500,'TolX',1e-5,'useparallel','always'));
                             end
                             st_par_em_step.theta_g(z)=exp(mean(min_result));
                         end
@@ -2954,11 +2954,11 @@ classdef stem_EM < EM
                         initial=st_par_em_step.v_g(k,h,z);
                         if Ng<=obj.stem_EM_options.mstep_system_size
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,st_par_em_step.v_g(:,:,z),st_par_em_step.theta_g(z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                obj.stem_model.stem_data.stem_varset_g.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                obj.stem_model.stem_data.stem_varset_g.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5));
                         else
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,st_par_em_step.v_g(:,:,z),st_par_em_step.theta_g(z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_g,...
-                                obj.stem_model.stem_data.stem_varset_g.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',50,'TolX',1e-3));
+                                obj.stem_model.stem_data.stem_varset_g.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_g.tap,r),initial,optimset('MaxIter',500,'TolX',1e-5));
                         end
                         st_par_em_step.v_g(k,h,z)=min_result;
                         st_par_em_step.v_g(h,k,z)=min_result;

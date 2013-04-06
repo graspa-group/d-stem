@@ -824,7 +824,7 @@ classdef stem_model < handle
             %v_rg
             if n_rg_v>0
                 if par.pixel_correlated
-                    error('Da testare!');
+                    error('The variance-covariance matrix for cross-correlated pixel data is not available yet');
                     z=1;
                     for j=1:q
                         for i=j+1:q
@@ -1313,8 +1313,7 @@ classdef stem_model < handle
                         end
                         counter=counter+1;
                         if (mod(counter,100)==0)||(counter==tot)
-                            if ((mod(round(counter/tot*100),20)==0)||(round(counter/tot*100)<3)) ...
-                                && c0 ~= round(counter/tot*100);
+                            if mod(round(counter/tot*100),1)==0&&c0~=round(counter/tot*100)
                                 c0 = round(counter/tot*100);
                                 disp(['Hessian evaluation: ',num2str(round(counter/tot*100)),'% completed']);
                             end
