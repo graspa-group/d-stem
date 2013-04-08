@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 %clc
 %clear all
@@ -115,12 +116,12 @@ for zz=1:50
     T=size(sd_g.Y{1},2);
     w=unifrnd(0,1,N,n_clusters);
     s=sum(w,2);
-    sd_g.X_time_name{1}=[];
+    sd_g.X_z_name{1}=[];
     for i=1:n_clusters
         w(:,i)=w(:,i)./s;
-        sd_g.X_time_name{1}{i}={['weights_',num2str(i)]};
+        sd_g.X_z_name{1}{i}={['weights_',num2str(i)]};
     end
-    sd_g.X_time{1}=w;
+    sd_g.X_z{1}=w;
     
     if flag_covariates
         sd_g.X_beta{1}=X;
@@ -138,7 +139,7 @@ for zz=1:50
         sd_g.X_g_name=[];
     end
     
-    st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,[],[],sd_g.X_beta,sd_g.X_beta_name,sd_g.X_time,sd_g.X_time_name,sd_g.X_g,sd_g.X_g_name);
+    st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,[],[],sd_g.X_beta,sd_g.X_beta_name,sd_g.X_z,sd_g.X_z_name,sd_g.X_g,sd_g.X_g_name);
     st_gridlist_g=stem_gridlist();
     st_gridlist_g.add(st_grid);
     
@@ -185,7 +186,7 @@ for zz=1:50
     st_model.EM_estimate(st_EM_options);
     st_model.set_logL;
     ll=st_model.stem_EM_result.logL
-    cc=round(sum(st_model.stem_data.X_time))
+    cc=round(sum(st_model.stem_data.X_z))
     if ll>max_log
         save st_model_max2 st_model
         max_log=ll;
@@ -195,7 +196,7 @@ end
 
 %result evaluation
 if 0
-    [val,idx]=max(st_model.stem_data.X_time,[],2);
+    [val,idx]=max(st_model.stem_data.X_z,[],2);
     if not(flag_simulatedata)
         figure
         if flag_lakedata
@@ -287,7 +288,7 @@ if 0
                     if idx(i)==counter
                         plot(st_model.stem_data.Y(i,:),'LineWidth',1,'Color','r');
                         counter2=counter2+1;
-                        mult_value=mult_value+abs(st_model.stem_data.X_time(i,idx(i)));
+                        mult_value=mult_value+abs(st_model.stem_data.X_z(i,idx(i)));
                     end
                 end
                 mult_value=mult_value/counter2;

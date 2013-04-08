@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 clc
 clear all
@@ -145,11 +146,11 @@ end
 if flag_time_variant_clustering
     w=repmat(w,[1,1,T]);
 end
-sd_g.X_time{1}=w;
+sd_g.X_z{1}=w;
 
-sd_g.X_time_name{1}=[];
+sd_g.X_z_name{1}=[];
 for i=1:n_clusters
-    sd_g.X_time_name{1}{i}={['weights_',num2str(i)]};
+    sd_g.X_z_name{1}{i}={['weights_',num2str(i)]};
 end
 
 if flag_covariates
@@ -168,7 +169,7 @@ else
     sd_g.X_g_name=[];
 end
 
-st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,[],[],sd_g.X_beta,sd_g.X_beta_name,sd_g.X_time,sd_g.X_time_name,sd_g.X_g,sd_g.X_g_name);
+st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,[],[],sd_g.X_beta,sd_g.X_beta_name,sd_g.X_z,sd_g.X_z_name,sd_g.X_g,sd_g.X_g_name);
 st_gridlist_g=stem_gridlist();
 st_gridlist_g.add(st_grid);
 
@@ -223,11 +224,11 @@ st_EM_options=stem_EM_options(0.001,100,'single',[],0);
 st_model.EM_estimate(st_EM_options);
 st_model.set_logL;
 st_model.stem_EM_result.logL
-round(sum(st_model.stem_data.X_time))
+round(sum(st_model.stem_data.X_z))
 
 %result evaluation
 if 1
-    [val,idx]=max(st_model.stem_data.X_time,[],2);
+    [val,idx]=max(st_model.stem_data.X_z,[],2);
     if not(flag_simulatedata)
         figure
         if flag_lakedata
@@ -461,7 +462,7 @@ if 1
                     if idx(i)==counter
                         plot(st_model.stem_data.Y(i,:),'LineWidth',1,'Color','r');
                         counter2=counter2+1;
-                        mult_value=mult_value+abs(st_model.stem_data.X_time(i,idx(i)));
+                        mult_value=mult_value+abs(st_model.stem_data.X_z(i,idx(i)));
                     end
                 end
                 mult_value=mult_value/counter2;

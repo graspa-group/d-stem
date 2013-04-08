@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 classdef stem_par
    
@@ -14,7 +15,7 @@ classdef stem_par
         %flags
         pixel_correlated=0;                 %[boolean]    (1x1) 1 if pixel sensing variables are correlated 0 otherwise        
         time_diagonal=0;                    %[boolean]    (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
-        clustering=0;                       %[boolean]    (1x1) 1: the property X_time of stem_data is estimated for clustering; 0: X_time is fixed and not estimated
+        clustering=0;                       %[boolean]    (1x1) 1: the property X_z of stem_data is estimated for clustering; 0: X_z is fixed and not estimated
         
         %fixed parameters
         q=[];                               %[integer]    (1x1) number of point level variables
@@ -47,7 +48,7 @@ classdef stem_par
             %<correlation_type>          - [string] (default:'exponential') (1x1) spatial correlation function type 
             %<pixel_correlated>          - [boolean] (default: 0) (1x1) 1: pixel variables are correlated; 0: otherwise 
             %<time_diagonal>             - [boolean] (default: 0) (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
-            %<clustering>                - [boolean] (dafault: 0) (1x1) 1: the property X_time of stem_data is estimated for clustering; 0: X_time is fixed and not estimated 
+            %<clustering>                - [boolean] (dafault: 0) (1x1) 1: the property X_z of stem_data is estimated for clustering; 0: X_z is fixed and not estimated 
             %<theta_clustering>          - [double>=0] parameter of the spatial correlation for clustering
             %
             %OUTPUT
@@ -65,15 +66,15 @@ classdef stem_par
             
             %p
             tot=0;
-            if not(isempty(stem_data.stem_varset_g.X_time))
+            if not(isempty(stem_data.stem_varset_g.X_z))
                 for i=1:length(stem_data.stem_varset_g.dim)
-                    tot=tot+size(stem_data.stem_varset_g.X_time{i},2);
+                    tot=tot+size(stem_data.stem_varset_g.X_z{i},2);
                 end
             end
             if not(isempty(stem_data.stem_varset_r))
-                if not(isempty(stem_data.stem_varset_r.X_time))
+                if not(isempty(stem_data.stem_varset_r.X_z))
                     for i=1:length(stem_data.stem_varset_r.dim)
-                        tot=tot+size(stem_data.stem_varset_r.X_time{i},2);
+                        tot=tot+size(stem_data.stem_varset_r.X_z{i},2);
                     end
                 end
             end
@@ -152,8 +153,8 @@ classdef stem_par
                         if not(isempty(stem_data.stem_varset_r))
                             error('The clustering option is only available for point level data');
                         end
-                        if isempty(stem_data.stem_varset_g.X_time)
-                            error('X_time must be provided when the clustering option is enabled');
+                        if isempty(stem_data.stem_varset_g.X_z)
+                            error('X_z must be provided when the clustering option is enabled');
                         end
                     end
                     obj.clustering=clustering;

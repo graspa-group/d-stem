@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
 classdef stem_data < handle
@@ -32,7 +33,7 @@ classdef stem_data < handle
         shape=[];               %[struct]               (1x1) boundary of the geographic region loaded from a shape file
         simulated=0;            %[boolean]              (1x1) 1: the data have been simulated; 0: observed data
         pixel_correlated=0;     %[boolean]              (1x1) 1: the pixel data are cross-correlated
-        X_time=[];              %[double]               (NxpxTT) the full X_time matrix
+        X_z=[];                 %[double]               (NxpxTT) the full X_z matrix
     end
     
     properties (SetAccess = private) 
@@ -47,9 +48,9 @@ classdef stem_data < handle
         can_reset=0;            %[boolean]    (1x1) 1: data are saved on disk and can be reloaded; 0: data are only on RAM
         X_rg_tv=0;              %[boolean]    (1x1) 1: X_rg is time variant; 0: otherwise
         X_beta_tv=0;            %[boolean]    (1x1) 1: X_beta is time variant; 0: otherwise
-        X_time_tv=0;            %[boolean]    (1x1) 1: X_time is time variant; 0: otherwise
+        X_z_tv=0;            %[boolean]    (1x1) 1: X_z is time variant; 0: otherwise
         X_g_tv=0;               %[boolean]    (1x1) 1: X_g is time variant; 0: otherwise
-        X_tv=0;                 %[boolean]    (1x1) 1: at least one between X_rg, X_beta, X_time and X_g is time variant; 0:otherwise
+        X_tv=0;                 %[boolean]    (1x1) 1: at least one between X_rg, X_beta, X_z and X_g is time variant; 0:otherwise
     end
     
     methods
@@ -139,7 +140,7 @@ classdef stem_data < handle
         end
         
         function update_data(obj)
-            %DESCRIPTION: generates the matrices Y, X_rg, X_beta, X_time and X_g 
+            %DESCRIPTION: generates the matrices Y, X_rg, X_beta, X_z and X_g 
             %
             %INPUT
             %obj - [stem_data object] (1x1) the stem_data object
@@ -315,115 +316,115 @@ classdef stem_data < handle
             end
             clear X_beta;
 
-            %X_time
-            X_time=[];
+            %X_z
+            X_z=[];
             if not(isempty(obj.stem_varset_r))
-                if not(isempty(obj.stem_varset_r.X_time))&&not(isempty(obj.stem_varset_g.X_time))
+                if not(isempty(obj.stem_varset_r.X_z))&&not(isempty(obj.stem_varset_g.X_z))
                     done=0;
-                    if size(obj.stem_varset_g.X_time{1},3)==1 && size(obj.stem_varset_r.X_time{1},3)==obj.T
+                    if size(obj.stem_varset_g.X_z{1},3)==1 && size(obj.stem_varset_r.X_z{1},3)==obj.T
                         for t=1:obj.T
                             X_temp=[];
-                            for i=1:length(obj.stem_varset_g.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i});
+                            for i=1:length(obj.stem_varset_g.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i});
                             end
-                            for i=1:length(obj.stem_varset_r.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_r.X_time{i}(:,:,t));
+                            for i=1:length(obj.stem_varset_r.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_r.X_z{i}(:,:,t));
                             end
-                            X_time(:,:,t)=X_temp;
+                            X_z(:,:,t)=X_temp;
                         end
                         done=1;
                     end
-                    if size(obj.stem_varset_g.X_time{1},3)==obj.T && size(obj.stem_varset_r.X_time{1},3)==1 && not(done)
+                    if size(obj.stem_varset_g.X_z{1},3)==obj.T && size(obj.stem_varset_r.X_z{1},3)==1 && not(done)
                         for t=1:obj.T
                             X_temp=[];
-                            for i=1:length(obj.stem_varset_g.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i}(:,:,t));
+                            for i=1:length(obj.stem_varset_g.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i}(:,:,t));
                             end
-                            for i=1:length(obj.stem_varset_r.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_r.X_time{i});
+                            for i=1:length(obj.stem_varset_r.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_r.X_z{i});
                             end
-                            X_time(:,:,t)=X_temp;
+                            X_z(:,:,t)=X_temp;
                         end
                         done=1;
                     end
-                    if (size(obj.stem_varset_g.X_time{1},3)==obj.T)&&(size(obj.stem_varset_r.X_time{1},3)==obj.T) && not(done)
-                        for t=1:size(obj.stem_varset_g.X_time{1},3)
+                    if (size(obj.stem_varset_g.X_z{1},3)==obj.T)&&(size(obj.stem_varset_r.X_z{1},3)==obj.T) && not(done)
+                        for t=1:size(obj.stem_varset_g.X_z{1},3)
                             X_temp=[];
-                            for i=1:length(obj.stem_varset_g.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i}(:,:,t));
+                            for i=1:length(obj.stem_varset_g.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i}(:,:,t));
                             end
-                            for i=1:length(obj.stem_varset_r.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_r.X_time{i}(:,:,t));
+                            for i=1:length(obj.stem_varset_r.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_r.X_z{i}(:,:,t));
                             end
-                            X_time(:,:,t)=X_temp;
+                            X_z(:,:,t)=X_temp;
                         end
                         done=1;
                     end
-                    if (size(obj.stem_varset_g.X_time{1},3)==1)&&(size(obj.stem_varset_r.X_time{1},3)==1) && not(done)
+                    if (size(obj.stem_varset_g.X_z{1},3)==1)&&(size(obj.stem_varset_r.X_z{1},3)==1) && not(done)
                         X_temp=[];
-                        for i=1:length(obj.stem_varset_g.X_time)
-                            X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i});
+                        for i=1:length(obj.stem_varset_g.X_z)
+                            X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i});
                         end
-                        for i=1:length(obj.stem_varset_r.X_time)
-                            X_temp=blkdiag(X_temp,obj.stem_varset_r.X_time{i});
+                        for i=1:length(obj.stem_varset_r.X_z)
+                            X_temp=blkdiag(X_temp,obj.stem_varset_r.X_z{i});
                         end
-                        X_time=X_temp;
+                        X_z=X_temp;
                         done=1;
                     end
                 else
-                    if not(isempty(obj.stem_varset_g.X_time))
+                    if not(isempty(obj.stem_varset_g.X_z))
                         done=0;
-                        if size(obj.stem_varset_g.X_time{1},3)==obj.T
-                            for t=1:size(obj.stem_varset_g.X_time{1},3)
+                        if size(obj.stem_varset_g.X_z{1},3)==obj.T
+                            for t=1:size(obj.stem_varset_g.X_z{1},3)
                                 X_temp=[];
-                                for i=1:length(obj.stem_varset_g.X_time)
-                                    X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i}(:,:,t));
+                                for i=1:length(obj.stem_varset_g.X_z)
+                                    X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i}(:,:,t));
                                 end
-                                X_time(:,:,t)=X_temp;
+                                X_z(:,:,t)=X_temp;
                             end
                             done=1;
                         end
-                        if size(obj.stem_varset_g.X_time{1},3)==1 && not(done)
+                        if size(obj.stem_varset_g.X_z{1},3)==1 && not(done)
                             X_temp=[];
-                            for i=1:length(obj.stem_varset_g.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i});
+                            for i=1:length(obj.stem_varset_g.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i});
                             end
-                            X_time=X_temp;
+                            X_z=X_temp;
                             done=1;
                         end
-                        %X_time=cat(1,X_time,zeros(size(obj.Y,1)-size(X_time,1),size(X_time,2),size(X_time,3)));
+                        %X_z=cat(1,X_z,zeros(size(obj.Y,1)-size(X_z,1),size(X_z,2),size(X_z,3)));
                     end
                 end
             else
-                if not(isempty(obj.stem_varset_g.X_time))
+                if not(isempty(obj.stem_varset_g.X_z))
                     done=0;
-                    if size(obj.stem_varset_g.X_time{1},3)==obj.T
-                        for t=1:size(obj.stem_varset_g.X_time{1},3)
+                    if size(obj.stem_varset_g.X_z{1},3)==obj.T
+                        for t=1:size(obj.stem_varset_g.X_z{1},3)
                             X_temp=[];
-                            for i=1:length(obj.stem_varset_g.X_time)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i}(:,:,t));
+                            for i=1:length(obj.stem_varset_g.X_z)
+                                X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i}(:,:,t));
                             end
-                            X_time(:,:,t)=X_temp;
+                            X_z(:,:,t)=X_temp;
                         end
                         done=1;
                     end
-                    if size(obj.stem_varset_g.X_time{1},3)==1 && not(done)
+                    if size(obj.stem_varset_g.X_z{1},3)==1 && not(done)
                         X_temp=[];
-                        for i=1:length(obj.stem_varset_g.X_time)
-                            X_temp=blkdiag(X_temp,obj.stem_varset_g.X_time{i});
+                        for i=1:length(obj.stem_varset_g.X_z)
+                            X_temp=blkdiag(X_temp,obj.stem_varset_g.X_z{i});
                         end
-                        X_time=X_temp;
+                        X_z=X_temp;
                         done=1;
                     end
                 end
             end
-            if not(isempty(X_time))
-                obj.X_time=X_time;
-                if size(obj.X_time,3)>1
-                    obj.X_time_tv=1;
+            if not(isempty(X_z))
+                obj.X_z=X_z;
+                if size(obj.X_z,3)>1
+                    obj.X_z_tv=1;
                 end
             end
-            clear X_time
+            clear X_z
 
             %X_g
             if not(isempty(obj.stem_varset_g.X_g))
@@ -437,7 +438,7 @@ classdef stem_data < handle
                 end
                 clear X_g;
             end
-            obj.X_tv=obj.X_rg_tv | obj.X_time_tv | obj.X_g_tv;
+            obj.X_tv=obj.X_rg_tv | obj.X_z_tv | obj.X_g_tv;
             disp('Generation ended.');
         end
         
@@ -555,7 +556,7 @@ classdef stem_data < handle
         end
         
         function standardize(obj)
-            %DESCRIPTION: standardize the matrices Y, X_rg, X_beta, X_time and X_g with respect to their overall mean and overall standard deviation
+            %DESCRIPTION: standardize the matrices Y, X_rg, X_beta, X_z and X_g with respect to their overall mean and overall standard deviation
             %
             %INPUT
             %obj - [stem_data object] (1x1) the stem_data object
@@ -599,7 +600,7 @@ classdef stem_data < handle
         end
         
         function time_average(obj,n_steps)
-            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_rg, X_beta, X_time and X_g
+            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_rg, X_beta, X_z and X_g
             %
             %INPUT
             %obj        - [stem_data object] (1x1) the stem_data object
@@ -658,15 +659,15 @@ classdef stem_data < handle
                 end
             end
             
-            if not(isempty(obj.stem_varset_g.X_time))
-                if obj.stem_varset_g.X_time_tv
-                    for i=1:length(obj.stem_varset_g.X_time)
+            if not(isempty(obj.stem_varset_g.X_z))
+                if obj.stem_varset_g.X_z_tv
+                    for i=1:length(obj.stem_varset_g.X_z)
                         for j=1:length(indices)-1
-                            X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            X_z_temp{i}(:,:,j)=nanmean(obj.stem_varset_g.X_z{i}(:,:,indices(j)+1:indices(j+1)),3);
                         end
                     end
-                    obj.stem_varset_g.X_time=X_time_temp;
-                    clear X_time_temp
+                    obj.stem_varset_g.X_z=X_z_temp;
+                    clear X_z_temp
                 end
             end   
             
@@ -716,14 +717,14 @@ classdef stem_data < handle
                     end
                 end
                 
-                if not(isempty(obj.stem_varset_r.X_time))
-                    if obj.stem_varset_r.X_time_tv
-                        for i=1:length(obj.stem_varset_r.X_time)
+                if not(isempty(obj.stem_varset_r.X_z))
+                    if obj.stem_varset_r.X_z_tv
+                        for i=1:length(obj.stem_varset_r.X_z)
                             for j=1:length(indices)-1
-                                X_time_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_time{i}(:,:,indices(j)+1:indices(j+1)),3);
+                                X_z_temp{i}(:,:,j)=nanmean(obj.stem_varset_r.X_z{i}(:,:,indices(j)+1:indices(j+1)),3);
                             end
                         end
-                        obj.stem_varset_r.X_time=X_time_temp;
+                        obj.stem_varset_r.X_z=X_z_temp;
                     end
                 end
                 
@@ -734,7 +735,7 @@ classdef stem_data < handle
         end
         
         function time_crop(obj,dates_or_indices)
-            %DESCRIPTION: crop the matrices Y, X_rg, X_beta, X_time and X_g with respect to time
+            %DESCRIPTION: crop the matrices Y, X_rg, X_beta, X_z and X_g with respect to time
             %
             %INPUT
             %obj                 - [stem_data object]       (1x1) the stem_data object
@@ -790,13 +791,13 @@ classdef stem_data < handle
                     obj.stem_varset_g.X_rg=X_rg;
                 end
             end               
-            if not(isempty(obj.stem_varset_g.X_time))
-                if obj.stem_varset_g.X_time_tv
-                    X_time=obj.stem_varset_g.X_time;
-                    for i=1:length(X_time)
-                        X_time{i}=X_time{i}(:,:,indices);
+            if not(isempty(obj.stem_varset_g.X_z))
+                if obj.stem_varset_g.X_z_tv
+                    X_z=obj.stem_varset_g.X_z;
+                    for i=1:length(X_z)
+                        X_z{i}=X_z{i}(:,:,indices);
                     end
-                    obj.stem_varset_g.X_time=X_time;
+                    obj.stem_varset_g.X_z=X_z;
                 end
             end   
             if not(isempty(obj.stem_varset_g.X_g))
@@ -831,16 +832,16 @@ classdef stem_data < handle
                             for i=1:length(X_rg)
                                 X_rg{i}=X_rg{i}(:,:,indices);
                             end
-                            obj.stem_varset_r.X_time=X_rg;
+                            obj.stem_varset_r.X_z=X_rg;
                         end
                     end                    
-                    if not(isempty(obj.stem_varset_r.X_time))
-                        if obj.stem_varset_r.X_time_tv
-                            X_time=obj.stem_varset_r.X_time;
-                            for i=1:length(X_time)
-                                X_time{i}=X_time{i}(:,:,indices);
+                    if not(isempty(obj.stem_varset_r.X_z))
+                        if obj.stem_varset_r.X_z_tv
+                            X_z=obj.stem_varset_r.X_z;
+                            for i=1:length(X_z)
+                                X_z{i}=X_z{i}(:,:,indices);
                             end
-                            obj.stem_varset_r.X_time=X_time;
+                            obj.stem_varset_r.X_z=X_z;
                         end
                     end
                 end
@@ -856,8 +857,8 @@ classdef stem_data < handle
                     if not(isempty(obj.stem_varset_g.X_beta))
                         obj.stem_varset_g.X_beta{i}(indices,:,:)=[];
                     end
-                    if not(isempty(obj.stem_varset_g.X_time))
-                        obj.stem_varset_g.X_time{i}(indices,:,:)=[];
+                    if not(isempty(obj.stem_varset_g.X_z))
+                        obj.stem_varset_g.X_z{i}(indices,:,:)=[];
                     end
                     if not(isempty(obj.stem_varset_g.X_g))
                         obj.stem_varset_g.X_g{i}(indices,:,:,:)=[];
@@ -887,7 +888,7 @@ classdef stem_data < handle
         end     
         
         function space_crop(obj,box)
-            %DESCRIPTION: crop the matrices Y, X_rg, X_beta, X_time and X_g with respect to space
+            %DESCRIPTION: crop the matrices Y, X_rg, X_beta, X_z and X_g with respect to space
             %
             %INPUT
             %obj                 - [stem_data object]   (1x1) the stem_data object
@@ -945,8 +946,8 @@ classdef stem_data < handle
                     if not(isempty(obj.stem_varset_g.X_beta))
                         obj.stem_varset_g.X_beta{i}=obj.stem_varset_g.X_beta{i}(indices,:,:);
                     end
-                    if not(isempty(obj.stem_varset_g.X_time))
-                        obj.stem_varset_g.X_time{i}=obj.stem_varset_g.X_time{i}(indices,:,:);
+                    if not(isempty(obj.stem_varset_g.X_z))
+                        obj.stem_varset_g.X_z{i}=obj.stem_varset_g.X_z{i}(indices,:,:);
                     end
                     if not(isempty(obj.stem_varset_g.X_g))
                         obj.stem_varset_g.X_g{i}=obj.stem_varset_g.X_g{i}(indices,:,:,:);
@@ -990,8 +991,8 @@ classdef stem_data < handle
                         if not(isempty(obj.stem_varset_r.X_beta))
                             obj.stem_varset_r.X_beta{i}=obj.stem_varset_r.X_beta{i}(indices,:,:);
                         end
-                        if not(isempty(obj.stem_varset_r.X_time))
-                            obj.stem_varset_r.X_time{i}=obj.stem_varset_r.X_time{i}(indices,:,:);
+                        if not(isempty(obj.stem_varset_r.X_z))
+                            obj.stem_varset_r.X_z{i}=obj.stem_varset_r.X_z{i}(indices,:,:);
                         end
                     else
                         error(['    Variable ',obj.stem_varset_r.Y_name{i},' does not have sites in the crop area.']);
@@ -1025,7 +1026,7 @@ classdef stem_data < handle
             %
             %OUTPUT
             %
-            %none: the matrices Y, X_rg, X_beta, X_time and X_g with are updated
+            %none: the matrices Y, X_rg, X_beta, X_z and X_g with are updated
             
             if sum(strcmp(type,{'point','pixel'}))==0
                 error('Type must be either point or pixel');
@@ -1051,8 +1052,8 @@ classdef stem_data < handle
                 if not(isempty(obj.stem_varset_g.X_beta))
                     obj.stem_varset_g.X_beta{idx_var}(indices,:,:)=[];
                 end
-                if not(isempty(obj.stem_varset_g.X_time))
-                    obj.stem_varset_g.X_time{idx_var}(indices,:,:)=[];
+                if not(isempty(obj.stem_varset_g.X_z))
+                    obj.stem_varset_g.X_z{idx_var}(indices,:,:)=[];
                 end
                 if not(isempty(obj.stem_varset_g.X_g))
                     obj.stem_varset_g.X_g{idx_var}(indices,:,:,:)=[];
@@ -1070,8 +1071,8 @@ classdef stem_data < handle
                 if not(isempty(obj.stem_varset_r.X_beta))
                     obj.stem_varset_r.X_beta{idx_var}(indices,:,:)=[];
                 end
-                if not(isempty(obj.stem_varset_r.X_time))
-                    obj.stem_varset_r.X_time{idx_var}(indices,:,:)=[];
+                if not(isempty(obj.stem_varset_r.X_z))
+                    obj.stem_varset_r.X_z{idx_var}(indices,:,:)=[];
                 end
             end
             disp('Updating data matrices after site crop...');
@@ -1095,7 +1096,7 @@ classdef stem_data < handle
             %
             %OUTPUT
             %
-            %none: the matrices Y, X_rg, X_beta, X_time and X_g with are updated
+            %none: the matrices Y, X_rg, X_beta, X_z and X_g with are updated
             
             disp('Look for duplicated sites...')
             for i=1:obj.stem_varset_g.nvar
@@ -1118,6 +1119,238 @@ classdef stem_data < handle
                 end
             end
             disp('Operation ended.')
+        end        
+        
+        function h_fig = plot(obj,variable_name,variable_type,time_step,loading_name,loading_type)
+            %DESCRIPTION: plot the variable data or the loading coefficients related to a variable
+            %
+            %INPUT
+            %obj             - [stem_data object]   (1x1) the stem_data object
+            %variable_name   - [string]             (1x1) the name of the variable
+            %variable_type   - [string]             (1x1) the type of the variable, either 'point' or 'pixel'
+            %time_step       - [integer >=0|string] (1x1) the time step to plot. If time_step=0 the temporal average is plotted. If time_step is a string it must be in the format dd-mm-yyyy
+            %<loading_name>  - [string]             (1x1) (defalut: []) the name of the loading coefficients to plot (related to the variable specified)
+            %<loading_type>  - [string]             (1x1) (default: []) the type of the loading coefficients. Can be 'beta', 'z', 'w_r' or 'w_g'
+            %
+            %OUTPUT
+            %
+            %h_fig           - [integer]            (1x1) the handle of the figure
+            
+            if nargin<4
+                error('Not enough input arguments');
+            end
+            if nargin<5
+                loading_name=[];
+            end
+            if nargin==5
+                error('You must also provide the loading_type');
+            end
+            if ischar(time_step)
+                date_num=datenum(time_step,'dd-mm-yyyy');
+                time_step=find(obj.stem_datestamp.stamp==date_num);
+                if isempty(time_step)
+                    error(['The date stamp ',time_step,' cannot be found']);
+                end
+            end
+            if time_step<0||time_step>obj.T
+                error(['time_step out of bound. It must be between 0 and ',num2str(obj.T),' included']);
+            end
+            if not(strcmp(variable_type,'point')||strcmp(variable_type,'pixel'))
+                error('variable_type can be either ''point'' or ''pixel''');
+            end
+            if nargin>=6
+                if not(strcmp(loading_type,'X_beta')||strcmp(loading_type,'X_z')||strcmp(loading_type,'X_wg')||strcmp(loading_type,'X_wr'))
+                    error('loading_type must be either ''X_beta'', ''X_z'', ''X_wr'' or ''X_wg''');
+                end
+                if strcmp(variable_type,'pixel')&&strcmp(loading_type,'X_wg')
+                    error('The loading_type X_wg is not supported for pixel type data');
+                end
+            end
+            
+            if strcmp(variable_type,'point')
+                index_var=obj.stem_varset_g.get_Y_index(variable_name);
+                if isempty(index_var)
+                    error(['The variable ',variable_name,' cannot be found as ',variable_type,' data']);
+                end
+                if not(isempty(loading_name))
+                    if strcmp(loading_type,'X_beta')
+                        indexl=obj.stem_varset_g.get_X_beta_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_beta for the variable ',variable_name]);
+                        end
+                        if not(obj.stem_varset_g.X_beta_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_g.X_beta{index_var}(:,indexl,:),3));
+                        else
+                            data=obj.stem_varset_g.X_beta{index_var}(:,indexl,time_step);
+                        end
+                    end
+                    if strcmp(loading_type,'X_z')
+                        indexl=obj.stem_varset_g.get_X_z_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_z for the variable ',variable_name]);
+                        end   
+                        if not(obj.stem_varset_g.X_z_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_g.X_z{index_var}(:,indexl,:),3));
+                        else
+                            data=obj.stem_varset_g.X_z{index_var}(:,indexl,time_step);
+                        end
+                    end
+                    if strcmp(loading_type,'X_wr')
+                        indexl=obj.stem_varset_g.get_X_rg_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_rg for the variable ',variable_name]);
+                        end      
+                        if not(obj.stem_varset_g.X_rg_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_g.X_rg{index_var}(:,indexl,:),3));
+                        else
+                            data=obj.stem_varset_g.X_rg{index_var}(:,indexl,time_step);
+                        end
+                    end
+                    if strcmp(loading_type,'X_wg')
+                        indexl=obj.stem_varset_g.get_X_g_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_g for the variable ',variable_name]);
+                        end     
+                        if not(obj.stem_varset_g.X_g_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_g.X_g{index_var}(:,:,:,indexl),3));
+                        else
+                            data=obj.stem_varset_g.X_g{index_var}(:,:,time_step,indexl);
+                        end
+                    end
+                else
+                    if time_step==0
+                        data=nanmean(obj.stem_varset_g.Y{index_var},2);
+                    else
+                        data=obj.stem_varset_g.Y{index_var}(:,time_step);
+                    end
+                end
+                lat=obj.stem_gridlist_g.grid{index_var}.coordinate(:,1);
+                lon=obj.stem_gridlist_g.grid{index_var}.coordinate(:,2);
+                if isempty(loading_name)
+                    if time_step==0
+                        tit=['Average ',variable_name, ' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))];
+                    else
+                        tit=[variable_name,' on ',datestr(obj.stem_datestamp.stamp(time_step))];
+                    end
+                else
+                    if time_step==0
+                        tit=['Average loading coefficient ',loading_name,' in ',loading_type,' for variable ',variable_name, ' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))];
+                    else
+                        tit=['Loading coefficient ',loading_name,' in ',loading_type,' for variable ',variable_name, ' on ',datestr(obj.stem_datestamp.stamp(time_step))];
+                    end
+                end
+                if strcmp(obj.stem_gridlist_g.grid{index_var}.unit,'deg')
+                    xlab='Longitude';
+                    ylab='Latitude';
+                else
+                    xlab=obj.stem_gridlist_g.grid{index_var}.unit;
+                    ylab=obj.stem_gridlist_g.grid{index_var}.unit;
+                end
+                h=stem_misc.plot_map(lat,lon,data,obj.shape,tit,xlab,ylab);
+            else
+                index_var=obj.stem_varset_r.get_Y_index(variable_name);
+                if isempty(index_var)
+                    error(['The variable ',variable_name,' cannot be found as ',variable_type,' data']);
+                end
+                if not(isempty(loading_name))
+                    if strcmp(loading_type,'X_beta')
+                        indexl=obj.stem_varset_r.get_X_beta_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_beta for the variable ',variable_name]);
+                        end
+                        if not(obj.stem_varset_r.X_beta_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_r.X_beta{index_var}(:,indexl,:),3));
+                        else
+                            data=obj.stem_varset_r.X_beta{index_var}(:,indexl,time_step);
+                        end                        
+                    end
+                    if strcmp(loading_type,'X_z')
+                        indexl=obj.stem_varset_r.get_X_z_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_z for the variable ',variable_name]);
+                        end
+                        if not(obj.stem_varset_r.X_z_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_r.X_z{index_var}(:,indexl,:),3));
+                        else
+                            data=obj.stem_varset_r.X_z{index_var}(:,indexl,time_step);
+                        end                        
+                    end
+                    if strcmp(loading_type,'X_wr')
+                        indexl=obj.stem_varset_r.get_X_rg_index(loading_name,index_var);
+                        if isempty(indexl)
+                            error(['The loading coefficient ',loading_name,' cannot be found in X_rg for the variable ',variable_name]);
+                        end
+                        if not(obj.stem_varset_r.X_rg_tv)&&time_step>1
+                            time_step=1;
+                            disp('WARNING: the loading coefficient is time-invariant. t=1 is plotted');
+                        end
+                        if time_step==0
+                            data=squeeze(nanmean(obj.stem_varset_r.X_rg{index_var}(:,indexl,:),3));
+                        else
+                            data=obj.stem_varset_gr.X_rg{index_var}(:,indexl,time_step);
+                        end                        
+                    end
+                else
+                    if time_step==0
+                        data=nanmean(obj.stem_varset_r.Y{index_var},2);
+                    else
+                        data=obj.stem_varset_r.Y{index_var}(:,time_step);
+                    end
+                end
+                lat=obj.stem_gridlist_r.grid{index_var}.coordinate(:,1);
+                lon=obj.stem_gridlist_r.grid{index_var}.coordinate(:,2);
+                lat=reshape(lat,obj.stem_gridlist_r.grid{index_var}.grid_size);
+                lon=reshape(lon,obj.stem_gridlist_r.grid{index_var}.grid_size);
+                data=reshape(data,obj.stem_gridlist_r.grid{index_var}.grid_size);
+                if isempty(loading_name)
+                    if time_step==0
+                        tit=['Average ',variable_name, ' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))];
+                    else
+                        tit=[variable_name,' on ',datestr(obj.stem_datestamp.stamp(time_step))];
+                    end
+                else
+                    if time_step==0
+                        tit=['Average loading coefficient ',loading_name,' in ',loading_type,' for variable ',variable_name, ' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))];
+                    else
+                        tit=['Loading coefficient ',loading_name,' in ',loading_type,' for variable ',variable_name, ' on ',datestr(obj.stem_datestamp.stamp(time_step))];
+                    end
+                end                
+                if strcmp(obj.stem_gridlist_r.grid{index_var}.unit,'deg')
+                    xlab='Longitude';
+                    ylab='Latitude';
+                else
+                    xlab=obj.stem_gridlist_g.grid{index_var}.unit;
+                    ylab=obj.stem_gridlist_g.grid{index_var}.unit;
+                end                
+                h=stem_misc.plot_map(lat,lon,data,obj.shape,tit,xlab,ylab);
+            end
+            if nargout>0
+                h_fig=h;
+            end
         end        
         
         %Export methods
@@ -1508,210 +1741,7 @@ end
 %             end
 %         end
         
-%         function plot_cov(obj,variable_name,covariate_name,trend_type)
-%             % plot covariates against the specified variable
-%             % variable_name: variable name string
-%             if nargin<3
-%                 covariate_name=[];
-%             end
-%             if nargin<4
-%                 trend_type='linear';
-%             end
-%             vindex=obj.stem_varset.get_index(variable_name);
-%             if not(isempty(vindex))
-%                 if isempty(covariate_name)
-%                     cov_indices=1:obj.stem_covset.nbeta(vindex);
-%                     l=obj.stem_covset.nbeta(vindex)^0.5;
-%                     if round(l)^2==obj.stem_covset.nbeta(vindex)
-%                         rows=l;
-%                         cols=l;
-%                     else
-%                         rows=ceil(l);
-%                         cols=round(l);
-%                     end
-%                     temp=0;
-%                 else
-%                     cindex=obj.stem_covset.get_index(vindex,covariate_name);
-%                     cov_indices=cindex;
-%                     rows=1;
-%                     cols=1;
-%                     temp=cindex-1;
-%                 end
-% 
-%                 for i=cov_indices
-%                     subplot(rows,cols,i-temp);
-%                     a=obj.stem_covset.X{vindex}(:,i,:);
-%                     b=obj.stem_varset.Y{vindex};
-%                     a=a(:);
-%                     b=b(:);
-%                     L=isnotnan(b);
-%                     a=a(L);
-%                     b=b(L);
-%                     if strcmp(trend_type,'linear')
-%                         coeff = regress(b,[ones(length(a),1),a]);
-%                         xplot=min(a):range(a)/200:max(a);
-%                         yplot=coeff(1)+xplot.*coeff(2);
-%                     else
-%                         coeff = regress(b,[ones(length(a),1),a,a.^2]);
-%                         xplot=min(a):range(a)/200:max(a);
-%                         yplot=coeff(1)+xplot.*coeff(2)+(xplot.^2).*coeff(3);
-%                     end
-%                     plot(a,b,'.b');
-%                     hold on
-%                     plot(xplot,yplot,'-k','LineWidth',2);
-%                     ylabel(variable_name);
-%                     xlabel(obj.stem_covset.name{vindex}{i});
-%                 end
-%             else
-%                 error('Variable name not recognized');
-%             end
-%         end
-        
-%         function plot_grid(obj,variable_name,colocation)
-%             if nargin<2
-%                 variable_name=[];
-%             end
-%             if nargin<3
-%                 colocation=0;
-%             end
-%             if isempty(variable_name)==0
-%                 vindex=obj.stem_varset.get_index(variable_name);
-%                 if isempty(vindex)==0
-%                     figure;
-%                     mapshow(obj.shape);
-%                     hold on
-%                     for i=1:obj.stem_varset.dim(vindex)
-%                         plot(obj.stem_gridlist.grid{vindex}.coordinate(i,2),obj.stem_gridlist.grid{vindex}.coordinate(i,1),'*r');
-%                     end
-%                     box=obj.stem_gridlist.box;
-%                     a=(box(4)-box(3))*0.2;
-%                     b=(box(2)-box(1))*0.2;
-%                     set(gca,'Xlim',[box(3)-a,box(4)+a]);
-%                     set(gca,'Ylim',[box(1)-b,box(2)+b]);
-%                     xlabel('Longitude');
-%                     ylabel('Latitude');
-%                     title([obj.stem_varset.name{vindex},' sites (',num2str(obj.stem_varset.dim(vindex)),')']);
-%                 else
-%                     error('The variable name is incorrect');
-%                 end
-%             else
-%                 if colocation==0
-%                     if obj.stem_varset.nvar<=3
-%                         rows=1;
-%                         cols=obj.stem_varset.nvar;
-%                     else
-%                         l=obj.stem_varset.nvar^0.5;
-%                         if round(l)^2==obj.stem_varset.nvar
-%                             rows=l;
-%                             cols=l;
-%                         else
-%                             rows=ceil(l);
-%                             cols=round(l);
-%                         end
-%                     end
-%                     for i=1:obj.stem_varset.nvar
-%                         subplot(rows,cols,i);
-%                         %mapshow(obj.shape);%,'FaceColor',[0.9 0.9 0.9],'EdgeColor',[.4 .4 .4]);
-%                         %hold on
-%                         %for j=1:length(obj.stem_gridlist.grid{i}.coordinate)
-%                         %    plot(obj.stem_gridlist.grid{i}.coordinate(j,2),obj.stem_gridlist.grid{i}.coordinate(j,1),'*r');
-%                         %end
-%                         %box=obj.stem_gridlist.box;
-%                         %a=(box(4)-box(3))*0.2;
-%                         %b=(box(2)-box(1))*0.2;
-%                         %set(gca,'Xlim',[box(3)-a,box(4)+a]);
-%                         %set(gca,'Ylim',[box(1)-b,box(2)+b]);
-% 
-%                         axesm('MapProjection','sinusoid','MapLatLimit',[54.5 61],'MapLonLimit',[-8 0],...
-%                             'MLineLocation',1,'PLineLocation',1,'GColor',[0 0 0],'ParallelLabel','on','MeridianLabel','on','Grid','on')
-%                         obj.shape.X(isnan(obj.shape.X))=0;
-%                         obj.shape.Y(isnan(obj.shape.Y))=0;
-%                         indices=find(obj.shape.X==0);
-%                         
-%                         for j=1:length(indices)-1
-%                             geoshow(obj.shape.Y(indices(j)+1:indices(j+1)-1),obj.shape.X(indices(j)+1:indices(j+1)-1),'DisplayType','polygon','FaceColor','none');
-%                         end
-%                         hold on
-%                         geoshow(obj.stem_gridlist.grid{i}.coordinate(:,1),obj.stem_gridlist.grid{i}.coordinate(:,2),...
-%                                 'DisplayType','multipoint','Marker','o','MarkerEdgeColor','black','MarkerFaceColor','black');
-%                         title([obj.stem_varset.name{i},' (',num2str(obj.stem_varset.dim(i)),' sites)'],'FontSize',13);
-%                         %xlabel('Longitude','FontSize',12);
-%                         %ylabel('Latitude','FontSize',12);
-%                     end
-%                 else
-%                     if obj.stem_varset.nvar>8
-%                         error('Too many variables for this plot option');
-%                     end
-%                     colors='brygcmkw';
-%                     scrsz = get(0,'ScreenSize');
-%                     scrsz = scrsz + [100 100 -200 -200];
-%                     figure('Position',scrsz);
-%                     mapshow(obj.shape);%,'FaceColor',[0.9 0.9 0.9],'EdgeColor',[.4 .4 .4]);
-%                     hold on     
-%                     for i=1:obj.stem_varset.nvar
-%                         for j=1:length(obj.stem_gridlist.grid{i}.coordinate)
-%                             h(i)=plot(obj.stem_gridlist.grid{i}.coordinate(j,2),obj.stem_gridlist.grid{i}.coordinate(j,1),'o','LineWidth',1,'MarkerEdgeColor','k','MarkerFaceColor',colors(i),'MarkerSize',(obj.stem_varset.nvar-i+1)*4+3);
-%                         end
-%                     end
-%                     box=obj.stem_gridlist.box;
-%                     a=(box(4)-box(3))*0.2;
-%                     b=(box(2)-box(1))*0.2;
-%                     set(gca,'Xlim',[box(3)-a,box(4)+a]);
-%                     set(gca,'Ylim',[box(1)-b,box(2)+b]);
-%                     %title([obj.variable_name{i},' sites (',num2str(obj.var_dims(i)),')']);
-%                     xlabel('Longitude');
-%                     ylabel('Latitude');
-%                     legend(h,obj.stem_varset.name,'Location','EastOutside');
-%                 end
-%             end
-%         end
-        
-%         function hist_cov(obj,variable_name)
-%             % display the histogram of the covariates for the specified variable
-%             % variable_name: variable name string
-%             vindex=obj.stem_varset.get_index(variable_name);
-%             if not(isempty(vindex))
-%                 l=obj.stem_covset.nbeta(vindex)^0.5;
-%                 if round(l)^2==obj.stem_covset.nbeta(vindex)
-%                     rows=l;
-%                     cols=l;
-%                 else
-%                     rows=ceil(l);
-%                     cols=round(l);
-%                 end
-%                 for i=1:obj.stem_covset.nbeta(vindex)
-%                     subplot(rows,cols,i);
-%                     a=obj.stem_covset.X{vindex}(:,i,:);
-%                     hist(a(:));
-%                     xlabel(obj.stem_covset.name{vindex}{(i)});
-%                 end
-%             else
-%                 error('Variable name not recognized');
-%             end            
-%         end
-        
-%         function hist_var(obj)
-%             % display the histogram of all the variables
-%             if obj.stem_varset.nvar<=3
-%                 rows=1;
-%                 cols=obj.stem_varset.nvar;
-%             else
-%                 l=obj.stem_varset.nvar^0.5;
-%                 if round(l)^2==obj.stem_varset.nvar
-%                     rows=l;
-%                     cols=l;
-%                 else
-%                     rows=ceil(l);
-%                     cols=round(l);
-%                 end
-%             end
-%             for i=1:obj.stem_varset.nvar
-%                 subplot(rows,cols,i);
-%                 hist(obj.stem_varset.Y{i}(:),20);
-%                 xlabel(obj.stem_varset.name{i});
-%             end
-%         end
-        
+
 %         function temporal_cross_plot(obj,variable_name1,variable_name2,site,estimated)
 %             if nargin<3
 %                 error('Not enough input parameters');
@@ -1900,144 +1930,6 @@ end
 %             average=average/counter;
 %         end
         
-%         function plot(obj,variable_name,time_step,plot_type,google_maps,covariate_name)
-%             % display the animation for the selected variable or covariate
-%             % variable_name: variable name string
-%             % covariate_name: covariate name string. If provided the animation is on the covariate with respect to the specified
-%             %                 variable; if not provided the animation is on the specified variable
-%             % step_start: starting temporal step
-%             % step_end: ending temportal step
-%             if nargin<5
-%                 error('Not enough input arguments');
-%             end
-%             if nargin<4
-%                 plot_type='data';
-%             end
-%             if nargin<5
-%                 google_maps=0;
-%             end
-%             if nargin<6
-%                 covariate_name=[];
-%             end
-%             index_var=obj.stem_varset.get_index(variable_name);
-%             if isempty(index_var)
-%                 error('The variable name is incorrect');
-%             end
-%             if not(isempty(covariate_name))
-%                 index_cov=obj.stem_covset.get_index(index_var,covariate_name);
-%                 if isempty(index_cov)
-%                     error('The covariate name is incorrect');
-%                 end
-%                 plot_cov=1;
-%             else
-%                 plot_cov=0;
-%             end
-%             if not(length(time_step)==2)
-%                 error('time_step must be a 2x1 vector or cell array of date strings');
-%             end
-%             if iscell(time_step)
-%                 date_num1=datenum(time_step{1},'dd-mm-yyyy');
-%                 date_num2=datenum(time_step{2},'dd-mm-yyyy');
-%                 tstep1=find(obj.stem_datestamp.stamp==date_num1);
-%                 tstep2=find(obj.stem_datestamp.stamp==date_num2);
-%                 if isempty(tstep1)
-%                     error('Dates out of bounds');
-%                 end
-%                 if isempty(tstep2)
-%                     error('Dates out of bounds');
-%                 end
-%                 if tstep2<tstep1
-%                     error('Swap dates');
-%                 end
-%             else
-%                 tstep1=time_step(1);
-%                 tstep2=time_step(2);
-%             end
-%             if plot_cov
-%                 error('Not yet supported for covariates');
-%             else
-%                 if strcmp(obj.stem_gridlist.grid{index_var}.grid_type,'regular')
-%                     lat=reshape(obj.stem_gridlist.grid{index_var}.coordinate(:,1),obj.stem_gridlist.grid{index_var}.grid_size);
-%                     long=reshape(obj.stem_gridlist.grid{index_var}.coordinate(:,2),obj.stem_gridlist.grid{index_var}.grid_size);
-%                     data=obj.stem_varset.Y{index_var}(:,tstep);
-%                     data=reshape(data,obj.stem_gridlist.grid{index_var}.grid_size);
-%                     mapshow(obj.shape);
-%                     hold on
-%                     mapshow(long,lat,data,'DisplayType','texture');
-%                     set(gca,'Xlim',[obj.stem_gridlist.box(3),obj.stem_gridlist.box(4)]);
-%                     set(gca,'Ylim',[obj.stem_gridlist.box(1),obj.stem_gridlist.box(2)]);
-%                     title(datestr(obj.stem_datestamp.stamp(t)));
-%                 else
-%                     full_data=obj.stem_varset.Y{index_var};
-%                     if strcmp(plot_type,'data')
-%                         data=full_data;
-%                     end
-%                     if strcmp(plot_type,'average');
-%                         data=nanmean(full_data,2);
-%                         tstep1=1;
-%                         tstep2=1;
-%                     end
-%                     if strcmp(plot_type,'std');
-%                         data=nanstd(full_data,0,2);
-%                         tstep1=1;
-%                         tstep2=1;
-%                     end
-%                     if strcmp(plot_type,'autocorr')
-%                         for i=1:size(full_data,1)
-%                             temp=full_data(i,:);
-%                             temp=temp(isnotnan(temp));
-%                             xc=xcorr(temp,'coeff');
-%                             l=length(xc);
-%                             xc=xc((l+1)/2:end);
-%                             data(i,1)=sum(xc(2:2+5));
-%                         end
-%                         tstep1=1;
-%                         tstep2=1;
-%                     end
-%                     min_value=min(data(:));
-%                     max_value=max(data(:));
-%                     if not(google_maps)
-%                         for t=tstep1:tstep2
-%                             hold off
-%                             mapshow(obj.shape);
-%                             hold on
-%                             for i=1:length(obj.stem_gridlist.grid{index_var}.coordinate)
-%                                 if isnotnan(data(i,t))
-%                                     value=(data(i,t)-min_value)/(max_value-min_value)*15+5;
-%                                     plot(obj.stem_gridlist.grid{index_var}.coordinate(i,2),obj.stem_gridlist.grid{index_var}.coordinate(i,1),'ro','MarkerSize',round(value));
-%                                 end
-%                             end
-%                             set(gca,'Xlim',[obj.stem_gridlist.box(3),obj.stem_gridlist.box(4)]);
-%                             set(gca,'Ylim',[obj.stem_gridlist.box(1),obj.stem_gridlist.box(2)]);
-%                             grid on
-%                             if strcmp(plot_type,'data')
-%                                 title([variable_name,' for ',datestr(obj.stem_datestamp.stamp(t))]);
-%                             end
-%                             if strcmp(plot_type,'average')
-%                                 title(['Time average for ',variable_name]);
-%                             end
-%                             if strcmp(plot_type,'std')
-%                                 title(['Standard deviation for ',variable_name]);
-%                             end
-%                         end
-%                     else
-%                         datafile=[tstep2-tstep1+1,obj.stem_datestamp.stamp(tstep1)];
-%                         csvwrite('..\Data\google_bridge\parameters.csv',datafile);
-%                         for t=tstep1:tstep2
-%                             value=(data(:,t)-min_value)/(max_value-min_value)*5+1;
-%                             datafile=[obj.stem_gridlist.grid{index_var}.coordinate(:,1),obj.stem_gridlist.grid{index_var}.coordinate(:,2),value,data(:,t)];
-%                             csvwrite(['..\Data\google_bridge\stations',num2str(t-tstep1+1),'.csv'],datafile);
-%                         end
-%                         winopen('..\Data\google_bridge\open.bat');
-%                     end
-%                 end
-%             end           
-%         end
         
-%       if color_value<0.5
-%         color=[color_value*2 1 0];
-%       else
-%         color=[1 1-(color_value-0.5)*2 0];
-%       end
 
 

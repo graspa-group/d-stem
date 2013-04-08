@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 classdef stem_misc
     
@@ -615,7 +616,7 @@ classdef stem_misc
             end
         end
         
-        function plot_map(lat,lon,data,shape)
+        function h_fig = plot_map(lat,lon,data,shape,fig_title,fig_xlabel,fig_ylabel)
             %DESCRIPTION: plot geolocated data over a map (if given)
             %
             %INPUT
@@ -624,21 +625,48 @@ classdef stem_misc
             %lon            - [double]      (Nx1) vector of longitude
             %data           - [double]      (Nx1) the data to plot
             %<shape>        - [shape file]  (1x1) the shape file of the map
+            %<fig_title>    - [string]      (1x1) (default: []) the title of the figure
+            %<fig_xlabel>   - [string]      (1x1) (default: []) the xlabel of the figure
+            %<fig_ylabel>   - [string]      (1x1) (default: []) the ylabel of the figure
             %
             %OUTPUT
             %
             %none: the data are plotted
+            
             if nargin<3
                 error('lat, lon and data must be provided');
             end
             if nargin<4
                 shape=[];
             end
+            if nargin<5
+                fig_title=[];
+            end
+            if nargin<6
+                fig_xlabel=[];
+            end
+            if nargin<7
+                fig_ylabel=[];
+            end
             if not(isvector(lat))&&not(isvector(lon))&&not(isvector(data))
-                figure
+                h=figure;
+                hold on
+                if not(isempty(shape))
+                    mapshow(shape);
+                end
+                h2 = mapshow(lon,lat,data,'DisplayType','texture');
+                set(h2,'FaceColor','flat');
+                axis equal
+                xlim([min(lon(:)),max(lon(:))]);
+                ylim([min(lat(:)),max(lat(:))]);
+                colorbar;                
+                title(fig_title);
+                xlabel(fig_xlabel);
+                ylabel(fig_ylabel);
+                grid on
             else
                 if isvector(lat)&&isvector(lon)&&isvector(data)
-                    figure
+                    h=figure;
                     if not(isempty(shape))
                         latmin=min(lat);
                         latmax=max(lat);
@@ -647,6 +675,7 @@ classdef stem_misc
                         rlat=latmax-latmin;
                         rlon=lonmax-lonmin;
                         mapshow(shape);
+                        axis equal
                         xlim([lonmin-rlon*0.1,lonmax+rlon*0.1]);
                         ylim([latmin-rlat*0.1,latmax+rlat*0.1]);
                         hold on
@@ -656,13 +685,20 @@ classdef stem_misc
                     for i=1:length(lat)
                         if not(isnan(data(i)))
                             color = stem_misc.get_rainbow_color(data(i),minval,maxval);
-                            mapshow(lon(i),lat(i),'DisplayType','point','MarkerFaceColor',color, 'MarkerEdgeColor','k','Marker','o','MarkerSize',5);
+                            mapshow(lon(i),lat(i),'DisplayType','point','MarkerFaceColor',color, 'MarkerEdgeColor','k','Marker','o','MarkerSize',8);
                             hold on
                         end
                     end
+                    title(fig_title);
+                    xlabel(fig_xlabel);
+                    ylabel(fig_ylabel);
+                    grid on
                 else
                     error('lat, lon and data must be either all matrices or all vectors');
                 end
+            end
+            if nargout>0
+                h_fig=h;
             end
         end
         

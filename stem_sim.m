@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 classdef stem_sim < handle
     
@@ -122,11 +123,11 @@ classdef stem_sim < handle
                         Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_beta(:,:,1)*obj.stem_model.stem_par.beta;
                     end
                 end
-                if not(isempty(obj.stem_model.stem_data.X_time))
-                    if obj.stem_model.stem_data.X_time_tv
-                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_time(:,:,t)*Z(:,t);
+                if not(isempty(obj.stem_model.stem_data.X_z))
+                    if obj.stem_model.stem_data.X_z_tv
+                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z(:,:,t)*Z(:,t);
                     else
-                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_time(:,:,1)*Z(:,t);
+                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z(:,:,1)*Z(:,t);
                     end
                 end      
                 if not(isempty(obj.stem_model.stem_data.X_g))

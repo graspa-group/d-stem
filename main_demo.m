@@ -1,11 +1,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc
@@ -13,19 +13,19 @@ clear all
 close all
 
 
-flag_bivariate=0;       %1: NO2 and PM2.5 data; 0: only NO2 data
-flag_remote_data=0;     %1: remote sensing data are considered; 0: only ground level data are considered
+flag_bivariate=1;       %1: NO2 and PM2.5 data; 0: only NO2 data
+flag_remote_data=1;     %1: remote sensing data are considered; 0: only ground level data are considered
 flag_remote_corr=0;     %1: remote data are cross-correlated (if they are multivariate); 0: remote data are not cross-correlated
 
 flag_beta_ground=1;     %1: the model includes the term X_beta(s,t)*beta; 0: X_beta(s,t)*beta is not included
-flag_time_ground=1;     %1: the model includes the term X_time(s,t)*z(t); 0: X_time(s,t)*z(t) is not included
+flag_time_ground=1;     %1: the model includes the term X_z(s,t)*z(t); 0: X_z(s,t)*z(t) is not included
 flag_w_ground=1;        %1: the model includes the term X_g(s,t)*w(s,t);  0: X_g(s,t)*w(s,t) is not included
 
 flag_crossval=0;        %1: cross-validation is enabled; 0: cross-validation is not enabled
 flag_tapering=0;        %1: tapering is enabled; 0: tapering is not enabled 
 
 flag_estimate=1;        %1: model estimation is enabled; 0:model estimation is not enabled
-flag_kriging=0;         %1: kriging is enabled; 0: kriging is not enabled
+flag_kriging=1;         %1: kriging is enabled; 0: kriging is not enabled
 
 
 if flag_estimate
@@ -121,17 +121,17 @@ if flag_estimate
         sd_g.X_beta_name=[];
     end
     
-    %X_time
+    %X_z
     if flag_time_ground
-        sd_g.X_time{1}=ones(n1,1,1);
-        sd_g.X_time_name{1}={'constant'};
+        sd_g.X_z{1}=ones(n1,1,1);
+        sd_g.X_z_name{1}={'constant'};
         if flag_bivariate
-            sd_g.X_time{2}=ones(n2,1,1);
-            sd_g.X_time_name{2}={'constant'};
+            sd_g.X_z{2}=ones(n2,1,1);
+            sd_g.X_z_name{2}={'constant'};
         end
     else
-        sd_g.X_time=[];
-        sd_g.X_time_name=[];
+        sd_g.X_z=[];
+        sd_g.X_z_name=[];
     end
     
     if flag_w_ground
@@ -152,7 +152,7 @@ if flag_estimate
         sd_g.X_g_name=[];
     end
 
-    st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,sd_g.X_rg,sd_g.X_rg_name,sd_g.X_beta,sd_g.X_beta_name,sd_g.X_time,sd_g.X_time_name,sd_g.X_g,sd_g.X_g_name);
+    st_varset_g=stem_varset(sd_g.Y,sd_g.Y_name,sd_g.X_rg,sd_g.X_rg_name,sd_g.X_beta,sd_g.X_beta_name,sd_g.X_z,sd_g.X_z_name,sd_g.X_g,sd_g.X_g_name);
     
     if flag_tapering
         tapering_g=100; %km
@@ -314,30 +314,27 @@ if flag_estimate
         end
     end
     st_model.set_initial_values(st_par);
+    
     %Model estimation
     exit_toll=0.001;
-    max_iterations=20;
+    max_iterations=1;
     st_EM_options=stem_EM_options(exit_toll,max_iterations,'single');
     st_model.EM_estimate(st_EM_options);
-    st_model.set_varcov;
-    st_model.set_logL;    
-    save('st_model_demo','st_model');
+    %st_model.set_varcov;
+    %st_model.set_logL;    
 end
 
 if flag_kriging
-    load st_model_demo.mat;
-    load ../Data/krig_elevation_005;
-    krig_lat=out_elevation.lat;
-    krig_lon=out_elevation.lon;
-    krig_mask=out_elevation.data_mask;
+    load ../Demo/Data/kriging/krig_elevation_005;
+    krig_coordinates=[krig_elevation.lat(:),krig_elevation.lon(:)];
+    krig_mask=krig_elevation.data_mask(:);
 
     st_krig=stem_krig(st_model);
-    st_krig_grid=stem_grid([krig_lat(:),krig_lon(:)],'deg','regular','pixel',[480,720],'square',0.05,0.05);
+    st_krig_grid=stem_grid(krig_coordinates,'deg','regular','pixel',[80,170],'square',0.05,0.05);
     back_transform=1;
-    no_varcov=0;
-    block_size=10000;
-    X_krig='../Data/blocks/';
-    st_krig_result=st_krig.kriging('no2 ground',st_krig_grid,block_size,krig_mask,X_krig,back_transform,no_varcov);
-    save st_krig_result st_krig_result -v7.3
+    no_varcov=1;
+    block_size=1000;
+    X_krig='../Demo/Data/kriging/blocks';
+    st_krig_result=st_krig.kriging('no2 ground',st_krig_grid,block_size,krig_mask,X_krig,back_transform,no_varcov);    
 end
 

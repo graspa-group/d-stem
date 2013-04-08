@@ -1,12 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 classdef stem_model < handle
     
@@ -193,8 +194,6 @@ classdef stem_model < handle
             
             I=1:length(d);
             sigma_eps=sparse(I,I,d);
-            
-            %CONTROLLARE LA CREAZIONE DI SIGMA_W_R NEL CASO REMOTE_CORRELATED = FALSE!!!
             
             %sigma_W_r
             if not(isempty(obj.stem_data.stem_varset_r))
@@ -434,12 +433,12 @@ classdef stem_model < handle
                     X_beta={};
                     X_beta_name={};
                 end 
-                if not(isempty(obj.stem_data.stem_varset_g.X_time))
-                    X_time={obj.stem_data.stem_varset_g.X_time{idx_var}(indices,:,:)};
-                    X_time_name={obj.stem_data.stem_varset_g.X_time_name{idx_var}};
+                if not(isempty(obj.stem_data.stem_varset_g.X_z))
+                    X_z={obj.stem_data.stem_varset_g.X_z{idx_var}(indices,:,:)};
+                    X_z_name={obj.stem_data.stem_varset_g.X_z_name{idx_var}};
                 else
-                    X_time={};
-                    X_time_name={};
+                    X_z={};
+                    X_z_name={};
                 end          
                 if not(isempty(obj.stem_data.stem_varset_g.X_g))
                     X_g={obj.stem_data.stem_varset_g.X_g{idx_var}(indices,:,:,:)};
@@ -460,7 +459,7 @@ classdef stem_model < handle
                     clear temp_dist
                 end
                 
-                obj.stem_data.stem_crossval.stem_varset=stem_varset(Y,Y_name,X_rg,X_rg_name,X_beta,X_beta_name,X_time,X_time_name,X_g,X_g_name);
+                obj.stem_data.stem_crossval.stem_varset=stem_varset(Y,Y_name,X_rg,X_rg_name,X_beta,X_beta_name,X_z,X_z_name,X_g,X_g_name);
                 obj.stem_data.stem_crossval.stem_gridlist=stem_gridlist();
                 coordinate=obj.stem_data.stem_gridlist_g.grid{idx_var}.coordinate;
                 st_grid=stem_grid(coordinate(indices,:),'deg','sparse','point');
@@ -1022,7 +1021,7 @@ classdef stem_model < handle
                 else
                     tRG=1;
                 end
-                if data.X_time_tv
+                if data.X_z_tv
                     tT=t;
                 else
                     tT=1;
@@ -1119,9 +1118,9 @@ classdef stem_model < handle
                 
                 Lt=not(isnan(data.Y(:,t)));
                 if n_time>0
-                    X_time_orlated=data.X_time(:,:,tT);
-                    X_time_orlated=[X_time_orlated;zeros(N-size(X_time_orlated,1),size(X_time_orlated,2))];
-                    sigma_t_Lt=X_time_orlated(Lt,:)*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated(Lt,:)'+sigma_geo(Lt,Lt);
+                    X_z_orlated=data.X_z(:,:,tT);
+                    X_z_orlated=[X_z_orlated;zeros(N-size(X_z_orlated,1),size(X_z_orlated,2))];
+                    sigma_t_Lt=X_z_orlated(Lt,:)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)'+sigma_geo(Lt,Lt);
                 else
                     sigma_t_Lt=sigma_geo(Lt,Lt);
                 end
@@ -1131,9 +1130,9 @@ classdef stem_model < handle
                     if n_beta>0
                         X_beta_orlated=data.X_beta(:,:,tbeta);
                         X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
-                        et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta-X_time_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
+                        et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta-X_z_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
                     else
-                        et(Lt)=data.Y(Lt,t)-X_time_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
+                        et(Lt)=data.Y(Lt,t)-X_z_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
                     end
                 else
                     if n_beta>0
@@ -1187,7 +1186,7 @@ classdef stem_model < handle
                     
                     for i=n_psi-n_time_s2e+1:n_psi
                         %with respect to sigma_eta
-                        d_St_Lt{i}=X_time_orlated(Lt,:)*d_s2e(:,:,i)*X_time_orlated(Lt,:)';
+                        d_St_Lt{i}=X_z_orlated(Lt,:)*d_s2e(:,:,i)*X_z_orlated(Lt,:)';
                         if stem_misc.zero_density(d_St_Lt{i})>60
                             d_St_Lt{i}=sparse(d_St_Lt{i});
                         end
@@ -1204,12 +1203,12 @@ classdef stem_model < handle
                         
                         for i=n_psi-n_time+1:+n_psi-n_time+n_time_G
                             %with respect to G
-                            d_J_Lt{i}=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated(Lt,:)')/sigma_t_Lt;
+                            d_J_Lt{i}=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)')/sigma_t_Lt;
                         end
                         
                         for i=n_psi-n_time_s2e+1:n_psi
                             %with respect to sigma_eta
-                            d_J_Lt{i}=(par.G*d_P(:,:,i)*X_time_orlated(Lt,:)')/sigma_t_Lt;
+                            d_J_Lt{i}=(par.G*d_P(:,:,i)*X_z_orlated(Lt,:)')/sigma_t_Lt;
                         end
                     end
                     
@@ -1223,13 +1222,13 @@ classdef stem_model < handle
                     for i=1:n_psi
                         if (i<=n_beta)
                             if n_time>0
-                                d_e(:,i)=-X_beta_orlated*d_beta(:,1,i)-X_time_orlated*d_Z_lag(:,i);
+                                d_e(:,i)=-X_beta_orlated*d_beta(:,1,i)-X_z_orlated*d_Z_lag(:,i);
                             else
                                 d_e(:,i)=-X_beta_orlated*d_beta(:,1,i);
                             end
                         else
                             if n_time>0
-                                d_e(:,i)=-X_time_orlated*d_Z_lag(:,i);
+                                d_e(:,i)=-X_z_orlated*d_Z_lag(:,i);
                             end
                         end
                     end
@@ -1251,17 +1250,17 @@ classdef stem_model < handle
                         
                         %d_P
                         for i=1:n_psi
-                            d_P(:,:,i)=d_G(:,:,i)*(eye(p)-J(:,Lt1,t-1)*X_time_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'-...
-                                par.G*d_J_lag_Lt1{i}*X_time_orlated(Lt1,:)*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'+...
-                                par.G*(eye(p)-J(:,Lt1,t-1)*X_time_orlated(Lt1,:))*d_P_lag(:,:,i)*par.G'+...
-                                par.G*(eye(p)-J(:,Lt1,t-1)*X_time_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*d_G(:,:,i)'+d_s2e(:,:,i);
+                            d_P(:,:,i)=d_G(:,:,i)*(eye(p)-J(:,Lt1,t-1)*X_z_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'-...
+                                par.G*d_J_lag_Lt1{i}*X_z_orlated(Lt1,:)*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'+...
+                                par.G*(eye(p)-J(:,Lt1,t-1)*X_z_orlated(Lt1,:))*d_P_lag(:,:,i)*par.G'+...
+                                par.G*(eye(p)-J(:,Lt1,t-1)*X_z_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*d_G(:,:,i)'+d_s2e(:,:,i);
                         end
                     end
                     
                     %d_St
                     for i=1:n_psi
                         if n_time>0
-                            d_St_Lt{i}=X_time_orlated(Lt,:)*d_P(:,:,i)*X_time_orlated(Lt,:)'+d_Sgeo{i}(Lt,Lt);
+                            d_St_Lt{i}=X_z_orlated(Lt,:)*d_P(:,:,i)*X_z_orlated(Lt,:)'+d_Sgeo{i}(Lt,Lt);
                         else
                             d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
                         end
@@ -1270,13 +1269,13 @@ classdef stem_model < handle
                     %d_J
                     if n_time>0
                         for i=1:n_psi
-                            d_J_Lt{i}=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated(Lt,:)'+par.G*d_P(:,:,i)*X_time_orlated(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
+                            d_J_Lt{i}=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)'+par.G*d_P(:,:,i)*X_z_orlated(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
                         end
                     end
                 end
                 
                 if n_time>0
-                    temp1=X_time_orlated(Lt,:)*st_kalmanfilter_result.Pk_f(:,:,t)*X_time_orlated(Lt,:)';
+                    temp1=X_z_orlated(Lt,:)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)';
                     sigma_t_Lt=temp1+sigma_geo(Lt,Lt);
                 else
                     sigma_t_Lt=sigma_geo(Lt,Lt);
@@ -1401,10 +1400,10 @@ classdef stem_model < handle
                     end
                     disp(' ');
                 end
-                if not(isempty(obj.stem_data.stem_varset_g.X_time_name))
+                if not(isempty(obj.stem_data.stem_varset_g.X_z_name))
                     disp('Point data covariates related to z(t):');
-                    for j=1:length(obj.stem_data.stem_varset_g.X_time_name{i})
-                        disp(['  ',obj.stem_data.stem_varset_g.X_time_name{i}{j}]);
+                    for j=1:length(obj.stem_data.stem_varset_g.X_z_name{i})
+                        disp(['  ',obj.stem_data.stem_varset_g.X_z_name{i}{j}]);
                     end
                     disp(' ');
                 end
@@ -1431,10 +1430,10 @@ classdef stem_model < handle
                         end
                         disp(' ');
                     end
-                    if not(isempty(obj.stem_data.stem_varset_r.X_time_name))
+                    if not(isempty(obj.stem_data.stem_varset_r.X_z_name))
                         disp('Pixel data covariates related to z(t):');
-                        for j=1:length(obj.stem_data.stem_varset_r.X_time_name{i})
-                            disp(['  ',obj.stem_data.stem_varset_r.X_time_name{i}{j}]);
+                        for j=1:length(obj.stem_data.stem_varset_r.X_z_name{i})
+                            disp(['  ',obj.stem_data.stem_varset_r.X_z_name{i}{j}]);
                         end
                         disp(' ');
                     end

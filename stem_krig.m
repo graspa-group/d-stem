@@ -1,11 +1,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Author: Francesco Finazzi                                    %
-% e-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo                           %
-% Department: Information Technology and Mathematical Methods  %
+% D-STEM - Distributed Space Time Expecation Maximization      %
 %                                                              %
-% Version: beta                                                %
-% Release date: 15/05/2012                                     %
+% Author: Francesco Finazzi                                    %
+% E-mail: francesco.finazzi@unibg.it                           %
+% Affiliation: University of Bergamo - Dept. of Engineering    %
+% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
+% Code website: https://code.google.com/p/d-stem/              %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 classdef stem_krig < handle
@@ -105,6 +105,15 @@ classdef stem_krig < handle
                 end
             else
                 block_size=0;
+            end
+            
+            if nargin>5
+                if ischar(X)
+                    last_char=X(length(X));
+                    if not(strcmp(last_char,'/'))
+                        X=[X,'/'];
+                    end
+                end
             end
             
             if nargin<5
@@ -243,23 +252,23 @@ classdef stem_krig < handle
                             idx_beta=[];
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_time_name))
-                            X_time_name=obj.stem_model.stem_data.stem_varset_g.X_time_name{index_var};
-                            if not(isempty(X_time_name))
-                                idx_time=[];
-                                for j=1:length(X_time_name)
-                                    cmp=strcmp(X.name,X_time_name{j});
+                        if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_z_name))
+                            X_z_name=obj.stem_model.stem_data.stem_varset_g.X_z_name{index_var};
+                            if not(isempty(X_z_name))
+                                idX_z=[];
+                                for j=1:length(X_z_name)
+                                    cmp=strcmp(X.name,X_z_name{j});
                                     if sum(cmp)==0
                                         error('The block does not include the requested covariates');
                                     else
-                                        idx_time=[idx_time,find(cmp,1)];
+                                        idX_z=[idX_z,find(cmp,1)];
                                     end
                                 end
                             else
-                                idx_time=[];
+                                idX_z=[];
                             end
                         else
-                            idx_time=[];
+                            idX_z=[];
                         end
                     else
                         %a folder name has been provided
@@ -269,6 +278,9 @@ classdef stem_krig < handle
                             error('A block size >0 must be provided');
                         end
                         files=dir([X,'*.mat']);
+                        if isempty(files)
+                            error(['The directory ',X,' does not contain the kriging blocks']);
+                        end
                         %test data compatibility
                         disp('Hard disk kriging blocks evaluation started...');
                         counter=0;
@@ -340,23 +352,23 @@ classdef stem_krig < handle
                                 idx_beta=[];
                             end
                             
-                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_time_name))
-                                X_time_name=obj.stem_model.stem_data.stem_varset_g.X_time_name{index_var};
-                                if not(isempty(X_time_name))
-                                    idx_time=[];
-                                    for j=1:length(X_time_name)
-                                        cmp=strcmp(block.label,X_time_name{j});
+                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_z_name))
+                                X_z_name=obj.stem_model.stem_data.stem_varset_g.X_z_name{index_var};
+                                if not(isempty(X_z_name))
+                                    idX_z=[];
+                                    for j=1:length(X_z_name)
+                                        cmp=strcmp(block.label,X_z_name{j});
                                         if sum(cmp)==0
                                             error('The block does not include the requested covariates');
                                         else
-                                            idx_time=[idx_time,find(cmp,1)];
+                                            idX_z=[idX_z,find(cmp,1)];
                                         end
                                     end
                                 else
-                                    idx_time=[];
+                                    idX_z=[];
                                 end
                             else
-                                idx_time=[];
+                                idX_z=[];
                             end
                             
                             if not(size(block.data,1)==blocks_krig(i+1)-blocks_krig(i))
@@ -424,7 +436,6 @@ classdef stem_krig < handle
                             end
                             if size(obj.stem_model.stem_data.stem_varset_g.X_rg{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1);
-                                warning('Only the first temporal step is considered');
                             end
                             obj.stem_model.stem_data.stem_varset_g.X_rg{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_rg{index_var},X_krig_block);
                         end
@@ -444,7 +455,6 @@ classdef stem_krig < handle
                             X_krig_block=temp;
                             if size(obj.stem_model.stem_data.stem_varset_g.X_g{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1,:);
-                                warning('Only the first temporal step is considered');
                             end
                             obj.stem_model.stem_data.stem_varset_g.X_g{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_g{index_var},X_krig_block);
                         end
@@ -458,23 +468,21 @@ classdef stem_krig < handle
                             end
                             if size(obj.stem_model.stem_data.stem_varset_g.X_beta{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1);
-                                warning('Only the first temporal step is considered');
                             end
                             obj.stem_model.stem_data.stem_varset_g.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_beta{index_var},X_krig_block);
                         end
                         
-                        if not(isempty(idx_time))
-                            X_krig_block=block.data(:,idx_time,:);
+                        if not(isempty(idX_z))
+                            X_krig_block=block.data(:,idX_z,:);
                             if obj.stem_model.stem_data.stem_varset_g.standardized
                                 for j=1:size(X_krig_block,2)
-                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_g.X_time_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_g.X_time_stds{index_var}(j);
+                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_g.X_z_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_g.X_z_stds{index_var}(j);
                                 end
                             end
-                            if size(obj.stem_model.stem_data.stem_varset_g.X_time{index_var},3)==1
+                            if size(obj.stem_model.stem_data.stem_varset_g.X_z{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1);
-                                warning('Only the first temporal step is considered');
                             end
-                            obj.stem_model.stem_data.stem_varset_g.X_time{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_time{index_var},X_krig_block);
+                            obj.stem_model.stem_data.stem_varset_g.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_z{index_var},X_krig_block);
                         end
                     end
                 else
@@ -497,9 +505,9 @@ classdef stem_krig < handle
                         obj.stem_model.stem_data.stem_varset_g.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_beta{index_var},X_krig_block);
                     end
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_time))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_time{index_var}(obj.idx_notnan(block_krig),:,:);
-                        obj.stem_model.stem_data.stem_varset_g.X_time{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_time{index_var},X_krig_block);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_z))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_z{index_var}(obj.idx_notnan(block_krig),:,:);
+                        obj.stem_model.stem_data.stem_varset_g.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_z{index_var},X_krig_block);
                     end
                 end
                 
@@ -533,8 +541,8 @@ classdef stem_krig < handle
                 if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_beta))
                     obj.stem_model.stem_data.stem_varset_g.X_beta{index_var}(end-block_krig_length+1:end,:,:)=[];
                 end
-                if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_time))
-                    obj.stem_model.stem_data.stem_varset_g.X_time{index_var}(end-block_krig_length+1:end,:,:)=[];
+                if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_z))
+                    obj.stem_model.stem_data.stem_varset_g.X_z{index_var}(end-block_krig_length+1:end,:,:)=[];
                 end
                 obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate(end-block_krig_length+1:end,:)=[];
                 obj.stem_model.stem_data.update_data(); 
@@ -593,6 +601,7 @@ classdef stem_krig < handle
             end
             
             st_krig_result.variable_name=variable_name;
+            st_krig_result.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
         end
         
         function [y_hat,diag_Var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj,no_varcov)
@@ -624,17 +633,17 @@ classdef stem_krig < handle
             [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
             if p>0
                 st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
-                if not(data.X_time_tv)
+                if not(data.X_z_tv)
                     if obj.stem_model.tapering
                         %migliorare la creazione della matrice sparsa!!!
-                        var_Zt=sparse(data.X_time(:,:,1))*sparse(sigma_Z)*sparse(data.X_time(:,:,1)');
-                        if (size(data.X_time(:,:,1),1)<N)
-                            var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,1),1)));
+                        var_Zt=sparse(data.X_z(:,:,1))*sparse(sigma_Z)*sparse(data.X_z(:,:,1)');
+                        if (size(data.X_z(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,speye(N-size(data.X_z(:,:,1),1)));
                         end
                     else
-                        var_Zt=data.X_time(:,:,1)*sigma_Z*data.X_time(:,:,1)';
-                        if (size(data.X_time(:,:,1),1)<N)
-                            var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,1),1)));
+                        var_Zt=data.X_z(:,:,1)*sigma_Z*data.X_z(:,:,1)';
+                        if (size(data.X_z(:,:,1),1)<N)
+                            var_Zt=blkdiag(var_Zt,eye(N-size(data.X_z(:,:,1),1)));
                         end
                     end
                 end
@@ -739,7 +748,7 @@ classdef stem_krig < handle
                 else
                     tRG=1;
                 end
-                if data.X_time_tv
+                if data.X_z_tv
                     tT=t;
                 else
                     tT=1;
@@ -774,18 +783,18 @@ classdef stem_krig < handle
                         sigma_geo=sigma_geo+sigma_eps;
                     end
                     
-                    if not(isempty(data.X_time))
+                    if not(isempty(data.X_z))
                         if not(isempty(data.X_rg))||not(isempty(data.X_g))
-                            if data.X_time_tv
+                            if data.X_z_tv
                                 if obj.stem_model.tapering
-                                    var_Zt=sparse(data.X_time(:,:,tT))*sparse(sigma_Z)*sparse(data.X_time(:,:,tT)');
-                                    if (size(data.X_time(:,:,tT),1)<N)
-                                        var_Zt=blkdiag(var_Zt,speye(N-size(data.X_time(:,:,tT),1)));
+                                    var_Zt=sparse(data.X_z(:,:,tT))*sparse(sigma_Z)*sparse(data.X_z(:,:,tT)');
+                                    if (size(data.X_z(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,speye(N-size(data.X_z(:,:,tT),1)));
                                     end
                                 else
-                                    var_Zt=data.X_time(:,:,tT)*sigma_Z*data.X_time(:,:,tT)';
-                                    if (size(data.X_time(:,:,tT),1)<N)
-                                        var_Zt=blkdiag(var_Zt,eye(N-size(data.X_time(:,:,tT),1)));
+                                    var_Zt=data.X_z(:,:,tT)*sigma_Z*data.X_z(:,:,tT)';
+                                    if (size(data.X_z(:,:,tT),1)<N)
+                                        var_Zt=blkdiag(var_Zt,eye(N-size(data.X_z(:,:,tT),1)));
                                     end
                                 end
                             end
@@ -799,13 +808,13 @@ classdef stem_krig < handle
                 end
                 
                 %check if the temporal loadings are time variant
-                if not(isempty(data.X_time))
-                    if size(data.X_time(:,:,tT),1)<N
-                        X_time_orlated=[data.X_time(:,:,tT);zeros(N-size(data.X_time(:,:,tT),1),size(data.X_time(:,:,tT),2))];
+                if not(isempty(data.X_z))
+                    if size(data.X_z(:,:,tT),1)<N
+                        X_z_orlated=[data.X_z(:,:,tT);zeros(N-size(data.X_z(:,:,tT),1),size(data.X_z(:,:,tT),2))];
                     else
-                        X_time_orlated=data.X_time(:,:,tT);
+                        X_z_orlated=data.X_z(:,:,tT);
                     end
-                    temp=X_time_orlated*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                    temp=X_z_orlated*st_kalmansmoother_result.Pk_s(:,:,t+1);
                     
                     if not(no_varcov)
                         if N>obj.stem_model.system_size
@@ -814,20 +823,20 @@ classdef stem_krig < handle
                                 blocks=[blocks size(diag_Var_e_y1,1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)');
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(temp(blocks(i)+1:blocks(i+1),:)*X_z_orlated(blocks(i)+1:blocks(i+1),:)');
                             end
                         else
-                            diag_Var_e_y1(:,t)=diag(temp*X_time_orlated');
+                            diag_Var_e_y1(:,t)=diag(temp*X_z_orlated');
                         end
                     end
                     temp=st_kalmansmoother_result.zk_s(:,t+1);
-                    y_hat(:,t)=y_hat(:,t)+X_time_orlated*temp;
+                    y_hat(:,t)=y_hat(:,t)+X_z_orlated*temp;
                 end
                 
                 if not(isempty(data.X_rg))||not(isempty(data.X_g))
                     %build the Ht matrix
                     if not(isempty(var_Zt))
-                        H1t=[var_Yt(Lt,Lt), X_time_orlated(Lt,:)*sigma_Z; sigma_Z*X_time_orlated(Lt,:)', sigma_Z];
+                        H1t=[var_Yt(Lt,Lt), X_z_orlated(Lt,:)*sigma_Z; sigma_Z*X_z_orlated(Lt,:)', sigma_Z];
                     else
                         H1t=var_Yt(Lt,Lt);
                         temp=[];
@@ -893,11 +902,11 @@ classdef stem_krig < handle
                                 blocks=[blocks size(diag_Var_e_y1,1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_z_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
                             end
                         else
                             %faster for N small
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_z_orlated');
                         end
                     else
                         cov_wr_z_y1=[];
@@ -959,10 +968,10 @@ classdef stem_krig < handle
                                     blocks=[blocks size(diag_Var_e_y1,1)];
                                 end
                                 for i=1:length(blocks)-1
-                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_time_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
+                                    diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)+2*diag(temp(blocks(i)+1:blocks(i+1),:)*X_z_orlated(blocks(i)+1:blocks(i+1),:)'); %notare 2*
                                 end
                             else
-                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_time_orlated');
+                                diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_z_orlated');
                             end
                         else
                             cov_wg_z_y1=[];
