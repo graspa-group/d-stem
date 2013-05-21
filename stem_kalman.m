@@ -150,7 +150,7 @@ classdef stem_kalman < handle
                 data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,...
                 sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,...
                 time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
-            st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL);
+            st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
             ct2=clock;
             disp(['    Kalman smoother ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end

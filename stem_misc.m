@@ -754,6 +754,19 @@ classdef stem_misc
             end
         end
         
+        function v = vec(mat)
+            %DESCRIPTION: vectorize a matrix
+            %
+            %INPUT
+            %
+            %mat             - [double]       (Nx...xM)   the input matrix
+            %
+            %OUTPUT
+            %
+            %v              - [double]        (N*...*Mx1) the vectorize matrix
+            v=mat(:);
+        end
+        
         function density = zero_density(matrix)
             %DESCRIPTION: returns the density of zero elements within the matrix
             %

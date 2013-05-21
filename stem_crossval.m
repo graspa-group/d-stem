@@ -58,7 +58,7 @@ classdef stem_crossval < handle
        
         %Class set methods
         function set.type(obj,type)
-            if strcmp(type,'point')==0
+            if not(strcmp(type,'point'))
                 error('The cross-validation is available only for point variables. The type must be equal to point.');
             end
             obj.type=type;

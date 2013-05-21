@@ -11,13 +11,14 @@
 clc
 clear all
 
-pathparallel='/opt/matNfs/';
+%pathparallel='/opt/matNfs/';
+pathparallel='c:\matNfs\';
 
 %address = java.net.InetAddress.getLocalHost;
 %split=regexp(char(address.getHostAddress),'\.','split');
 h=now;
-IPaddress = round((h-floor(h))*1000000);
-disp([datestr(now),' - Machine code: ',num2str(IPaddress)]);
+node_code = round((h-floor(h))*1000000);
+disp([datestr(now),' - Machine code: ',num2str(node_code)]);
 timeout=72000;
 while(1)
     exit=0;
@@ -36,7 +37,7 @@ while(1)
         end
         pause(0.1);
     end
-    machine.IPaddress=IPaddress;
+    machine.node_code=node_code;
     machine.IDrequest=whoishere.IDrequest;
     if exist('st_model','var')
         machine.require_stemmodel=0;
@@ -44,9 +45,9 @@ while(1)
         machine.require_stemmodel=1;
     end
 
-    save([pathparallel,'temp/machine_',num2str(IPaddress),'.mat'],'machine');
+    save([pathparallel,'temp/machine_',num2str(node_code),'.mat'],'machine');
     pause(0.5);
-    movefile([pathparallel,'temp/machine_',num2str(IPaddress),'.mat'],[pathparallel,'machine_',num2str(IPaddress),'.mat']);
+    movefile([pathparallel,'temp/machine_',num2str(node_code),'.mat'],[pathparallel,'machine_',num2str(node_code),'.mat']);
     disp([datestr(now),' - Replied to whois.']);
     
     if machine.require_stemmodel
@@ -57,7 +58,7 @@ while(1)
         exit=0;
         ct1=clock;
         while not(exit)
-            exit=exist([pathparallel,'st_model_parallel_',num2str(IPaddress),'.mat'],'file');
+            exit=exist([pathparallel,'st_model_parallel_',num2str(node_code),'.mat'],'file');
             pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout 
@@ -69,7 +70,7 @@ while(1)
         ct1=clock;
         while not(read)
             try
-                load([pathparallel,'st_model_parallel_',num2str(IPaddress),'.mat']);
+                load([pathparallel,'st_model_parallel_',num2str(node_code),'.mat']);
                 disp([datestr(now),' - st_model received.']);
                 read=1;
             catch
@@ -85,7 +86,7 @@ while(1)
         ct1=clock;
         while not(deleted)
             try
-                delete([pathparallel,'st_model_parallel_',num2str(IPaddress),'.mat']);
+                delete([pathparallel,'st_model_parallel_',num2str(node_code),'.mat']);
                 disp([datestr(now),' - st_model deleted.']);
                 deleted=1;
             catch
@@ -106,7 +107,7 @@ while(1)
     exit=0;
     ct1=clock;
     while not(exit)
-        exit=exist([pathparallel,'st_par_parallel_',num2str(IPaddress),'.mat'],'file');
+        exit=exist([pathparallel,'st_par_parallel_',num2str(node_code),'.mat'],'file');
         pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
@@ -118,7 +119,7 @@ while(1)
     ct1=clock;
     while not(read)
         try
-            load([pathparallel,'st_par_parallel_',num2str(IPaddress),'.mat']);
+            load([pathparallel,'st_par_parallel_',num2str(node_code),'.mat']);
             disp([datestr(now),' - st_par received.']);
             read=1;
         catch
@@ -134,7 +135,7 @@ while(1)
     ct1=clock;
     while not(deleted)
         try
-            delete([pathparallel,'st_par_parallel_',num2str(IPaddress),'.mat']);
+            delete([pathparallel,'st_par_parallel_',num2str(node_code),'.mat']);
             disp([datestr(now),' - st_par deleted.']);
             deleted=1;
         catch
@@ -156,7 +157,7 @@ while(1)
         exit=0;
         ct1=clock;
         while not(exit)
-            exit=exist([pathparallel,'kalman_parallel_',num2str(IPaddress),'.mat'],'file');
+            exit=exist([pathparallel,'kalman_parallel_',num2str(node_code),'.mat'],'file');
             pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout 
@@ -168,7 +169,7 @@ while(1)
         ct1=clock;
         while not(read)
             try
-                load([pathparallel,'kalman_parallel_',num2str(IPaddress),'.mat']);
+                load([pathparallel,'kalman_parallel_',num2str(node_code),'.mat']);
                 disp([datestr(now),' - kalman_parallel received']);
                 read=1;
             catch
@@ -184,7 +185,7 @@ while(1)
         ct1=clock;
         while not(deleted)
             try
-                delete([pathparallel,'kalman_parallel_',num2str(IPaddress),'.mat']);
+                delete([pathparallel,'kalman_parallel_',num2str(node_code),'.mat']);
                 disp([datestr(now),' - kalman_parallel deleted']);
                 deleted=1;
             catch
@@ -198,7 +199,7 @@ while(1)
         end
         
         st_kalman=stem_kalman(st_model);
-        st_kalman.filter(0,data.time_steps,pathparallel);
+        st_kalman.filter(0,0,data.time_steps,pathparallel);
         clear data
     end
     
@@ -209,7 +210,7 @@ while(1)
     exit=0;
     ct1=clock;
     while not(exit)
-        exit=exist([pathparallel,'data_parallel_',num2str(IPaddress),'.mat'],'file');
+        exit=exist([pathparallel,'data_parallel_',num2str(node_code),'.mat'],'file');
         pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
@@ -221,7 +222,7 @@ while(1)
     ct1=clock;
     while not(read)
         try
-            load([pathparallel,'data_parallel_',num2str(IPaddress),'.mat']);
+            load([pathparallel,'data_parallel_',num2str(node_code),'.mat']);
             disp([datestr(now),' - data_parallel received']);
             read=1;
         catch
@@ -237,7 +238,7 @@ while(1)
     ct1=clock;
     while not(deleted)
         try
-            delete([pathparallel,'data_parallel_',num2str(IPaddress),'.mat']);
+            delete([pathparallel,'data_parallel_',num2str(node_code),'.mat']);
             disp([datestr(now),' - data_parallel deleted']);
             deleted=1;
         catch
@@ -266,11 +267,11 @@ while(1)
     output.cb=data.cb;
     output.iteration=data.iteration;
     output.time_steps=data.time_steps;
-    output.IPaddress=IPaddress;
+    output.node_code=node_code;
     disp([datestr(now),' - saving output...']);
-    save([pathparallel,'temp/output_',num2str(IPaddress),'.mat'],'output');
+    save([pathparallel,'temp/output_',num2str(node_code),'.mat'],'output','-v7.3');
     pause(0.5);
-    movefile([pathparallel,'temp/output_',num2str(IPaddress),'.mat'],[pathparallel,'output_',num2str(IPaddress),'.mat']);
+    movefile([pathparallel,'temp/output_',num2str(node_code),'.mat'],[pathparallel,'output_',num2str(node_code),'.mat']);
     disp([datestr(now),' - output saved.']);
     clear data
     clear output
@@ -282,7 +283,7 @@ while(1)
     exit=0;
     ct1=clock;
     while not(exit)
-        exit=exist([pathparallel,'data_parallel_mstep',num2str(IPaddress),'.mat'],'file');
+        exit=exist([pathparallel,'data_parallel_mstep',num2str(node_code),'.mat'],'file');
         pause(0.1);
         ct2=clock;
         if etime(ct2,ct1)>timeout 
@@ -294,7 +295,7 @@ while(1)
     ct1=clock;
     while not(read)
         try
-            load([pathparallel,'data_parallel_mstep',num2str(IPaddress),'.mat']);
+            load([pathparallel,'data_parallel_mstep',num2str(node_code),'.mat']);
             disp([datestr(now),' - data_parallelmstep received']);
             read=1;
         catch
@@ -310,7 +311,7 @@ while(1)
     ct1=clock;
     while not(deleted)
         try
-            delete([pathparallel,'data_parallel_mstep',num2str(IPaddress),'.mat']);
+            delete([pathparallel,'data_parallel_mstep',num2str(node_code),'.mat']);
             disp([datestr(now),' - data_parallelmstep deleted']);
             deleted=1;
         catch
@@ -324,11 +325,11 @@ while(1)
     end    
     
     output.iteration=data.iteration;
-    output.IPaddress=IPaddress;
+    output.node_code=node_code;
     if not(isempty(data.index))
         disp([datestr(now),' - m-step running...']);
         ct1=clock;
-        output.mstep_par=st_EM.M_step_vg_and_theta(data.E_wg_y1,data.sum_Var_wg_y1,data.index,data.r);
+        output.mstep_par=st_EM.M_step_vg_and_theta(data.E_wg_y1,data.sum_Var_wg_y1,data.index);
         ct2=clock;
         output.ct=etime(ct2,ct1);
         output.index=data.index;
@@ -337,9 +338,9 @@ while(1)
         output.index=[];
         disp([datestr(now),' - saving output_mstep empty...']);
     end
-    save([pathparallel,'temp/output_mstep_',num2str(IPaddress),'.mat'],'output');
+    save([pathparallel,'temp/output_mstep_',num2str(node_code),'.mat'],'output');
     pause(0.5);
-    movefile([pathparallel,'temp/output_mstep_',num2str(IPaddress),'.mat'],[pathparallel,'output_mstep_',num2str(IPaddress),'.mat']);
+    movefile([pathparallel,'temp/output_mstep_',num2str(node_code),'.mat'],[pathparallel,'output_mstep_',num2str(node_code),'.mat']);
     disp([datestr(now),' - output_mstep saved.']);
     clear data
     clear output

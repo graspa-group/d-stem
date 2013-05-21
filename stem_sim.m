@@ -61,6 +61,8 @@ classdef stem_sim < handle
                 obj.nan_pattern_par=[];
             end
             
+            obj.stem_model.stem_par=obj.stem_model.stem_par_initial;
+            
             if not(isempty(obj.nan_rate))
                 soglia_nan_g=norminv(1-obj.nan_rate(1)/2,0,1);
                 nanmat_g=exp(-obj.stem_model.stem_data.DistMat_g./obj.nan_pattern_par(1));

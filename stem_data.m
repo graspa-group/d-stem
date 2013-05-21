@@ -48,7 +48,7 @@ classdef stem_data < handle
         can_reset=0;            %[boolean]    (1x1) 1: data are saved on disk and can be reloaded; 0: data are only on RAM
         X_rg_tv=0;              %[boolean]    (1x1) 1: X_rg is time variant; 0: otherwise
         X_beta_tv=0;            %[boolean]    (1x1) 1: X_beta is time variant; 0: otherwise
-        X_z_tv=0;            %[boolean]    (1x1) 1: X_z is time variant; 0: otherwise
+        X_z_tv=0;               %[boolean]    (1x1) 1: X_z is time variant; 0: otherwise
         X_g_tv=0;               %[boolean]    (1x1) 1: X_g is time variant; 0: otherwise
         X_tv=0;                 %[boolean]    (1x1) 1: at least one between X_rg, X_beta, X_z and X_g is time variant; 0:otherwise
     end
@@ -291,6 +291,11 @@ classdef stem_data < handle
                 if not(isempty(obj.stem_varset_g.X_beta))
                     done=0;
                     if size(obj.stem_varset_g.X_beta{1},3)==obj.T
+                        nbeta=0;
+                        for i=1:length(obj.stem_varset_g.X_beta)
+                            nbeta=nbeta+size(obj.stem_varset_g.X_beta{i},2);
+                        end
+                        X_beta=zeros(obj.N,nbeta,obj.T);
                         for t=1:size(obj.stem_varset_g.X_beta{1},3)
                             X_temp=[];
                             for i=1:length(obj.stem_varset_g.X_beta)
@@ -461,7 +466,7 @@ classdef stem_data < handle
                     d=distdim(distance(obj.stem_gridlist_g.grid{j}.coordinate(i,:),obj.stem_gridlist_r.grid{j}.coordinate), obj.stem_gridlist_g.grid{1}.unit, 'km');
                     [m,idx]=min(d);
                     if d>dmax
-                        warning(['Point ',num2str(i),' of point variable ',num2str(j),' does not belong to any pixel. The nearest pixel at ',num2str(m),' km is considered']);
+                        %warning(['Point ',num2str(i),' of point variable ',num2str(j),' does not belong to any pixel. The nearest pixel at ',num2str(m),' km is considered']);
                     end
                     M=[M;idx+blocks(j)];
                 end
@@ -1353,6 +1358,230 @@ classdef stem_data < handle
             end
         end        
         
+        function print(obj)
+            %DESCRIPTION: print the information on data and their structure
+            %
+            %INPUT
+            %obj  - [stem_data object]   (1x1) the stem_data object
+            %
+            %OUTPUT
+            %
+            %none: the information is printed in the command window
+            
+            stem_misc.disp_star('Data description');
+            disp(['Number of variables: ',num2str(obj.nvar)]);
+            disp(' ');
+            disp('Point variables:');
+            for i=1:length(obj.stem_varset_g.Y_name)
+                disp(['  (',num2str(i),') - ',obj.stem_varset_g.Y_name{i}]);
+            end
+            disp(' '); 
+            if not(isempty(obj.stem_varset_r))
+                disp('Pixel variables:');
+                for i=1:length(obj.stem_varset_r.Y_name)
+                    disp(['  (',num2str(i),') - ',obj.stem_varset_r.Y_name{i}]);
+                end
+                disp(' ');
+            end
+            disp('Date and time steps:')
+            disp(['  Stating date  : ',datestr(obj.stem_datestamp.date_start)]);
+            disp(['  Ending date   : ',datestr(obj.stem_datestamp.date_end)]);
+            disp(['  Temporal steps: ',num2str(obj.T)]);
+            disp(' ');    
+            
+            disp('Bounding box of the point data:');
+            if strcmp(obj.stem_gridlist_g.grid{1}.unit,'deg')
+                prefix_x='  Longitude ';
+                prefix_y='  Latitude ';
+                postfix='°';
+            else
+                prefix_x='X ';
+                prefix_y='Y ';
+                postfix=[' ',obj.stem_gridlist_g.grid{1}.unit];
+            end
+            disp([prefix_y,'min : ',num2str(obj.stem_gridlist_g.box(1),'%05.2f'),postfix])
+            disp([prefix_y,'max : ',num2str(obj.stem_gridlist_g.box(2),'%05.2f'),postfix])
+            disp([prefix_x,'min: ',num2str(obj.stem_gridlist_g.box(3),'%05.2f'),postfix])
+            disp([prefix_x,'max: ',num2str(obj.stem_gridlist_g.box(4),'%05.2f'),postfix])
+            disp(' ');
+            if not(isempty(obj.stem_varset_r))
+                disp('Bounding box of the pixel data:');
+                disp([prefix_y,'min : ',num2str(obj.stem_gridlist_r.box(1),'%05.2f'),postfix])
+                disp([prefix_y,'max : ',num2str(obj.stem_gridlist_r.box(2),'%05.2f'),postfix])
+                disp([prefix_x,'min: ',num2str(obj.stem_gridlist_r.box(3),'%05.2f'),postfix])
+                disp([prefix_x,'max: ',num2str(obj.stem_gridlist_r.box(4),'%05.2f'),postfix])
+                disp(' ');
+            end
+
+            disp('Variable description - Point data');
+            output{1,1}='Name';
+            output{1,2}='#sites';
+            output{1,3}='Mean';            
+            output{1,4}='Std';            
+            output{1,5}='Min';            
+            output{1,6}='Max';            
+            output{1,7}='Missing';            
+            for i=1:obj.stem_varset_g.nvar
+                output{i+1,1}=obj.stem_varset_g.Y_name{i};
+                output{i+1,2}=num2str(obj.stem_varset_g.dim(i),'%03.0f');
+                output{i+1,3}=num2str(nanmean(stem_misc.vec(obj.stem_varset_g.Y{i})),'%+05.2f');
+                output{i+1,4}=num2str(nanstd(stem_misc.vec(obj.stem_varset_g.Y{i})),'%05.2f');
+                output{i+1,5}=num2str(nanmin(stem_misc.vec(obj.stem_varset_g.Y{i})),'%+05.2f');
+                output{i+1,6}=num2str(nanmax(stem_misc.vec(obj.stem_varset_g.Y{i})),'%+05.2f');
+                output{i+1,7}=[num2str(sum(isnan(stem_misc.vec(obj.stem_varset_g.Y{i})))/length(stem_misc.vec(obj.stem_varset_g.Y{i}))*100,'%05.2f'),'%'];
+            end
+            disp(output);
+            output=[];
+            if not(isempty(obj.stem_varset_r))
+                disp('Variable description - Pixel data');
+                output{1,1}='Name';
+                output{1,2}='#sites';
+                output{1,3}='Mean';
+                output{1,4}='Std';
+                output{1,5}='Min';
+                output{1,6}='Max';
+                output{1,7}='Missing';
+                for i=1:obj.stem_varset_r.nvar
+                    output{i+1,1}=obj.stem_varset_r.Y_name{i};
+                    output{i+1,2}=num2str(obj.stem_varset_r.dim(i),'%03.0f');
+                    output{i+1,3}=num2str(nanmean(stem_misc.vec(obj.stem_varset_r.Y{i})),'%+05.2f');
+                    output{i+1,4}=num2str(nanstd(stem_misc.vec(obj.stem_varset_r.Y{i})),'%05.2f');
+                    output{i+1,5}=num2str(nanmin(stem_misc.vec(obj.stem_varset_r.Y{i})),'%+05.2f');
+                    output{i+1,6}=num2str(nanmax(stem_misc.vec(obj.stem_varset_r.Y{i})),'%+05.2f');
+                    output{i+1,7}=[num2str(sum(isnan(stem_misc.vec(obj.stem_varset_r.Y{i})))/length(stem_misc.vec(obj.stem_varset_r.Y{i}))*100,'%05.2f'),'%'];
+                end
+            end
+            disp(output);
+            output=[];
+            for i=1:obj.stem_varset_g.nvar
+                stem_misc.disp_star(['Loading coefficients of the point variable ',obj.stem_varset_g.Y_name{i}]);
+                if not(isempty(obj.stem_varset_g.X_beta_name))
+                    disp('Loading coefficients related to beta:');
+                    output{1,1}='Name';
+                    output{1,2}='Mean';
+                    output{1,3}='Std';
+                    output{1,4}='Min';
+                    output{1,5}='Max';
+                    for j=1:length(obj.stem_varset_g.X_beta_name{i})
+                        output{j+1,1}=obj.stem_varset_g.X_beta_name{i}{j};
+                        output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_g.X_beta{i}(:,j,:))),'%+05.2f');
+                        output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_g.X_beta{i}(:,j,:))),'%05.2f');
+                        output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_g.X_beta{i}(:,j,:))),'%+05.2f');
+                        output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_g.X_beta{i}(:,j,:))),'%+05.2f');
+                    end
+                    disp(output);
+                end
+                output=[];
+                if not(isempty(obj.stem_varset_g.X_z_name))
+                    disp('Loading coefficients related to the latent variable z(t):');
+                    output{1,1}='Name';
+                    output{1,2}='Mean';
+                    output{1,3}='Std';
+                    output{1,4}='Min';
+                    output{1,5}='Max';                    
+                    for j=1:length(obj.stem_varset_g.X_z_name{i})
+                        output{j+1,1}=obj.stem_varset_g.X_z_name{i}{j};
+                        output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_g.X_z{i}(:,j,:))),'%+05.2f');
+                        output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_g.X_z{i}(:,j,:))),'%05.2f');
+                        output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_g.X_z{i}(:,j,:))),'%+05.2f');
+                        output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_g.X_z{i}(:,j,:))),'%+05.2f');
+                    end
+                    disp(output);
+                end
+                output=[];
+                if not(isempty(obj.stem_varset_g.X_g_name))
+                    disp('Loading coefficients related to the latent variable w_g(s,t):');
+                    output{1,1}='Name';
+                    output{1,2}='Mean';
+                    output{1,3}='Std';
+                    output{1,4}='Min';
+                    output{1,5}='Max';                       
+                    for j=1:length(obj.stem_varset_g.X_g_name{i})
+                        output{j+1,1}=obj.stem_varset_g.X_g_name{i}{j};
+                        output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_g.X_g{i}(:,:,:,j))),'%+05.2f');
+                        output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_g.X_g{i}(:,:,:,j))),'%05.2f');
+                        output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_g.X_g{i}(:,:,:,j))),'%+05.2f');
+                        output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_g.X_g{i}(:,:,:,j))),'%+05.2f');
+                    end
+                    disp(output);
+                end
+                output=[];
+                if not(isempty(obj.stem_varset_g.X_rg_name))
+                    disp('Loading coefficients related to the latent variable w_r(s,t):');
+                    output{1,1}='Name';
+                    output{1,2}='Mean';
+                    output{1,3}='Std';
+                    output{1,4}='Min';
+                    output{1,5}='Max';                      
+                    for j=1:length(obj.stem_varset_g.X_rg_name{i})
+                        output{j+1,1}=obj.stem_varset_g.X_rg_name{i}{j};
+                        output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_g.X_rg{i}(:,j,:))),'%+05.2f');
+                        output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_g.X_rg{i}(:,j,:))),'%05.2f');
+                        output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_g.X_rg{i}(:,j,:))),'%+05.2f');
+                        output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_g.X_rg{i}(:,j,:))),'%+05.2f');
+                    end
+                    disp(output);
+                end
+                output=[];
+            end
+                
+            if not(isempty(obj.stem_varset_r))
+                for i=1:obj.stem_varset_r.nvar
+                    stem_misc.disp_star(['Loading coefficients of the pixel variable ',obj.stem_varset_r.Y_name{i}]);
+                    if not(isempty(obj.stem_varset_r.X_beta_name))
+                        disp('Loading coefficients related to beta:');
+                        output{1,1}='Name';
+                        output{1,2}='Mean';
+                        output{1,3}='Std';
+                        output{1,4}='Min';
+                        output{1,5}='Max';
+                        for j=1:length(obj.stem_varset_r.X_beta_name{i})
+                            output{j+1,1}=obj.stem_varset_r.X_beta_name{i}{j};
+                            output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_r.X_beta{i}(:,j,:))),'%+05.2f');
+                            output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_r.X_beta{i}(:,j,:))),'%05.2f');
+                            output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_r.X_beta{i}(:,j,:))),'%+05.2f');
+                            output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_r.X_beta{i}(:,j,:))),'%+05.2f');
+                        end
+                        disp(output);
+                    end
+                    output=[];
+                    if not(isempty(obj.stem_varset_r.X_z_name))
+                        disp('Loading coefficients related to the latent variable z(t):');
+                        output{1,1}='Name';
+                        output{1,2}='Mean';
+                        output{1,3}='Std';
+                        output{1,4}='Min';
+                        output{1,5}='Max';
+                        for j=1:length(obj.stem_varset_r.X_z_name{i})
+                            output{j+1,1}=obj.stem_varset_r.X_z_name{i}{j};
+                            output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_r.X_z{i}(:,j,:))),'%+05.2f');
+                            output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_r.X_z{i}(:,j,:))),'%05.2f');
+                            output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_r.X_z{i}(:,j,:))),'%+05.2f');
+                            output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_r.X_z{i}(:,j,:))),'%+05.2f');
+                        end
+                        disp(output);
+                    end
+                    output=[];
+                    if not(isempty(obj.stem_varset_r.X_rg_name))
+                        disp('Loading coefficients related to the latent variable w_r(s,t):');
+                        output{1,1}='Name';
+                        output{1,2}='Mean';
+                        output{1,3}='Std';
+                        output{1,4}='Min';
+                        output{1,5}='Max';
+                        for j=1:length(obj.stem_varset_r.X_rg_name{i})
+                            output{j+1,1}=obj.stem_varset_r.X_rg_name{i}{j};
+                            output{j+1,2}=num2str(nanmean(stem_misc.vec(obj.stem_varset_r.X_rg{i}(:,j,:))),'%+05.2f');
+                            output{j+1,3}=num2str(nanstd(stem_misc.vec(obj.stem_varset_r.X_rg{i}(:,j,:))),'%05.2f');
+                            output{j+1,4}=num2str(nanmin(stem_misc.vec(obj.stem_varset_r.X_rg{i}(:,j,:))),'%+05.2f');
+                            output{j+1,5}=num2str(nanmax(stem_misc.vec(obj.stem_varset_r.X_rg{i}(:,j,:))),'%+05.2f');
+                        end
+                        disp(output);
+                    end
+                end
+            end
+        end
+        
         %Export methods
         function N = N(obj)
             N=obj.stem_varset_g.N;
@@ -1526,94 +1755,6 @@ end
 %                 disp('Original data restored.');
 %             else
 %                 warning('Reset is not allow. Data must be reloaded by using the class constructor');
-%             end
-%         end
-        
-%         function print(obj)
-%             % print data properties
-%             disp('*********************************');
-%             disp('*    STEM3 Data description     *');
-%             disp('*********************************');
-%             disp(' ');
-%             disp(['Number of variables: ',num2str(obj.stem_varset.nvar)]);
-%             disp(' ');
-%             disp('Bounding box:');
-%             disp(['  Latitude min : ',num2str(obj.stem_gridlist.box(1)),'°'])
-%             disp(['  Latitude max : ',num2str(obj.stem_gridlist.box(2)),'°'])
-%             disp(['  Longitude min: ',num2str(obj.stem_gridlist.box(3)),'°'])
-%             disp(['  Longitude max: ',num2str(obj.stem_gridlist.box(4)),'°'])
-%             disp(' ');
-%             disp('Date and time:')
-%             disp(['  Stating date  : ',datestr(obj.stem_datestamp.date_start)]);
-%             disp(['  Ending date   : ',datestr(obj.stem_datestamp.date_end)]);
-%             disp(['  Temporal steps: ',num2str(obj.stem_varset.T)]);
-%             disp(' ');
-%             disp('Variable description:');
-%             output{1,1}='NAME';
-%             output{1,2}='# COVAR.';
-%             output{1,3}='# SITES';
-%             output{1,4}='GRID SIZE';
-%             output{1,5}='GRID TYPE';
-%             output{1,6}='SITE TYPE';
-%             output{1,7}='NaN';
-%             output{1,8}='MEAN';
-%             output{1,9}='STD';
-%             for i=1:obj.stem_varset.nvar
-%                 output{i+1,1}=obj.stem_varset.name{i};
-%                 if not(isempty(obj.stem_covset))
-%                     output{i+1,2}=num2str(obj.stem_covset.nbeta(i));
-%                 else
-%                     output{i+1,2}='0';
-%                 end
-%                 output{i+1,3}=num2str(obj.stem_varset.dim(i));
-%                 if not(isempty(obj.stem_gridlist.grid{i}.grid_size))
-%                     output{i+1,4}=[num2str(obj.stem_gridlist.grid{i}.grid_size(1)),'x',num2str(obj.stem_gridlist.grid{i}.grid_size(2))];
-%                 else
-%                     output{i+1,4}='/';    
-%                 end
-%                 output{i+1,5}=obj.stem_gridlist.grid{i}.grid_type;
-%                 output{i+1,6}=obj.stem_gridlist.grid{i}.site_type;
-%                 output{i+1,7}=[num2str(sum(isnan(obj.stem_varset.Y{i}(:)))/(obj.stem_varset.dim(i)*obj.stem_varset.T)*100,'%5.2f'),'%'];
-%                 output{i+1,8}=num2str(nanmean(obj.stem_varset.Y{i}(:)),'%5.5f');
-%                 output{i+1,9}=num2str(nanstd(obj.stem_varset.Y{i}(:)),'%5.5f');
-%             end
-%             disp(output)
-%             disp(' ');
-%             if not(isempty(obj.stem_covset))
-%                 for i=1:obj.stem_varset.nvar
-%                     output=[];
-%                     if obj.stem_covset.nbeta(i)>0
-%                         disp(['Covariate description for variable ',obj.stem_varset.name{i},':'])
-%                         output{1,1}='NAME';
-%                         output{1,2}='MEAN';
-%                         output{1,3}='STD';
-%                         for j=1:obj.stem_covset.nbeta(i)
-%                             temp=obj.stem_covset.X{i}(:,j,:);
-%                             output{j+1,1}=obj.stem_covset.name{i}{(j)};
-%                             output{j+1,2}=num2str(mean(temp(:)));
-%                             output{j+1,3}=num2str(std(temp(:)));
-%                         end
-%                     end
-%                     disp(output);
-%                 end
-%             end
-%             if obj.stem_varset.log_transformed
-%                 disp(' ');
-%                 disp('Variables are log-transformed. (Use the stem_model.data_reset() method to load the original data.)');
-%             end
-%             if obj.stem_varset.standardized
-%                 disp(' ');
-%                 disp('Variables are standardized. (Use the stem_model.data_reset() method to load the original data.)');
-%             end
-%             if not(isempty(obj.stem_covset))
-%                 if obj.stem_covset.log_transformed
-%                     disp(' ');
-%                     disp('Covariates are log-transformed. (Use the stem_model.data_reset() method to load the original data.)');
-%                 end
-%                 if obj.stem_covset.standardized
-%                     disp(' ');
-%                     disp('Covariates are standardized. (Use the stem_model.data_reset() method to load the original data.)');
-%                 end
 %             end
 %         end
         

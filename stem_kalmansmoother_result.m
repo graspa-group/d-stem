@@ -12,14 +12,15 @@
 
 classdef stem_kalmansmoother_result < handle
     properties
-        zk_s  = [];     %[double]     (pxT+1)    the smoothed state
-        Pk_s  = [];     %[double]     (pxpxT+1)  variance-covariance matrix of the smoothed state
-        PPk_s = [];     %[double]     (pxpxT+1)  lag-one variance-covariance matrix of the smoothed state
-        logL  = [];     %[double]     (1x1)      observed-data log-likelihood
+        zk_s  = [];          %[double]                (pxT+1)    the smoothed state
+        Pk_s  = [];          %[double]                (pxpxT+1)  variance-covariance matrix of the smoothed state
+        PPk_s = [];          %[double]                (pxpxT+1)  lag-one variance-covariance matrix of the smoothed state
+        logL  = [];          %[double]                (1x1)      observed-data log-likelihood
+        stem_datestamp = []; %[stem_datestamp object] (1x1)      the stem_datestamp object where to recover information for plotting
     end
     
     methods
-        function obj = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL)
+        function obj = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,stem_datestamp)
             %DESCRIPTION: constructor of the class stem_kalmansmoother_result
             %
             %INPUT 
@@ -32,6 +33,7 @@ classdef stem_kalmansmoother_result < handle
             obj.Pk_s = Pk_s;
             obj.PPk_s = PPk_s;
             obj.logL = logL;
+            obj.stem_datestamp = stem_datestamp;
         end
         
         function plot(obj,level,flag_max)
@@ -71,10 +73,27 @@ classdef stem_kalmansmoother_result < handle
             figure
             for i=1:size(obj.zk_s,1)
                 subplot(rows,cols,i);
-                plot(obj.zk_s(i,2:end)');
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end),'r','LineWidth',2);
                 hold on
-                plot(obj.zk_s(i,2:end)'+2*squeeze(sqrt(obj.Pk_s(i,i,2:end))),':');
-                plot(obj.zk_s(i,2:end)'-2*squeeze(sqrt(obj.Pk_s(i,i,2:end))),':');
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)+2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','b:','LineWidth',2);
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)-2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','b:','LineWidth',2);
+                xlim([obj.stem_datestamp.stamp(1),obj.stem_datestamp.stamp(end)]);
+                step=obj.stem_datestamp.T/4;
+                tick=obj.stem_datestamp.stamp(1):step:obj.stem_datestamp.stamp(end);
+                if not(tick(end)==obj.stem_datestamp.stamp(end))
+                    tick=[tick obj.stem_datestamp.stamp(end)];
+                end
+                set(gca,'XTick',tick);
+                if not(min(tick)==1)
+                    formatOut = 'dd/mm/yyyy';
+                    ticklabel=datestr(tick,formatOut);
+                    set(gca,'XTickLabel',ticklabel);
+                    xlabel('Date');
+                else
+                    xlabel('Time');
+                end
+                ylabel(['z_',num2str(i),'(t)']);
+                grid on
             end
             if (flag_max)
                 figure
@@ -102,7 +121,7 @@ classdef stem_kalmansmoother_result < handle
                 [val,idx]=max(obj.zk_s(:,2:end));
                 hold on
                 for t=1:length(val)
-                    plot(t,val(t),'Marker',marker_list{idx(t)},'MarkerSize',5);
+                    plot(obj.stem_datestamp.stamp,val(t),'Marker',marker_list{idx(t)},'MarkerSize',5);
                     plot([t,t],[lo(t),up(t)]);
                 end
             end

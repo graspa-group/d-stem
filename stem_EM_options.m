@@ -15,7 +15,7 @@ classdef stem_EM_options
         exit_toll=0.0001;            %[double >0] (1x1) the EM algorithm stops if the relative norm between two consecutive iterations is below exit_toll
         max_iterations=100;          %[integer >0](1x1) the EM algorithm stops if the number of iterations exceed max_iterations
         numeric_opt_type='single';   %[string]    (1x1) 'single': then elements of the V_i matrices are numerically estimated one-by-one; 'full': the elements are jointly estimated.
-        mstep_system_size=3500;      %[integer >0](1x1) if N_r(N_g)>mstep_system_size then theta_r and v_r (theta_g and v_g) are optimized by considering diagonal blocks of maximum dimension mstep_system_size
+        mstep_system_size=13500;     %[integer >0](1x1) if N_r(N_g)>mstep_system_size then theta_r and v_r (theta_g and v_g) are optimized by considering diagonal blocks of maximum dimension mstep_system_size
         compute_logL_at_all_steps=0; %[boolean]   (1x1) 1: the observed data log-likelihood is evaluated at each iteration of the EM algorithm
         verbose=1;                   %[boolean]   (1x1) 1: all the intermediate operations of the EM algorithm are displayed
         pathparallel=[];             %[string]    (1x1) full or relative path of the folder to use for parallel computation

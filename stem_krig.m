@@ -546,7 +546,10 @@ classdef stem_krig < handle
                 end
                 obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate(end-block_krig_length+1:end,:)=[];
                 obj.stem_model.stem_data.update_data(); 
-                obj.stem_model.stem_data.update_distance(); 
+                obj.stem_model.stem_data.update_distance();
+                if not(isempty(obj.stem_model.stem_data.stem_varset_r))
+                    obj.stem_model.stem_data.update_M();
+                end
                 ct2=clock;
                 disp(['Kriging block ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
