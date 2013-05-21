@@ -64,31 +64,31 @@ classdef stem_sim < handle
             obj.stem_model.stem_par=obj.stem_model.stem_par_initial;
             
             if not(isempty(obj.nan_rate))
-                soglia_nan_g=norminv(1-obj.nan_rate(1)/2,0,1);
-                nanmat_g=exp(-obj.stem_model.stem_data.DistMat_g./obj.nan_pattern_par(1));
+                soglia_nan_p=norminv(1-obj.nan_rate(1)/2,0,1);
+                nanmat_p=exp(-obj.stem_model.stem_data.DistMat_p./obj.nan_pattern_par(1));
             else
-                nanmat_g=[];
+                nanmat_p=[];
             end
-            if not(isempty(obj.stem_model.stem_data.stem_varset_r))&&(not(isempty(obj.nan_rate)))
-                soglia_nan_r=norminv(1-obj.nan_rate(2)/2,0,1);
-                nanmat_r=exp(-obj.stem_model.stem_data.DistMat_r./obj.nan_pattern_par(2));
+            if not(isempty(obj.stem_model.stem_data.stem_varset_b))&&(not(isempty(obj.nan_rate)))
+                soglia_nan_b=norminv(1-obj.nan_rate(2)/2,0,1);
+                nanmat_b=exp(-obj.stem_model.stem_data.DistMat_b./obj.nan_pattern_par(2));
             else
-                nanmat_r=[];
+                nanmat_b=[];
             end
-            nancov_g=[];
-            if not(isempty(nanmat_g))
-                for i=1:obj.stem_model.stem_data.stem_varset_g.nvar
-                    nancov_g=blkdiag(nancov_g,stem_misc.get_block(obj.stem_model.stem_data.stem_varset_g.dim,i,obj.stem_model.stem_data.stem_varset_g.dim,i,nanmat_g));
+            nancov_p=[];
+            if not(isempty(nanmat_p))
+                for i=1:obj.stem_model.stem_data.stem_varset_p.nvar
+                    nancov_p=blkdiag(nancov_p,stem_misc.get_block(obj.stem_model.stem_data.stem_varset_p.dim,i,obj.stem_model.stem_data.stem_varset_p.dim,i,nanmat_p));
                 end
             end
-            nancov_r=[];
-            if not(isempty(nanmat_r))
-                for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
-                    nancov_r=blkdiag(nancov_r,stem_misc.get_block(obj.stem_model.stem_data.stem_varset_r.dim,i,obj.stem_model.stem_data.stem_varset_r.dim,i,nanmat_r));
+            nancov_b=[];
+            if not(isempty(nanmat_b))
+                for i=1:obj.stem_model.stem_data.stem_varset_b.nvar
+                    nancov_b=blkdiag(nancov_b,stem_misc.get_block(obj.stem_model.stem_data.stem_varset_b.dim,i,obj.stem_model.stem_data.stem_varset_b.dim,i,nanmat_b));
                 end
             end            
             
-            [sigma_eps,sigma_W_r,sigma_W_g,~,~,j_rg,j_g] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,~,~,j_bp,j_p] = obj.stem_model.get_sigma();
 
             if obj.stem_model.stem_par.p>0
                 mu0=zeros(obj.stem_model.stem_par.p,1);
@@ -97,25 +97,25 @@ classdef stem_sim < handle
             end
             
             Y=zeros(N,T);
-            if not(isempty(obj.stem_model.stem_data.stem_varset_r))
-                if not(isempty(obj.stem_model.stem_data.stem_varset_r.X_rg))
-                    W_r=mvnrnd(zeros(obj.stem_model.stem_data.stem_varset_r.N,1),sigma_W_r,T)';
+            if not(isempty(obj.stem_model.stem_data.stem_varset_b))
+                if not(isempty(obj.stem_model.stem_data.stem_varset_b.X_bp))
+                    W_b=mvnrnd(zeros(obj.stem_model.stem_data.stem_varset_b.N,1),sigma_W_b,T)';
                 end
             end
             if obj.stem_model.stem_par.k>0
-                W_g=zeros(obj.stem_model.stem_data.stem_varset_g.N,T,obj.stem_model.stem_par.k);
+                W_p=zeros(obj.stem_model.stem_data.stem_varset_p.N,T,obj.stem_model.stem_par.k);
                 for k=1:obj.stem_model.stem_par.k
-                    W_g(:,:,k)=mvnrnd(zeros(obj.stem_model.stem_data.stem_varset_g.N,1),sigma_W_g{k},T)';
+                    W_p(:,:,k)=mvnrnd(zeros(obj.stem_model.stem_data.stem_varset_p.N,1),sigma_W_p{k},T)';
                 end
             end
             W_eps=mvnrnd(zeros(N,1),sigma_eps,T)';
             
             for t=1:T
-                if not(isempty(obj.stem_model.stem_data.X_rg))
-                    if obj.stem_model.stem_data.X_rg_tv
-                        Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(W_r(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_rg(:,1,t),'l'),j_rg,'l');
+                if not(isempty(obj.stem_model.stem_data.X_bp))
+                    if obj.stem_model.stem_data.X_bp_tv
+                        Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(W_b(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_bp(:,1,t),'l'),j_bp,'l');
                     else
-                        Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(W_r(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_rg(:,1,1),'l'),j_rg,'l');
+                        Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(W_b(:,t),obj.stem_model.stem_data.M,'l'),obj.stem_model.stem_data.X_bp(:,1,1),'l'),j_bp,'l');
                     end
                 end
                 if not(isempty(obj.stem_model.stem_data.X_beta))
@@ -132,49 +132,49 @@ classdef stem_sim < handle
                         Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z(:,:,1)*Z(:,t);
                     end
                 end      
-                if not(isempty(obj.stem_model.stem_data.X_g))
-                    if obj.stem_model.stem_data.X_g_tv
+                if not(isempty(obj.stem_model.stem_data.X_p))
+                    if obj.stem_model.stem_data.X_p_tv
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_g(:,t,k),obj.stem_model.stem_data.X_g(:,1,t,k),'l'),j_g(:,k),'l');
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p(:,1,t,k),'l'),j_p(:,k),'l');
                         end
                     else
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_g(:,t,k),obj.stem_model.stem_data.X_g(:,1,1,k),'l'),j_g(:,k),'l');    
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p(:,1,1,k),'l'),j_p(:,k),'l');    
                         end
                     end
                 end
                 Y(:,t)=Y(:,t)+W_eps(:,t);
 
-                if not(isempty(nancov_g)&&isempty(nancov_r))
-                    nanfill_g=mvnrnd(zeros(size(nancov_g,1),1),nancov_g);
-                    nanfill_g(abs(nanfill_g)>=soglia_nan_g)=NaN;
-                    nanfill_g(abs(nanfill_g)<soglia_nan_g)=1;
-                    if not(isempty(nancov_r))
-                        nanfill_r=mvnrnd(zeros(size(nancov_r,1),1),nancov_r);
-                        nanfill_r(abs(nanfill_r)>=soglia_nan_r)=NaN;
-                        nanfill_r(abs(nanfill_r)<soglia_nan_r)=1;
+                if not(isempty(nancov_p)&&isempty(nancov_b))
+                    nanfill_p=mvnrnd(zeros(size(nancov_p,1),1),nancov_p);
+                    nanfill_p(abs(nanfill_p)>=soglia_nan_p)=NaN;
+                    nanfill_p(abs(nanfill_p)<soglia_nan_p)=1;
+                    if not(isempty(nancov_b))
+                        nanfill_b=mvnrnd(zeros(size(nancov_b,1),1),nancov_b);
+                        nanfill_b(abs(nanfill_b)>=soglia_nan_b)=NaN;
+                        nanfill_b(abs(nanfill_b)<soglia_nan_b)=1;
                     else
-                        nanfill_r=[];
+                        nanfill_b=[];
                     end
-                    nanfill=[nanfill_g,nanfill_r];
+                    nanfill=[nanfill_p,nanfill_b];
                     Y(:,t)=Y(:,t).*nanfill';
                 end
             end
 
-            blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_g.dim)];
+            blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_p.dim)];
             Y_temp=[];
-            for i=1:obj.stem_model.stem_data.stem_varset_g.nvar
+            for i=1:obj.stem_model.stem_data.stem_varset_p.nvar
                 Y_temp{i}=Y(blocks(i)+1:blocks(i+1),:);
             end
-            obj.stem_model.stem_data.stem_varset_g.Y=Y_temp;
-            if not(isempty(obj.stem_model.stem_data.stem_varset_r))
+            obj.stem_model.stem_data.stem_varset_p.Y=Y_temp;
+            if not(isempty(obj.stem_model.stem_data.stem_varset_b))
                 temp=max(blocks);
-                blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_r.dim)]+temp;
+                blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_b.dim)]+temp;
                 Y_temp=[];
-                for i=1:obj.stem_model.stem_data.stem_varset_r.nvar
+                for i=1:obj.stem_model.stem_data.stem_varset_b.nvar
                     Y_temp{i}=Y(blocks(i)+1:blocks(i+1),:);
                 end
-                obj.stem_model.stem_data.stem_varset_r.Y=Y_temp;                
+                obj.stem_model.stem_data.stem_varset_b.Y=Y_temp;                
             end
             obj.stem_model.stem_data.update_data();
             obj.stem_model.stem_data.simulated=1;
@@ -185,7 +185,7 @@ classdef stem_sim < handle
         %Class set methods
         function set.nan_rate(obj,nan_rate)
             if not(isempty(nan_rate))
-                if not(isempty(obj.stem_model.stem_data.stem_varset_r))
+                if not(isempty(obj.stem_model.stem_data.stem_varset_b))
                     if not(length(nan_rate)==2)
                         error('nan_rate must be a 2x1 vector');
                     end
@@ -208,7 +208,7 @@ classdef stem_sim < handle
         
         function set.nan_pattern_par(obj,nan_pattern_par)
             if not(isempty(nan_pattern_par))
-                if not(isempty(obj.stem_model.stem_data.stem_varset_r))
+                if not(isempty(obj.stem_model.stem_data.stem_varset_b))
                     if not(length(nan_pattern_par)==2)
                         error('nan_pattern_par must be a 2x1 vector');
                     end

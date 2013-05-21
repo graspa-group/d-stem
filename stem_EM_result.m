@@ -12,9 +12,9 @@
 
 classdef stem_EM_result < handle
     
-    %N_g = n1_g+...+nq_g - total number of point sites
-    %N_r = n1_r+...+nq_r - total number of pixel sites
-    %N   = N_g+N_r - total number of observation sites
+    %N_p = n1_p+...+nq_p - total number of point sites
+    %N_b = n1_b+...+nq_b - total number of pixel sites
+    %N   = N_p+N_b - total number of observation sites
     %T   - number of temporal steps
     %H   - total number of scalar model parameters
     %I   - number of EM iterations at convergence 
@@ -29,10 +29,10 @@ classdef stem_EM_result < handle
         y_back=[];                      %[double]           (NxT) Backtransformed original variable data
         res=[];                         %[double]           (NxT) Model residuals
         res_back=[];                    %[double]           (NxT) Backtransformed model residuals
-        E_wg_y1=[];                     %[double]           (N_gxTxK) E[wg|Y(1)]
-        E_wr_y1=[];                     %[double]           (N_gxTxK) E[wg_k|Y(1)]
-        diag_Var_wg_y1=[];              %[double]           (N_gxTxK) diagonals of Var[wg|Y(1)]
-        diag_Var_wr_y1=[];              %[double]           (N_rxT)   diagonals of Var[wr|Y(1)]
+        E_wp_y1=[];                     %[double]           (N_pxTxK) E[wp|Y(1)]
+        E_wb_y1=[];                     %[double]           (N_pxTxK) E[wp_k|Y(1)]
+        diag_Var_wp_y1=[];              %[double]           (N_pxTxK) diagonals of Var[wp|Y(1)]
+        diag_Var_wb_y1=[];              %[double]           (N_bxT)   diagonals of Var[wb|Y(1)]
         
         logL=[];                        %[double]           (1x1) observed-data log-likelihood at convergence
         logL_all=[];                    %[double]           (Ix1) observed-data log-likelihood at all EM iterations

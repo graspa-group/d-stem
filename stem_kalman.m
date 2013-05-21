@@ -12,10 +12,10 @@
 classdef stem_kalman < handle
     
     %CONSTANTS
-    %N   = n1_g+...+nq_g+n1_r+...+nq_r - total number of observation sites
-    %N_g = n1_g+...+nq_g - total number of point sites
-    %N_r = n1_r+...+nq_r - total number of pixel sites
-    %N_b = n1_b+...+nq_b+n1_r+...+nq_r - total number of covariates
+    %N   = n1_p+...+nq_p+n1_b+...+nq_b - total number of observation sites
+    %N_p = n1_p+...+nq_p - total number of point sites
+    %N_b = n1_b+...+nq_b - total number of pixel sites
+    %N_b = n1_b+...+nq_b+n1_b+...+nq_b - total number of covariates
     %T   - number of temporal steps
     %TT = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant    
     
@@ -40,7 +40,7 @@ classdef stem_kalman < handle
             end
         end
         
-        function [st_kalmanfilter_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+        function [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,aj_bp,aj_p,M,sigma_geo] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
             %DESCRIPTION: Kalman filter front-end method
             %
             %INPUT
@@ -54,12 +54,12 @@ classdef stem_kalman < handle
             %OUTPUT
             %st_kalmanfilter_result         - [stem_kalmanfilter_result object] (1x1)     
             %sigma_eps                      - [double]                          (NxN) the sigma_eps matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %sigma_W_r                      - [double]                          (N_rxN_r) sigma_W_r matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %sigma_W_g                      - [double]                          {k}(N_gx_Ng) the sigma_W_g matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_b                      - [double]                          (N_bxN_b) sigma_W_b matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_p                      - [double]                          {k}(N_px_Ng) the sigma_W_p matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_Z                        - [double]                          (pxp) the sigma_Z matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %aj_rg                          - [double]                          (Nx1) the aj_rg vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %aj_g                           - [double]                          (Nx1) the aj_g vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %M                              - [integer >0]                      (N_gx1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_bp                          - [double]                          (Nx1) the aj_bp vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_p                           - [double]                          (Nx1) the aj_p vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %M                              - [integer >0]                      (N_px1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_geo                      - [double]                          (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             
             if nargin<2
@@ -85,13 +85,13 @@ classdef stem_kalman < handle
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;            
             
-            [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,aj_bp,aj_p,M] = obj.stem_model.get_sigma();
             
             tapering=obj.stem_model.tapering;            
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_rg,data.X_beta,data.X_z,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,par.beta,par.G,par.sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_rg,data.X_beta,data.X_z,data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,par.beta,par.G,par.sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
             end
             st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL);
             
@@ -99,7 +99,7 @@ classdef stem_kalman < handle
             disp(['    Kalman filter ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
-        function [st_kalmansmoother_result,sigma_eps,sigma_W_r,sigma_W_g,sigma_Z,aj_rg,aj_g,M,sigma_geo] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+        function [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,aj_bp,aj_p,M,sigma_geo] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
             %DESCRIPTION: Kalman smoother front-end method
             %
             %INPUT
@@ -113,12 +113,12 @@ classdef stem_kalman < handle
             %OUTPUT
             %st_kalmansmoother_result       - [stem_kalmansmoother_result object] (1x1)     
             %sigma_eps                      - [double]                            (NxN) the sigma_eps matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %sigma_W_r                      - [double]                            (N_rxN_r) sigma_W_r matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %sigma_W_g                      - [double]                            {K}(N_gxN_g) the sigma_W_g matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_b                      - [double]                            (N_bxN_b) sigma_W_b matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_W_p                      - [double]                            {K}(N_pxN_p) the sigma_W_p matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_Z                        - [double]                            (pxp) the sigma_Z matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %aj_rg                          - [double]                            (Nx1) the aj_rg vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %aj_g                           - [double]                            (Nx1) the aj_g vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %M                              - [integer >0]                        (N_gx1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_bp                          - [double]                            (Nx1) the aj_bp vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_p                           - [double]                            (Nx1) the aj_p vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %M                              - [integer >0]                        (N_px1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_geo                      - [double]                            (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
               
             if nargin<2
@@ -143,12 +143,12 @@ classdef stem_kalman < handle
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
-            [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,aj_bp,aj_p,M] = obj.stem_model.get_sigma();
             
             tapering=obj.stem_model.tapering;
-            [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_rg,data.X_beta,data.X_z,...
-                data.X_g,par.beta,par.G,par.sigma_eta,sigma_W_r,...
-                sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,...
+            [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_bp,data.X_beta,data.X_z,...
+                data.X_p,par.beta,par.G,par.sigma_eta,sigma_W_b,...
+                sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,...
                 time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
             st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
             ct2=clock;
@@ -158,26 +158,26 @@ classdef stem_kalman < handle
     
     methods (Static)
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_rg,X_beta,X_z,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation)
             %DESCRIPTION: Kalman filter implementation
             %
             %INPUT
             %
             %Y                              - [double]     (NxT)      the full observation matrix
-            %X_rg                           - [double]     (Nx1xTT)   the full X_rg matrix
+            %X_bp                           - [double]     (Nx1xTT)   the full X_bp matrix
             %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
-            %X_z                         - [double]     (NxpxTT)   the full X_z matrix
-            %X_g                            - [double]     (Nx1xTTxK) the full X_g matrix
+            %X_z                            - [double]     (NxpxTT)   the full X_z matrix
+            %X_p                            - [double]     (Nx1xTTxK) the full X_p matrix
             %beta                           - [double]     (N_bx1)    the beta model parameter
             %G                              - [double]     (pxp)      the G model parameter
             %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
-            %sigma_W_r                      - [double]     (N_rxN_r)  variance-covariance matrix of W_r
-            %sigma_W_g                      - [double]     {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
+            %sigma_W_b                      - [double]     (N_bxN_b)  variance-covariance matrix of W_b
+            %sigma_W_p                      - [double]     {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
             %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
             %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
-            %aj_rg                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %aj_g                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %M                              - [integer >0] (N_gx1)    see the details of the method update_M of the class stem_data            
+            %aj_bp                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %aj_p                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_px1)    see the details of the method update_M of the class stem_data            
             %z0                             - [double]     (px1)      the value of z at time t=0
             %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
             %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
@@ -261,32 +261,32 @@ classdef stem_kalman < handle
                 end
                 
                 if compute_sigma_geo
-                    if not(isempty(X_rg))
+                    if not(isempty(X_bp))
                         sigma_geo=zeros(N);
-                        if size(X_rg,3)>1
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
+                        if size(X_bp,3)>1
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp(:,1,t-1),'b'),aj_bp,'b');
                         else
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp(:,1,1),'b'),aj_bp,'b');
                         end
                     end
 
-                    if not(isempty(X_g))
-                        if isempty(X_rg)
+                    if not(isempty(X_p))
+                        if isempty(X_bp)
                             if tapering
-                                sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
+                                sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
                                 sigma_geo=zeros(N);
                             end
                         end                        
-                        for k=1:size(X_g,4)
-                            if size(X_g,3)>1
-                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
+                        for k=1:size(X_p,4)
+                            if size(X_p,3)>1
+                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p(:,1,t-1,k),'b'),aj_p(:,k),'b');
                             else
-                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p(:,1,1,k),'b'),aj_p(:,k),'b');
                             end
                         end
                     end
-                    if isempty(X_g)&&isempty(X_rg)
+                    if isempty(X_p)&&isempty(X_bp)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
@@ -431,26 +431,26 @@ classdef stem_kalman < handle
             end
         end
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter_parallel(Y,X_rg,X_beta,X_z,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
             %DESCRIPTION: distributed Kalman filter implementation
             %
             %INPUT
             %
             %Y                              - [double]     (NxT)      the full observation matrix
-            %X_rg                           - [double]     (Nx1xTT)   the full X_rg matrix
+            %X_bp                           - [double]     (Nx1xTT)   the full X_bp matrix
             %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
-            %X_z                         - [double]     (NxpxTT)   the full X_z matrix
-            %X_g                            - [double]     (Nx1xTTxK) the full X_g matrix
+            %X_z                            - [double]     (NxpxTT)   the full X_z matrix
+            %X_p                            - [double]     (Nx1xTTxK) the full X_p matrix
             %beta                           - [double]     (N_bx1)    the beta model parameter
             %G                              - [double]     (pxp)      the G model parameter
             %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
-            %sigma_W_r                      - [double]     (N_rxN_r)  variance-covariance matrix of W_r
-            %sigma_W_g                      - [double]     {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
+            %sigma_W_b                      - [double]     (N_bxN_b)  variance-covariance matrix of W_b
+            %sigma_W_p                      - [double]     {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
             %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
             %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
-            %aj_rg                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %aj_g                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %M                              - [integer >0] (N_gx1)    see the details of the method update_M of the class stem_data            
+            %aj_bp                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %aj_p                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_px1)    see the details of the method update_M of the class stem_data            
             %z0                             - [double]     (px1)      the value of z at time t=0
             %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
             %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
@@ -548,32 +548,32 @@ classdef stem_kalman < handle
                     end
                     
                     if compute_sigma_geo
-                        if not(isempty(X_rg))
+                        if not(isempty(X_bp))
                             sigma_geo=zeros(N);
-                            if size(X_rg,3)>1
-                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
+                            if size(X_bp,3)>1
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp(:,1,t-1),'b'),aj_bp,'b');
                             else
-                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp(:,1,1),'b'),aj_bp,'b');
                             end
                         end
                         
-                        if not(isempty(X_g))
-                            if isempty(X_rg)
+                        if not(isempty(X_p))
+                            if isempty(X_bp)
                                 if tapering
-                                    sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
+                                    sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                                 else
                                     sigma_geo=zeros(N);
                                 end
                             end
-                            for k=1:size(X_g,4)
-                                if size(X_g,3)>1
-                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
+                            for k=1:size(X_p,4)
+                                if size(X_p,3)>1
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p(:,1,t-1,k),'b'),aj_p(:,k),'b');
                                 else
-                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p(:,1,1,k),'b'),aj_p(:,k),'b');
                                 end
                             end
                         end
-                        if isempty(X_g)&&isempty(X_rg)
+                        if isempty(X_p)&&isempty(X_bp)
                             sigma_geo=sigma_eps;
                         else
                             sigma_geo=sigma_geo+sigma_eps;
@@ -786,32 +786,32 @@ classdef stem_kalman < handle
                         tK=t;
                     end
                     if compute_sigma_geo
-                        if not(isempty(X_rg))
+                        if not(isempty(X_bp))
                             sigma_geo=zeros(N);
-                            if size(X_rg,3)>1
-                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,t-1),'b'),aj_rg,'b');
+                            if size(X_bp,3)>1
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp(:,1,t-1),'b'),aj_bp,'b');
                             else
-                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),X_rg(:,1,1),'b'),aj_rg,'b');
+                                sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp(:,1,1),'b'),aj_bp,'b');
                             end
                         end
                         
-                        if not(isempty(X_g))
-                            if isempty(X_rg)
+                        if not(isempty(X_p))
+                            if isempty(X_bp)
                                 if tapering
-                                    sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
+                                    sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                                 else
                                     sigma_geo=zeros(N);
                                 end
                             end
-                            for k=1:size(X_g,4)
-                                if size(X_g,3)>1
-                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,t-1,k),'b'),aj_g(:,k),'b');
+                            for k=1:size(X_p,4)
+                                if size(X_p,3)>1
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p(:,1,t-1,k),'b'),aj_p(:,k),'b');
                                 else
-                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},X_g(:,1,1,k),'b'),aj_g(:,k),'b');
+                                    sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p(:,1,1,k),'b'),aj_p(:,k),'b');
                                 end
                             end
                         end
-                        if isempty(X_g)&&isempty(X_rg)
+                        if isempty(X_p)&&isempty(X_bp)
                             sigma_geo=sigma_eps;
                         else
                             sigma_geo=sigma_geo+sigma_eps;
@@ -859,26 +859,26 @@ classdef stem_kalman < handle
             end
         end
         
-        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_rg,X_beta,X_z,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
+        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
             %DESCRIPTION: distributed Kalman filter implementation
             %
             %INPUT
             %
             %Y                              - [double]     (NxT)      the full observation matrix
-            %X_rg                           - [double]     (Nx1xTT)   the full X_rg matrix
+            %X_bp                           - [double]     (Nx1xTT)   the full X_bp matrix
             %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
-            %X_z                         - [double]     (NxpxTT)   the full X_z matrix
-            %X_g                            - [double]     (Nx1xTTxK) the full X_g matrix
+            %X_z                            - [double]     (NxpxTT)   the full X_z matrix
+            %X_p                            - [double]     (Nx1xTTxK) the full X_p matrix
             %beta                           - [double]     (N_bx1)    the beta model parameter
             %G                              - [double]     (pxp)      the G model parameter
             %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
-            %sigma_W_r                      - [double]     (N_rxN_r)  variance-covariance matrix of W_r
-            %sigma_W_g                      - [double]     {K}(N_gxN_g) variance-covariance matrices of the K W_g_i
+            %sigma_W_b                      - [double]     (N_bxN_b)  variance-covariance matrix of W_b
+            %sigma_W_p                      - [double]     {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
             %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
             %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
-            %aj_rg                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %aj_g                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %M                              - [integer >0] (N_gx1)    see the details of the method update_M of the class stem_data            
+            %aj_bp                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %aj_p                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_px1)    see the details of the method update_M of the class stem_data            
             %z0                             - [double]     (px1)      the value of z at time t=0
             %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
             %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
@@ -895,9 +895,9 @@ classdef stem_kalman < handle
             %logL                           - [double]     (1x1)      observed-data log-likelihood
         
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_rg,X_beta,X_z,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter_parallel(Y,X_rg,X_beta,X_z,X_g,beta,G,sigma_eta,sigma_W_r,sigma_W_g,sigma_eps,sigma_geo,aj_rg,aj_g,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
             end
             
             p=size(G,1);
@@ -930,4 +930,3 @@ classdef stem_kalman < handle
         end
     end
 end
-

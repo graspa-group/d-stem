@@ -23,8 +23,8 @@ classdef stem_krig_result < handle
         
         y_hat=[];               %[double]                (NNxT)   the kriging result  
         diag_Var_y_hat=[];      %[double]                (NNxT)   the variance of the kriging result (only the variance and no covariance)
-        E_wg_y1=[];             %[double]                (NNxTxK) the estimated latent variable w_g 
-        diag_Var_wg_y1=[];      %[double]                (NNxTxK) the variance of the estimated latent variable w_g 
+        E_wp_y1=[];             %[double]                (NNxTxK) the estimated latent variable w_g 
+        diag_Var_wp_y1=[];      %[double]                (NNxTxK) the variance of the estimated latent variable w_g 
     end
     
     methods

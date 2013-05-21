@@ -27,12 +27,12 @@ classdef stem_par
         
         %estimated parameters
         beta=[];                            %[double]     (N_bx1) beta parameters
-        alpha_rg=[];                        %[double]     (2qx1) alpha pixel/point parameters
-        alpha_g=[];                         %[double]     (qx1) alpha point parameters;
-        theta_r=[];                         %[double >0]  (q|1x1) coregionalization theta parameter for the pixel sensing variables
-        theta_g=[];                         %[double >0]  (Kx1) coregionalization theta parameters for the point level variables
-        v_r=[];                             %[double]     (qxq) correlation matrix for the pixel sensing variables
-        v_g=[];                             %[double]     (qxqxK) correlation matrices for the point level variables
+        alpha_bp=[];                        %[double]     (2qx1) alpha pixel/point parameters
+        alpha_p=[];                         %[double]     (qx1) alpha point parameters;
+        theta_b=[];                         %[double >0]  (q|1x1) coregionalization theta parameter for the pixel sensing variables
+        theta_p=[];                         %[double >0]  (Kx1) coregionalization theta parameters for the point level variables
+        v_b=[];                             %[double]     (qxq) correlation matrix for the pixel sensing variables
+        v_p=[];                             %[double]     (qxqxK) correlation matrices for the point level variables
         G=[];                               %[double]     (pxp) transition matrix of the temporal component
         sigma_eta=[];                       %[double]     (pxp) error variance-covariance matrix of the temporal component
         sigma_eps=[];                       %[double]     (qxq|2qx2q) measurement-error variance-covariance matrix
@@ -62,19 +62,19 @@ classdef stem_par
             end
             
             %q
-            obj.q=length(stem_data.stem_varset_g.dim);
+            obj.q=length(stem_data.stem_varset_p.dim);
             
             %p
             tot=0;
-            if not(isempty(stem_data.stem_varset_g.X_z))
-                for i=1:length(stem_data.stem_varset_g.dim)
-                    tot=tot+size(stem_data.stem_varset_g.X_z{i},2);
+            if not(isempty(stem_data.stem_varset_p.X_z))
+                for i=1:length(stem_data.stem_varset_p.dim)
+                    tot=tot+size(stem_data.stem_varset_p.X_z{i},2);
                 end
             end
-            if not(isempty(stem_data.stem_varset_r))
-                if not(isempty(stem_data.stem_varset_r.X_z))
-                    for i=1:length(stem_data.stem_varset_r.dim)
-                        tot=tot+size(stem_data.stem_varset_r.X_z{i},2);
+            if not(isempty(stem_data.stem_varset_b))
+                if not(isempty(stem_data.stem_varset_b.X_z))
+                    for i=1:length(stem_data.stem_varset_b.dim)
+                        tot=tot+size(stem_data.stem_varset_b.X_z{i},2);
                     end
                 end
             end
@@ -85,15 +85,15 @@ classdef stem_par
             
             %n_beta
             tot=0;
-            if not(isempty(stem_data.stem_varset_g.X_beta))
-                for i=1:length(stem_data.stem_varset_g.dim)
-                    tot=tot+size(stem_data.stem_varset_g.X_beta{i},2);
+            if not(isempty(stem_data.stem_varset_p.X_beta))
+                for i=1:length(stem_data.stem_varset_p.dim)
+                    tot=tot+size(stem_data.stem_varset_p.X_beta{i},2);
                 end
             end
-            if not(isempty(stem_data.stem_varset_r))
-                if not(isempty(stem_data.stem_varset_r.X_beta))
-                    for i=1:length(stem_data.stem_varset_r.dim)
-                        tot=tot+size(stem_data.stem_varset_r.X_beta{i},2);
+            if not(isempty(stem_data.stem_varset_b))
+                if not(isempty(stem_data.stem_varset_b.X_beta))
+                    for i=1:length(stem_data.stem_varset_b.dim)
+                        tot=tot+size(stem_data.stem_varset_b.X_beta{i},2);
                     end
                 end
             end
@@ -103,11 +103,11 @@ classdef stem_par
             end            
             
             %k
-            if isempty(stem_data.stem_varset_g.X_g)
+            if isempty(stem_data.stem_varset_p.X_p)
                 obj.k=0;
                 disp('No geostatistical point level component considered');
             else
-                obj.k=size(stem_data.stem_varset_g.X_g{1},4);
+                obj.k=size(stem_data.stem_varset_p.X_p{1},4);
             end
             
             %correlation type
@@ -126,7 +126,7 @@ classdef stem_par
             
             if nargin>=3
                 if not(isempty(pixel_correlated))
-                    if isempty(stem_data.stem_varset_r)
+                    if isempty(stem_data.stem_varset_b)
                         disp('WARNING: Pixel data are not provided. The pixel_correlated input argument is ignored');
                     else
                         obj.pixel_correlated=pixel_correlated;
@@ -150,10 +150,10 @@ classdef stem_par
                         if obj.q>1
                             error('The clustering option is only available in the univariate case (q=1)');
                         end
-                        if not(isempty(stem_data.stem_varset_r))
+                        if not(isempty(stem_data.stem_varset_b))
                             error('The clustering option is only available for point level data');
                         end
-                        if isempty(stem_data.stem_varset_g.X_z)
+                        if isempty(stem_data.stem_varset_p.X_z)
                             error('X_z must be provided when the clustering option is enabled');
                         end
                     end
@@ -176,38 +176,38 @@ classdef stem_par
             if obj.n_beta>0
                 obj.beta=zeros(obj.n_beta,1);
             end
-            if not(isempty(stem_data.stem_varset_r))
-                obj.alpha_rg=zeros(obj.q*2,1);
+            if not(isempty(stem_data.stem_varset_b))
+                obj.alpha_bp=zeros(obj.q*2,1);
                 obj.sigma_eps=zeros(obj.q*2);
                 if strcmp(obj.correlation_type,'exponential') && obj.pixel_correlated
-                    obj.theta_r=0;
+                    obj.theta_b=0;
                 end
                 if strcmp(obj.correlation_type,'matern') && obj.pixel_correlated
-                    obj.theta_r=zeros(1,2);
+                    obj.theta_b=zeros(1,2);
                 end
                 if strcmp(obj.correlation_type,'exponential') && not(obj.pixel_correlated)
-                    obj.theta_r=zeros(obj.q,1);
+                    obj.theta_b=zeros(obj.q,1);
                 end                
                 if strcmp(obj.correlation_type,'matern') && not(obj.pixel_correlated)
-                    obj.theta_r=zeros(obj.q,2);
+                    obj.theta_b=zeros(obj.q,2);
                 end 
-                obj.v_r=eye(obj.q);
+                obj.v_b=eye(obj.q);
             else
                 obj.sigma_eps=zeros(obj.q);
             end
             
             if obj.k>0
-                obj.alpha_g=zeros(obj.q,obj.k);
+                obj.alpha_p=zeros(obj.q,obj.k);
                 if strcmp(obj.correlation_type,'exponential')
-                    obj.theta_g=zeros(obj.k,1);
+                    obj.theta_p=zeros(obj.k,1);
                 else
-                    obj.theta_g=zeros(obj.k,2);
+                    obj.theta_p=zeros(obj.k,2);
                 end
                 
                 for i=1:obj.k
-                    v_g(:,:,i)=eye(obj.q);
+                    v_p(:,:,i)=eye(obj.q);
                 end
-                obj.v_g=v_g;
+                obj.v_p=v_p;
             end
             if obj.p>0
                 obj.G=zeros(obj.p);
@@ -228,24 +228,24 @@ classdef stem_par
             all_par=[all_par; obj.beta];
             all_par=[all_par; diag(obj.sigma_eps)];
 
-            all_par=[all_par; obj.alpha_rg];
+            all_par=[all_par; obj.alpha_bp];
             if strcmp(obj.correlation_type,'exponential')
-                all_par=[all_par; obj.theta_r];
+                all_par=[all_par; obj.theta_b];
             else
-                all_par=[all_par; obj.theta_r(:)];
+                all_par=[all_par; obj.theta_b(:)];
             end
             if obj.pixel_correlated
-                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_r)];
+                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_b)];
             end
 
-            all_par=[all_par; obj.alpha_g(:)];
+            all_par=[all_par; obj.alpha_p(:)];
             if strcmp(obj.correlation_type,'exponential')
-                all_par=[all_par; obj.theta_g];
+                all_par=[all_par; obj.theta_p];
             else
-                all_par=[all_par;obj.theta_g(:)];
+                all_par=[all_par;obj.theta_p(:)];
             end
             for i=1:obj.k
-                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_g(:,:,i))];
+                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_p(:,:,i))];
             end
             
             if obj.p>0
@@ -270,28 +270,28 @@ classdef stem_par
             disp('****************');
             disp('PARAMETER VALUES');
             disp('****************');
-            if not(isempty(obj.alpha_rg))
-                disp(['alpha_rg: ',num2str(obj.alpha_rg')]);
+            if not(isempty(obj.alpha_bp))
+                disp(['alpha_bp: ',num2str(obj.alpha_bp')]);
             end
-            if not(isempty(obj.alpha_g))
-            disp(['alpha_g: ',num2str(obj.alpha_g(:)')]);
+            if not(isempty(obj.alpha_p))
+            disp(['alpha_p: ',num2str(obj.alpha_p(:)')]);
             end
-            if not(isempty(obj.theta_r))
-            disp(['theta_r: ',num2str(obj.theta_r')]);
+            if not(isempty(obj.theta_b))
+            disp(['theta_b: ',num2str(obj.theta_b')]);
             end
-            if not(isempty(obj.theta_g))
-                disp(['theta_g: ',num2str(obj.theta_g')]);
+            if not(isempty(obj.theta_p))
+                disp(['theta_p: ',num2str(obj.theta_p')]);
             end
-            if not(isempty(obj.v_r))
+            if not(isempty(obj.v_b))
                 if (obj.pixel_correlated)&&(obj.q>1)
-                    disp(['v_r: ']);
-                    disp(obj.v_r);
+                    disp(['v_b: ']);
+                    disp(obj.v_b);
                 end
             end
             if obj.q>1
                 for i=1:obj.k
-                    disp(['v_g',num2str(i),': ']);
-                    disp(obj.v_g(:,:,i));
+                    disp(['v_p',num2str(i),': ']);
+                    disp(obj.v_p(:,:,i));
                 end
             end
             if not(isempty(obj.beta))
@@ -327,93 +327,93 @@ classdef stem_par
             obj.beta=beta;
         end
         
-        function obj = set.alpha_rg(obj,alpha_rg)
-            if length(alpha_rg)~=obj.q*2
-                error(['The length of alpha_rg must be equal to ',num2str(2*obj.q)]);
+        function obj = set.alpha_bp(obj,alpha_bp)
+            if length(alpha_bp)~=obj.q*2
+                error(['The length of alpha_bp must be equal to ',num2str(2*obj.q)]);
             end
-            obj.alpha_rg=alpha_rg;
+            obj.alpha_bp=alpha_bp;
         end
         
-        function obj = set.alpha_g(obj,alpha_g)
-            if not(size(alpha_g,1)==obj.q && size(alpha_g,2)==obj.k)
-                error(['alpha_g must be ',num2str(obj.q),'x',num2str(obj.k)]);
+        function obj = set.alpha_p(obj,alpha_p)
+            if not(size(alpha_p,1)==obj.q && size(alpha_p,2)==obj.k)
+                error(['alpha_p must be ',num2str(obj.q),'x',num2str(obj.k)]);
             end
-            obj.alpha_g=alpha_g;
+            obj.alpha_p=alpha_p;
         end        
         
-        function obj = set.theta_r(obj,theta_r)
+        function obj = set.theta_b(obj,theta_b)
             if strcmp(obj.correlation_type,'exponential')
-                if not(obj.pixel_correlated) && not(length(theta_r)==obj.q)
-                    error(['The length of theta_r must be equal to ',num2str(obj.q)]);
+                if not(obj.pixel_correlated) && not(length(theta_b)==obj.q)
+                    error(['The length of theta_b must be equal to ',num2str(obj.q)]);
                 end
-                if obj.pixel_correlated && not(length(theta_r)==1)
-                    error('theta_r must be a scalar');
+                if obj.pixel_correlated && not(length(theta_b)==1)
+                    error('theta_b must be a scalar');
                 end
-                if sum(theta_r<0)>0
-                    error('The element of theta_r cannot be negative');
+                if sum(theta_b<0)>0
+                    error('The element of theta_b cannot be negative');
                 end
             end
             if strcmp(obj.correlation_type,'matern')
-                if not(obj.pixel_correlated) && not(size(theta_r,2)==2) && not(size(theta_r,1)==obj.q*2)
-                    error(['The size of theta_r must be ',num2str(2*obj.q),' x 2']);
+                if not(obj.pixel_correlated) && not(size(theta_b,2)==2) && not(size(theta_b,1)==obj.q*2)
+                    error(['The size of theta_b must be ',num2str(2*obj.q),' x 2']);
                 end
-                if obj.pixel_correlated && not(size(theta_r,2)==2) && not(size(theta_r,1)==1)
-                    error('The size of theta_r must be 1 x 2');
+                if obj.pixel_correlated && not(size(theta_b,2)==2) && not(size(theta_b,1)==1)
+                    error('The size of theta_b must be 1 x 2');
                 end                
             end
-            obj.theta_r=theta_r; 
+            obj.theta_b=theta_b; 
         end
         
-        function obj = set.theta_g(obj,theta_g)
+        function obj = set.theta_p(obj,theta_p)
             if strcmp(obj.correlation_type,'exponential')
-                if not(length(theta_g)==obj.k)
-                    error(['The length of theta_g must be equal to ',num2str(obj.k)]);
+                if not(length(theta_p)==obj.k)
+                    error(['The length of theta_p must be equal to ',num2str(obj.k)]);
                 end
-                if sum(theta_g<0)>0
-                    error('The element of theta_g cannot be negative');
+                if sum(theta_p<0)>0
+                    error('The element of theta_p cannot be negative');
                 end
             end
             if strcmp(obj.correlation_type,'matern')
-                if not(size(theta_g,2)==2) && not(size(theta_g,1)==obj.k)
-                    error(['The size of theta_g must be ',num2str(obj.k),' x 2']);
+                if not(size(theta_p,2)==2) && not(size(theta_p,1)==obj.k)
+                    error(['The size of theta_p must be ',num2str(obj.k),' x 2']);
                 end
             end
-            obj.theta_g=theta_g; 
+            obj.theta_p=theta_p; 
         end        
 
-        function obj = set.v_r(obj,v_r)
-            if not(size(v_r,1)==obj.q)||(size(v_r,2)~=obj.q)
-                error('v_r must be qxq');
+        function obj = set.v_b(obj,v_b)
+            if not(size(v_b,1)==obj.q)||(size(v_b,2)~=obj.q)
+                error('v_b must be qxq');
             end
             if not(obj.pixel_correlated)
-                temp=v_r-eye(size(v_r,1));
+                temp=v_b-eye(size(v_b,1));
                 if sum(temp(:))>0
-                    error('v_r must be the identity matrix since the pixel variables are uncorrelated');
+                    error('v_b must be the identity matrix since the pixel variables are uncorrelated');
                 end
             else
-                if not(sum(diag(v_r-eye(size(v_r,1))))==0)
-                    error('The diagonal elements of v_r must be 1');
+                if not(sum(diag(v_b-eye(size(v_b,1))))==0)
+                    error('The diagonal elements of v_b must be 1');
                 end                
             end
-            if min(eig(v_r))<0
-                error('v_r must be positive definited');
+            if min(eig(v_b))<0
+                error('v_b must be positive definited');
             end
-            obj.v_r=v_r;
+            obj.v_b=v_b;
         end
         
-        function obj = set.v_g(obj,v_g)
-            if not(size(v_g,1)==obj.q)||not(size(v_g,2)==obj.q)||not(size(v_g,3)==obj.k)
-                error(['v_g must be ',num2str(obj.q),'x',num2str(obj.q),'x',num2str(obj.k)]);
+        function obj = set.v_p(obj,v_p)
+            if not(size(v_p,1)==obj.q)||not(size(v_p,2)==obj.q)||not(size(v_p,3)==obj.k)
+                error(['v_p must be ',num2str(obj.q),'x',num2str(obj.q),'x',num2str(obj.k)]);
             end
-            for i=1:size(v_g,3)
-                if not(sum(diag(v_g(:,:,i)-eye(size(v_g,1))))==0)
-                    error('The diagonal elements of each v_g(:,:,i) matrix must be 1');
+            for i=1:size(v_p,3)
+                if not(sum(diag(v_p(:,:,i)-eye(size(v_p,1))))==0)
+                    error('The diagonal elements of each v_p(:,:,i) matrix must be 1');
                 end
-                if min(eig(v_g(:,:,i)))<0
-                    error('Each v_g(:,:,i) matrix must be positive definited');
+                if min(eig(v_p(:,:,i)))<0
+                    error('Each v_p(:,:,i) matrix must be positive definited');
                 end
             end
-            obj.v_g=v_g;
+            obj.v_p=v_p;
         end        
         
         function obj = set.G(obj,G)

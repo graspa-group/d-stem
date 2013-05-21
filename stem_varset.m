@@ -15,7 +15,7 @@ classdef stem_varset < handle
     %ni   - the number of sites for the i-th variable, i=1,...,q
     %ni_b - the number of loading vectors for the i-th variable related to the beta parameter
     %ni_t - the number of loading vectors for the i-th variable related to the latent variable z
-    %K    - the number of loading vectors related to the latent variable w_g
+    %K    - the number of loading vectors related to the latent variable w_p
     %N    - n1+...+nq total number of observation sites for all the variables
     %T - number of temporal steps
     %TT = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
@@ -23,15 +23,15 @@ classdef stem_varset < handle
     
     properties
         Y={};               %[double]   {qx1}(nixT)         observed data 
-        X_rg={};            %[double]   {qx1}(nix1xTT)      loading vectors related to the latent variable w_r 
+        X_bp={};            %[double]   {qx1}(nix1xTT)      loading vectors related to the latent variable w_b 
         X_beta={};          %[double]   {qx1}(nixni_bxTT)   loading vectors related to the beta parameter
         X_z={};             %[double]   {qx1}(nixni_txTT)   loading vectors related to the latent variable z
-        X_g={};             %[double]   {qx1}(nix1xTTxK)    loading vectors related to the latent variable w_g
+        X_p={};             %[double]   {qx1}(nix1xTTxK)    loading vectors related to the latent variable w_p
         Y_name={};          %[string]   {qx1}               variable names
-        X_rg_name={};       %[string]   {qx1}               name of the loading vectors related to the latent variable w_r
+        X_bp_name={};       %[string]   {qx1}               name of the loading vectors related to the latent variable w_b
         X_beta_name={};     %[string]   {qxni_b}            name of the loading vectors related to the beta parameter
         X_z_name={};        %[string]   {qxni_t}            name of the loading vectors related to the latent variable z
-        X_g_name={};        %[string]   {Kx1}               name of the loading vectors related to the latent variable w_g
+        X_p_name={};        %[string]   {Kx1}               name of the loading vectors related to the latent variable w_p
         simulated=0;        %[boolean]  (1x1)               1: the Y data are simulated; 0: the Y data are observed data
     end
     
@@ -41,41 +41,41 @@ classdef stem_varset < handle
         nvar=[];                %[integer >0]      (1x1) total number of variables (q)
         dim=[];                 %[integer]         (qx1) number of time series for each variable
 
-        standardized=0;         %[boolean]         (1x1) 1: Y, X_rg, X_beta, X_z and X_g has been standardized; 0: otherwise
+        standardized=0;         %[boolean]         (1x1) 1: Y, X_bp, X_beta, X_z and X_p has been standardized; 0: otherwise
         log_transformed=0;      %[boolean]         (1x1) 1: Y has been log-transformed using the method log_transform; 0: otherwise
-        X_rg_tv=1;              %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_r are time variant; 0:otherwise
+        X_bp_tv=1;              %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_b are time variant; 0:otherwise
         X_beta_tv=1;            %[boolean]         (1x1) 1: the loading vectors related to the beta parameter are time variant; 0:otherwise
-        X_z_tv=1;            %[boolean]         (1x1) 1: the loading vectors related to the latent variable z are time variant; 0:otherwise
-        X_g_tv=1;               %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_g are time variant; 0:otherwise
+        X_z_tv=1;               %[boolean]         (1x1) 1: the loading vectors related to the latent variable z are time variant; 0:otherwise
+        X_p_tv=1;               %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_p are time variant; 0:otherwise
         
         Y_means={};             %[double]          {qx1} averages of the non-standardized Y
         Y_stds={};              %[double]          {qx1} standard deviations of the non-standardized Y
-        X_rg_means={};          %[double]          {qx1} averages of the non-standardized X_rg
-        X_rg_stds={};           %[double]          {qx1} standard deviations of the non-standardized X_rg
+        X_bp_means={};          %[double]          {qx1} averages of the non-standardized X_bp
+        X_bp_stds={};           %[double]          {qx1} standard deviations of the non-standardized X_bp
         X_beta_means={};        %[double]          {qx1}(ni_bx1) averages of the non-standardized X_beta
         X_beta_stds={};         %[double]          {qx1}(ni_bx1) standard deviations of the non-standardized X_beta
-        X_z_means={};        %[double]          {qx1}(ni_tx1) averages of the non-standardized X_z
-        X_z_stds={};         %[double]          {qx1}(ni_tx1) standard deviations of the non-standardized X_z
-        X_g_means={};           %[double]          (qxK) averages of the non-standardized X_g
-        X_g_stds={};            %[double]          {qx1}(ni_tx1) standard deviations of the non-standardized X_g
+        X_z_means={};           %[double]          {qx1}(ni_tx1) averages of the non-standardized X_z
+        X_z_stds={};            %[double]          {qx1}(ni_tx1) standard deviations of the non-standardized X_z
+        X_p_means={};           %[double]          (qxK) averages of the non-standardized X_p
+        X_p_stds={};            %[double]          {qx1}(ni_tx1) standard deviations of the non-standardized X_p
     end
     
     methods
-        function obj = stem_varset(Y,Y_name,X_rg,X_rg_name,X_beta,X_beta_name,X_z,X_z_name,X_g,X_g_name)
+        function obj = stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name)
             %DESCRIPTION: is the constructor of the class stem_varset
             %
             %INPUT
             %            
             %Y               -  [double]   {qx1}(nixT)         observed data
             %Y_name          -  [string]   {qx1}               variable names
-            %X_rg            -  [double]   {qx1}(nix1xTT)      loading vectors related to the latent variable w_r
-            %X_rg_name       -  [string]   {qx1}               name of the loading vectors related to the latent variable w_r
+            %X_bp            -  [double]   {qx1}(nix1xTT)      loading vectors related to the latent variable w_b
+            %X_bp_name       -  [string]   {qx1}               name of the loading vectors related to the latent variable w_b
             %X_beta          -  [double]   {qx1}(nixni_bxTT)   loading vectors related to the beta parameter
             %X_beta_name     -  [string]   {qxni_b}            name of the loading vectors related to the beta parameter
-            %X_z          -  [double]   {qx1}(nixni_txTT)   loading vectors related to the latent variable z
-            %X_z_name     -  [string]   {qxni_t}            name of the loading vectors related to the latent variable z
-            %X_g             -  [double]   {qx1}(nix1xTTxK)    loading vectors related to the latent variable w_g
-            %X_g_name        -  [string]   {qxK}               name of the loading vectors related to the latent variable w_g
+            %X_z             -  [double]   {qx1}(nixni_txTT)   loading vectors related to the latent variable z
+            %X_z_name        -  [string]   {qxni_t}            name of the loading vectors related to the latent variable z
+            %X_p             -  [double]   {qx1}(nix1xTTxK)    loading vectors related to the latent variable w_p
+            %X_p_name        -  [string]   {qxK}               name of the loading vectors related to the latent variable w_p
             %
             %OUTPUT
             %obj             - [stem_varset object] (1x1) the stem_varset object
@@ -87,9 +87,9 @@ classdef stem_varset < handle
             obj.Y_name=Y_name;
 
             if nargin>=4
-                if not(isempty(X_rg))
-                    obj.X_rg=X_rg;
-                    obj.X_rg_name=X_rg_name;
+                if not(isempty(X_bp))
+                    obj.X_bp=X_bp;
+                    obj.X_bp_name=X_bp_name;
                 end
             end
             if nargin>=6
@@ -105,9 +105,9 @@ classdef stem_varset < handle
                 end
             end      
             if nargin>=10
-                if not(isempty(X_g))
-                    obj.X_g=X_g;
-                    obj.X_g_name=X_g_name;
+                if not(isempty(X_p))
+                    obj.X_p=X_p;
+                    obj.X_p_name=X_p_name;
                 end
             end              
         end
@@ -177,7 +177,7 @@ classdef stem_varset < handle
         end
         
         function standardize(obj)
-            %DESCRIPTION: standardize the matrices Y, X_rg, X_beta, X_z and X_g with respect to their overall mean and overall standard deviation
+            %DESCRIPTION: standardize the matrices Y, X_bp, X_beta, X_z and X_p with respect to their overall mean and overall standard deviation
             %
             %INPUT
             %obj - [stem_varset object] (1x1) the stem_varset object
@@ -193,16 +193,16 @@ classdef stem_varset < handle
                 obj.Y_means{i}=m1;
                 obj.Y_stds{i}=std1;
             end
-            for i=1:length(obj.X_rg)
-                m1=mean(obj.X_rg{i}(:));
-                std1=std(obj.X_rg{i}(:));
+            for i=1:length(obj.X_bp)
+                m1=mean(obj.X_bp{i}(:));
+                std1=std(obj.X_bp{i}(:));
                 if std1==0
                     m1=0;
                     std1=1;
                 end
-                obj.X_rg{i}=(obj.X_rg{i}-m1)/std1;
-                obj.X_rg_means{i}=m1;
-                obj.X_rg_stds{i}=std1;                
+                obj.X_bp{i}=(obj.X_bp{i}-m1)/std1;
+                obj.X_bp_means{i}=m1;
+                obj.X_bp_stds{i}=std1;                
             end
             for i=1:length(obj.X_beta)
                 for j=1:size(obj.X_beta{i},2)
@@ -234,18 +234,18 @@ classdef stem_varset < handle
                 end
             end      
             
-            for i=1:length(obj.X_g)
-                for j=1:size(obj.X_g{i},4)
-                    temp=squeeze(obj.X_g{i}(:,:,:,j));
+            for i=1:length(obj.X_p)
+                for j=1:size(obj.X_p{i},4)
+                    temp=squeeze(obj.X_p{i}(:,:,:,j));
                     m1=mean(temp(:));
                     std1=std(temp(:));
                     if std1==0
                         m1=0;
                         std1=1;
                     end
-                    obj.X_g{i}(:,:,:,j)=(obj.X_g{i}(:,:,:,j)-m1)/std1;
-                    obj.X_g_means{i}(j)=m1;
-                    obj.X_g_stds{i}(j)=std1;
+                    obj.X_p{i}(:,:,:,j)=(obj.X_p{i}(:,:,:,j)-m1)/std1;
+                    obj.X_p_means{i}(j)=m1;
+                    obj.X_p_stds{i}(j)=std1;
                 end
             end               
             obj.standardized=1;
@@ -301,7 +301,7 @@ classdef stem_varset < handle
             end
         end        
         
-        function index = get_X_g_index(obj,name,variable_idx)
+        function index = get_X_p_index(obj,name,variable_idx)
             %DESCRIPTION: returns the index of the variable given its name
             %
             %INPUT
@@ -312,14 +312,14 @@ classdef stem_varset < handle
             %OUTPUT
             %
             %none: the index of the requested loading coefficient    
-            if not(isempty(obj.X_g_name))
-                index=find(strcmp(obj.X_g_name{variable_idx},name));
+            if not(isempty(obj.X_p_name))
+                index=find(strcmp(obj.X_p_name{variable_idx},name));
             else
                 index=[];
             end
         end    
         
-        function index = get_X_rg_index(obj,name,variable_idx)
+        function index = get_X_bp_index(obj,name,variable_idx)
             %DESCRIPTION: returns the index of the variable given its name
             %
             %INPUT
@@ -330,8 +330,8 @@ classdef stem_varset < handle
             %OUTPUT
             %
             %none: the index of the requested loading coefficient    
-            if not(isempty(X_rg_name))
-                index=find(strcmp(obj.X_rg_name{variable_idx},name));
+            if not(isempty(X_bp_name))
+                index=find(strcmp(obj.X_bp_name{variable_idx},name));
             else
                 index=[];
             end
@@ -364,44 +364,44 @@ classdef stem_varset < handle
             obj.Y_name=Y_name;
         end
         
-        function set.X_rg(obj,X_rg)
-            if not(iscell(X_rg))
-                error('X_rg must be a cell array');
+        function set.X_bp(obj,X_bp)
+            if not(iscell(X_bp))
+                error('X_bp must be a cell array');
             end
-            if not(length(X_rg)==length(obj.Y))
-                error('The number of cells of X_rg must be equal to the number of cells of Y');
+            if not(length(X_bp)==length(obj.Y))
+                error('The number of cells of X_bp must be equal to the number of cells of Y');
             end
-            for i=1:length(X_rg)
-                if not(size(X_rg{i},1)==size(obj.Y{i},1))
-                    error('X_rg{i} must have the same number of rows of Y{i}');
+            for i=1:length(X_bp)
+                if not(size(X_bp{i},1)==size(obj.Y{i},1))
+                    error('X_bp{i} must have the same number of rows of Y{i}');
                 end
-                if not(size(X_rg{i},2)==1)
-                    error('Each X_rg{i} must be a single covariate');
+                if not(size(X_bp{i},2)==1)
+                    error('Each X_bp{i} must be a single covariate');
                 end
-                if not(size(X_rg{i},3)==obj.T || size(X_rg{i},3)==1)
-                    error('Each X_rg{i} must have either 1 or T time steps');
+                if not(size(X_bp{i},3)==obj.T || size(X_bp{i},3)==1)
+                    error('Each X_bp{i} must have either 1 or T time steps');
                 end
-                if not(size(X_rg{1},3)==size(X_rg{i},3))
-                    error('All the X_rg{i} must have the same temporal dimension');
+                if not(size(X_bp{1},3)==size(X_bp{i},3))
+                    error('All the X_bp{i} must have the same temporal dimension');
                 end
-                if sum(isnan(X_rg{i}(:)))>0
-                    error('X_rg cannot contain NaN');
+                if sum(isnan(X_bp{i}(:)))>0
+                    error('X_bp cannot contain NaN');
                 end
             end
-            if size(X_rg{i},3)==1
-                obj.X_rg_tv=0;
+            if size(X_bp{i},3)==1
+                obj.X_bp_tv=0;
             end
-            obj.X_rg=X_rg;
+            obj.X_bp=X_bp;
         end  
         
-        function set.X_rg_name(obj,X_rg_name)
-            if not(iscell(X_rg_name))
-                error('X_rg_name must be a cell array');
+        function set.X_bp_name(obj,X_bp_name)
+            if not(iscell(X_bp_name))
+                error('X_bp_name must be a cell array');
             end
-            if not(length(X_rg_name)==length(obj.X_rg))
-                error('The length of X_rg_name must be equal to length of X_rg');
+            if not(length(X_bp_name)==length(obj.X_bp))
+                error('The length of X_bp_name must be equal to length of X_bp');
             end
-            obj.X_rg_name=X_rg_name;
+            obj.X_bp_name=X_bp_name;
         end      
         
         function set.X_beta(obj,X_beta)
@@ -488,52 +488,52 @@ classdef stem_varset < handle
             obj.X_z_name=X_z_name;
         end      
         
-        function set.X_g(obj,X_g)
-            if not(iscell(X_g))
-                error('X_g must be a cell array');
+        function set.X_p(obj,X_p)
+            if not(iscell(X_p))
+                error('X_p must be a cell array');
             end
-            if not(length(X_g)==length(obj.Y))
-                error('The number of cells of X_g must be equal to the number of cells of Y');
+            if not(length(X_p)==length(obj.Y))
+                error('The number of cells of X_p must be equal to the number of cells of Y');
             end
-            for i=1:length(X_g)
-                if not(size(X_g{i},1)==size(obj.Y{i},1))
-                    error('X_g{i} must have the same number of rows of Y{i}');
+            for i=1:length(X_p)
+                if not(size(X_p{i},1)==size(obj.Y{i},1))
+                    error('X_p{i} must have the same number of rows of Y{i}');
                 end
-                if not(size(X_g{i},2)==size(X_g{1},2))
-                    error('Each X_g{i} must have the same number of covariates');
+                if not(size(X_p{i},2)==size(X_p{1},2))
+                    error('Each X_p{i} must have the same number of covariates');
                 end
-                if not(size(X_g{i},3)==obj.T || size(X_g{i},3)==1)
-                    error('Each X_g{i} must have either 1 or T time steps');
+                if not(size(X_p{i},3)==obj.T || size(X_p{i},3)==1)
+                    error('Each X_p{i} must have either 1 or T time steps');
                 end
-                if not(size(X_g{i},3)==size(X_g{1},3))
-                    error('All the X_g{i} must have the same temporal dimension');
+                if not(size(X_p{i},3)==size(X_p{1},3))
+                    error('All the X_p{i} must have the same temporal dimension');
                 end
-                if not(size(X_g{i},4)==size(X_g{1},4))
-                    error('Each X_g{i} must have equal 4th dimension');
+                if not(size(X_p{i},4)==size(X_p{1},4))
+                    error('Each X_p{i} must have equal 4th dimension');
                 end
-                if sum(isnan(X_g{i}(:)))>0
-                    error('X_g cannot contain NaN');
+                if sum(isnan(X_p{i}(:)))>0
+                    error('X_p cannot contain NaN');
                 end                
             end
-            if size(X_g{1},3)==1
-                obj.X_g_tv=0;
+            if size(X_p{1},3)==1
+                obj.X_p_tv=0;
             end
-            obj.X_g=X_g;
+            obj.X_p=X_p;
         end  
         
-        function set.X_g_name(obj,X_g_name)
-            if not(iscell(X_g_name))
-                error('X_g_name must be a cell array');
+        function set.X_p_name(obj,X_p_name)
+            if not(iscell(X_p_name))
+                error('X_p_name must be a cell array');
             end
-            if not(length(X_g_name)==length(obj.X_g))
-                error('The length of X_g_name must be equal to length of X_g');
+            if not(length(X_p_name)==length(obj.X_p))
+                error('The length of X_p_name must be equal to length of X_p');
             end
-            for i=1:length(X_g_name)
-                if not(length(X_g_name{i})==size(obj.X_g{i},4))
-                    error('The length of X_g_name{i} must be equal to k');
+            for i=1:length(X_p_name)
+                if not(length(X_p_name{i})==size(obj.X_p{i},4))
+                    error('The length of X_p_name{i} must be equal to k');
                 end
             end
-            obj.X_g_name=X_g_name;
+            obj.X_p_name=X_p_name;
         end           
         
     end

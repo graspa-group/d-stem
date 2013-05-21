@@ -12,7 +12,7 @@ classdef stem_krig < handle
     
     %CONSTANTS
     %NN  - number of kriging sites
-    %N_b = n1_b+...+nq_b+n1_r+...+nq_r - total number of covariates
+    %N_b = n1_b+...+nq_b+n1_b+...+nq_b - total number of covariates
     %T   - number of temporal steps
     
     properties
@@ -90,7 +90,7 @@ classdef stem_krig < handle
                 error('Not enough input arguments');
             end
             
-            index_var=obj.stem_model.stem_data.stem_varset_g.get_Y_index(variable_name);
+            index_var=obj.stem_model.stem_data.stem_varset_p.get_Y_index(variable_name);
             if isempty(index_var)
                 error('The variable name is incorrect');
             end
@@ -195,46 +195,46 @@ classdef stem_krig < handle
                         end
                         
                         %recover the indices
-                        if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_rg_name))
-                            X_rg_name=obj.stem_model.stem_data.stem_varset_g.X_rg_name{index_var};
-                            if not(isempty(X_rg_name))
-                                idx_rg=[];
-                                for j=1:length(X_rg_name)
-                                    cmp=strcmp(X.name,X_rg_name{j});
+                        if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_bp_name))
+                            X_bp_name=obj.stem_model.stem_data.stem_varset_p.X_bp_name{index_var};
+                            if not(isempty(X_bp_name))
+                                idx_bp=[];
+                                for j=1:length(X_bp_name)
+                                    cmp=strcmp(X.name,X_bp_name{j});
                                     if sum(cmp)==0
                                         error('The block does not include the requested covariates');
                                     else
-                                        idx_rg=[idx_rg,find(cmp,1)];
+                                        idx_bp=[idx_bp,find(cmp,1)];
                                     end
                                 end
                             else
-                                idx_rg=[];
+                                idx_bp=[];
                             end
                         else
-                            idx_rg=[];
+                            idx_bp=[];
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_g_name))
-                            X_g_name=obj.stem_model.stem_data.stem_varset_g.X_g_name{index_var};
-                            if not(isempty(X_g_name))
-                                idx_g=[];
-                                for j=1:length(X_g_name)
-                                    cmp=strcmp(X.name,X_g_name{j});
+                        if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_p_name))
+                            X_p_name=obj.stem_model.stem_data.stem_varset_p.X_p_name{index_var};
+                            if not(isempty(X_p_name))
+                                idx_p=[];
+                                for j=1:length(X_p_name)
+                                    cmp=strcmp(X.name,X_p_name{j});
                                     if sum(cmp)==0
                                         error('The block does not include the requested covariates');
                                     else
-                                        idx_g=[idx_g,find(cmp,1)];
+                                        idx_p=[idx_p,find(cmp,1)];
                                     end
                                 end
                             else
-                                idx_g=[];
+                                idx_p=[];
                             end
                         else
-                            idx_g=[];
+                            idx_p=[];
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_beta_name))
-                            X_beta_name=obj.stem_model.stem_data.stem_varset_g.X_beta_name{index_var};
+                        if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_beta_name))
+                            X_beta_name=obj.stem_model.stem_data.stem_varset_p.X_beta_name{index_var};
                             if not(isempty(X_beta_name))
                                 idx_beta=[];
                                 for j=1:length(X_beta_name)
@@ -252,8 +252,8 @@ classdef stem_krig < handle
                             idx_beta=[];
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_z_name))
-                            X_z_name=obj.stem_model.stem_data.stem_varset_g.X_z_name{index_var};
+                        if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_z_name))
+                            X_z_name=obj.stem_model.stem_data.stem_varset_p.X_z_name{index_var};
                             if not(isempty(X_z_name))
                                 idX_z=[];
                                 for j=1:length(X_z_name)
@@ -295,46 +295,46 @@ classdef stem_krig < handle
                                 idx_datestamp=[idx_datestamp,idx];
                             end
                             
-                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_rg_name))
-                                X_rg_name=obj.stem_model.stem_data.stem_varset_g.X_rg_name{index_var};
-                                if not(isempty(X_rg_name))
-                                    idx_rg=[];
-                                    for j=1:length(X_rg_name)
-                                        cmp=strcmp(block.label,X_rg_name{j});
+                            if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_bp_name))
+                                X_bp_name=obj.stem_model.stem_data.stem_varset_p.X_bp_name{index_var};
+                                if not(isempty(X_bp_name))
+                                    idx_bp=[];
+                                    for j=1:length(X_bp_name)
+                                        cmp=strcmp(block.label,X_bp_name{j});
                                         if sum(cmp)==0
                                             error('The block does not include the requested covariates');
                                         else
-                                            idx_rg=[idx_rg,find(cmp,1)];
+                                            idx_bp=[idx_bp,find(cmp,1)];
                                         end
                                     end
                                 else
-                                    idx_rg=[];
+                                    idx_bp=[];
                                 end
                             else
-                                idx_rg=[];
+                                idx_bp=[];
                             end
                             
-                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_g_name))
-                                X_g_name=obj.stem_model.stem_data.stem_varset_g.X_g_name{index_var};
-                                if not(isempty(X_g_name))
-                                    idx_g=[];
-                                    for j=1:length(X_g_name)
-                                        cmp=strcmp(block.label,X_g_name{j});
+                            if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_p_name))
+                                X_p_name=obj.stem_model.stem_data.stem_varset_p.X_p_name{index_var};
+                                if not(isempty(X_p_name))
+                                    idx_p=[];
+                                    for j=1:length(X_p_name)
+                                        cmp=strcmp(block.label,X_p_name{j});
                                         if sum(cmp)==0
                                             error('The block does not include the requested covariates');
                                         else
-                                            idx_g=[idx_g,find(cmp,1)];
+                                            idx_p=[idx_p,find(cmp,1)];
                                         end
                                     end
                                 else
-                                    idx_g=[];
+                                    idx_p=[];
                                 end
                             else
-                                idx_g=[];
+                                idx_p=[];
                             end
                             
-                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_beta_name))
-                                X_beta_name=obj.stem_model.stem_data.stem_varset_g.X_beta_name{index_var};
+                            if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_beta_name))
+                                X_beta_name=obj.stem_model.stem_data.stem_varset_p.X_beta_name{index_var};
                                 if not(isempty(X_beta_name))
                                     idx_beta=[];
                                     for j=1:length(X_beta_name)
@@ -352,8 +352,8 @@ classdef stem_krig < handle
                                 idx_beta=[];
                             end
                             
-                            if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_z_name))
-                                X_z_name=obj.stem_model.stem_data.stem_varset_g.X_z_name{index_var};
+                            if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_z_name))
+                                X_z_name=obj.stem_model.stem_data.stem_varset_p.X_z_name{index_var};
                                 if not(isempty(X_z_name))
                                     idX_z=[];
                                     for j=1:length(X_z_name)
@@ -396,7 +396,7 @@ classdef stem_krig < handle
                 st_krig_result.diag_Var_y_hat=zeros(size(grid.coordinate,1),obj.stem_model.T);
             end
             if K>0
-                st_krig_result.E_wg_y1=zeros(size(grid.coordinate,1),obj.stem_model.T,K);
+                st_krig_result.E_wp_y1=zeros(size(grid.coordinate,1),obj.stem_model.T,K);
             end
             
             for i=1:length(blocks_krig)-1
@@ -404,11 +404,11 @@ classdef stem_krig < handle
                 disp(['Kriging block ',num2str(i),' of ',num2str(length(blocks_krig)-1)]);
                 block_krig=(blocks_krig(i)+1):blocks_krig(i+1);
                 block_krig_length=length(block_krig);
-                blocks=cumsum(obj.stem_model.stem_data.stem_varset_g.dim);
+                blocks=cumsum(obj.stem_model.stem_data.stem_varset_p.dim);
                 
                 %Y manage
                 Y_add=nan(block_krig_length,obj.stem_model.T);
-                obj.stem_model.stem_data.stem_varset_g.Y{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.Y{index_var},Y_add);
+                obj.stem_model.stem_data.stem_varset_p.Y{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.Y{index_var},Y_add);
                 clear Y_add
                 
                 %X manage
@@ -427,24 +427,24 @@ classdef stem_krig < handle
                             block.lon=grid.coordinate(obj.idx_notnan(block_krig),2);
                         end
                         
-                        if not(isempty(idx_rg))
-                            X_krig_block=block.data(:,idx_rg,:);
-                            if obj.stem_model.stem_data.stem_varset_g.standardized
+                        if not(isempty(idx_bp))
+                            X_krig_block=block.data(:,idx_bp,:);
+                            if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
-                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_g.X_rg_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_g.X_rg_stds{index_var}(j);
+                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_bp_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_p.X_bp_stds{index_var}(j);
                                 end
                             end
-                            if size(obj.stem_model.stem_data.stem_varset_g.X_rg{index_var},3)==1
+                            if size(obj.stem_model.stem_data.stem_varset_p.X_bp{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1);
                             end
-                            obj.stem_model.stem_data.stem_varset_g.X_rg{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_rg{index_var},X_krig_block);
+                            obj.stem_model.stem_data.stem_varset_p.X_bp{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_bp{index_var},X_krig_block);
                         end
                         
-                        if not(isempty(idx_g))
-                            X_krig_block=block.data(:,idx_g,:);
-                            if obj.stem_model.stem_data.stem_varset_g.standardized
+                        if not(isempty(idx_p))
+                            X_krig_block=block.data(:,idx_p,:);
+                            if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
-                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_g.X_g_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_g.X_g_stds{index_var}(j);
+                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_p_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_p.X_p_stds{index_var}(j);
                                 end
                             end
                             temp=[];
@@ -453,36 +453,36 @@ classdef stem_krig < handle
                                 temp=cat(4,temp,temp1);
                             end
                             X_krig_block=temp;
-                            if size(obj.stem_model.stem_data.stem_varset_g.X_g{index_var},3)==1
+                            if size(obj.stem_model.stem_data.stem_varset_p.X_p{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1,:);
                             end
-                            obj.stem_model.stem_data.stem_varset_g.X_g{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_g{index_var},X_krig_block);
+                            obj.stem_model.stem_data.stem_varset_p.X_p{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_p{index_var},X_krig_block);
                         end
                         
                         if not(isempty(idx_beta))
                             X_krig_block=block.data(:,idx_beta,:);
-                            if obj.stem_model.stem_data.stem_varset_g.standardized
+                            if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
-                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_g.X_beta_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_g.X_beta_stds{index_var}(j);
+                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_beta_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_p.X_beta_stds{index_var}(j);
                                 end
                             end
-                            if size(obj.stem_model.stem_data.stem_varset_g.X_beta{index_var},3)==1
+                            if size(obj.stem_model.stem_data.stem_varset_p.X_beta{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1);
                             end
-                            obj.stem_model.stem_data.stem_varset_g.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_beta{index_var},X_krig_block);
+                            obj.stem_model.stem_data.stem_varset_p.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_beta{index_var},X_krig_block);
                         end
                         
                         if not(isempty(idX_z))
                             X_krig_block=block.data(:,idX_z,:);
-                            if obj.stem_model.stem_data.stem_varset_g.standardized
+                            if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
-                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_g.X_z_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_g.X_z_stds{index_var}(j);
+                                    X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_z_means{index_var}(j))/obj.stem_model.stem_data.stem_varset_p.X_z_stds{index_var}(j);
                                 end
                             end
-                            if size(obj.stem_model.stem_data.stem_varset_g.X_z{index_var},3)==1
+                            if size(obj.stem_model.stem_data.stem_varset_p.X_z{index_var},3)==1
                                 X_krig_block=X_krig_block(:,:,1);
                             end
-                            obj.stem_model.stem_data.stem_varset_g.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_z{index_var},X_krig_block);
+                            obj.stem_model.stem_data.stem_varset_p.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_z{index_var},X_krig_block);
                         end
                     end
                 else
@@ -490,81 +490,81 @@ classdef stem_krig < handle
                     block.lat=grid.coordinate(obj.idx_notnan(block_krig),1);
                     block.lon=grid.coordinate(obj.idx_notnan(block_krig),2);
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_rg))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_rg{index_var}(obj.idx_notnan(block_krig),:,:);
-                        obj.stem_model.stem_data.stem_varset_g.X_rg{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_rg{index_var},X_krig_block);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp{index_var}(obj.idx_notnan(block_krig),:,:);
+                        obj.stem_model.stem_data.stem_varset_p.X_bp{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_bp{index_var},X_krig_block);
                     end
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_g))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_g{index_var}(obj.idx_notnan(block_krig),:,:,:);
-                        obj.stem_model.stem_data.stem_varset_g.X_g{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_g{index_var},X_krig_block);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_p))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_p{index_var}(obj.idx_notnan(block_krig),:,:,:);
+                        obj.stem_model.stem_data.stem_varset_p.X_p{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_p{index_var},X_krig_block);
                     end
                     
                     if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta))
                         X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta{index_var}(obj.idx_notnan(block_krig),:,:);
-                        obj.stem_model.stem_data.stem_varset_g.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_beta{index_var},X_krig_block);
+                        obj.stem_model.stem_data.stem_varset_p.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_beta{index_var},X_krig_block);
                     end
                     
                     if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_z))
                         X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_z{index_var}(obj.idx_notnan(block_krig),:,:);
-                        obj.stem_model.stem_data.stem_varset_g.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_g.X_z{index_var},X_krig_block);
+                        obj.stem_model.stem_data.stem_varset_p.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_z{index_var},X_krig_block);
                     end
                 end
                 
                 %Grid manage
-                obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate=cat(1,obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate,[block.lat,block.lon]);
+                obj.stem_model.stem_data.stem_gridlist_p.grid{index_var}.coordinate=cat(1,obj.stem_model.stem_data.stem_gridlist_p.grid{index_var}.coordinate,[block.lat,block.lon]);
                 obj.stem_model.stem_data.update_data();
                 obj.stem_model.stem_data.update_distance('point');
-                if not(isempty(obj.stem_model.stem_data.stem_varset_r))
+                if not(isempty(obj.stem_model.stem_data.stem_varset_b))
                     obj.stem_model.stem_data.update_M();
                 end
                 
                 %kriging
-                [y_hat,diag_Var_y_hat,E_wg_y1,diag_Var_wg_y1]=obj.E_step(no_varcov);
+                [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1]=obj.E_step(no_varcov);
                 st_krig_result.y_hat(obj.idx_notnan(block_krig),:)=y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
                 if not(no_varcov)
                     st_krig_result.diag_Var_y_hat(obj.idx_notnan(block_krig),:)=diag_Var_y_hat(blocks(index_var)+1:blocks(index_var)+block_krig_length,:);
-                    st_krig_result.diag_Var_wg_y1(obj.idx_notnan(block_krig),:,:)=diag_Var_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
+                    st_krig_result.diag_Var_wp_y1(obj.idx_notnan(block_krig),:,:)=diag_Var_wp_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
                 end
                 if K>0
-                    st_krig_result.E_wg_y1(obj.idx_notnan(block_krig),:,:)=E_wg_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
+                    st_krig_result.E_wp_y1(obj.idx_notnan(block_krig),:,:)=E_wp_y1(blocks(index_var)+1:blocks(index_var)+block_krig_length,:,:);
                 end
                 
                 %restore original
-                obj.stem_model.stem_data.stem_varset_g.Y{index_var}(end-block_krig_length+1:end,:)=[];
-                if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_rg))
-                    obj.stem_model.stem_data.stem_varset_g.X_rg{index_var}(end-block_krig_length+1:end,:,:)=[];
+                obj.stem_model.stem_data.stem_varset_p.Y{index_var}(end-block_krig_length+1:end,:)=[];
+                if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_bp))
+                    obj.stem_model.stem_data.stem_varset_p.X_bp{index_var}(end-block_krig_length+1:end,:,:)=[];
                 end
-                if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_g))
-                    obj.stem_model.stem_data.stem_varset_g.X_g{index_var}(end-block_krig_length+1:end,:,:,:)=[];
+                if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_p))
+                    obj.stem_model.stem_data.stem_varset_p.X_p{index_var}(end-block_krig_length+1:end,:,:,:)=[];
                 end
-                if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_beta))
-                    obj.stem_model.stem_data.stem_varset_g.X_beta{index_var}(end-block_krig_length+1:end,:,:)=[];
+                if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_beta))
+                    obj.stem_model.stem_data.stem_varset_p.X_beta{index_var}(end-block_krig_length+1:end,:,:)=[];
                 end
-                if not(isempty(obj.stem_model.stem_data.stem_varset_g.X_z))
-                    obj.stem_model.stem_data.stem_varset_g.X_z{index_var}(end-block_krig_length+1:end,:,:)=[];
+                if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_z))
+                    obj.stem_model.stem_data.stem_varset_p.X_z{index_var}(end-block_krig_length+1:end,:,:)=[];
                 end
-                obj.stem_model.stem_data.stem_gridlist_g.grid{index_var}.coordinate(end-block_krig_length+1:end,:)=[];
+                obj.stem_model.stem_data.stem_gridlist_p.grid{index_var}.coordinate(end-block_krig_length+1:end,:)=[];
                 obj.stem_model.stem_data.update_data(); 
                 obj.stem_model.stem_data.update_distance();
-                if not(isempty(obj.stem_model.stem_data.stem_varset_r))
+                if not(isempty(obj.stem_model.stem_data.stem_varset_b))
                     obj.stem_model.stem_data.update_M();
                 end
                 ct2=clock;
                 disp(['Kriging block ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
 
-            if back_transform&&obj.stem_model.stem_data.stem_varset_g.standardized
+            if back_transform&&obj.stem_model.stem_data.stem_varset_p.standardized
                 disp('Back-transformation...');
-                s=obj.stem_model.stem_data.stem_varset_g.Y_stds{index_var};
-                m=obj.stem_model.stem_data.stem_varset_g.Y_means{index_var};
-                if (obj.stem_model.stem_data.stem_varset_g.standardized)&&not(obj.stem_model.stem_data.stem_varset_g.log_transformed)
+                s=obj.stem_model.stem_data.stem_varset_p.Y_stds{index_var};
+                m=obj.stem_model.stem_data.stem_varset_p.Y_means{index_var};
+                if (obj.stem_model.stem_data.stem_varset_p.standardized)&&not(obj.stem_model.stem_data.stem_varset_p.log_transformed)
                     st_krig_result.y_hat=st_krig_result.y_hat*s+m;
                     if not(no_varcov)
                         st_krig_result.diag_Var_y_hat=st_krig_result.diag_Var_y_hat*s^2;
                     end
                 end
-                if (obj.stem_model.stem_data.stem_varset_g.standardized)&&(obj.stem_model.stem_data.stem_varset_g.log_transformed)
+                if (obj.stem_model.stem_data.stem_varset_p.standardized)&&(obj.stem_model.stem_data.stem_varset_p.log_transformed)
                     y_hat=st_krig_result.y_hat;
                     diag_Var_y_hat=st_krig_result.diag_Var_y_hat;
                     st_krig_result.y_hat=exp(y_hat*s+m+(s^2)/2);
@@ -582,7 +582,7 @@ classdef stem_krig < handle
                     st_krig_result.diag_Var_y_hat=reshape(st_krig_result.diag_Var_y_hat,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T);
                 end
                 if K>0
-                    st_krig_result.E_wg_y1=reshape(st_krig_result.E_wg_y1,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T,K);
+                    st_krig_result.E_wp_y1=reshape(st_krig_result.E_wp_y1,grid.grid_size(1),grid.grid_size(2),obj.stem_model.T,K);
                 end
                 disp('Date reshaping ended.');
             end
@@ -597,7 +597,7 @@ classdef stem_krig < handle
                         st_krig_result.diag_Var_y_hat(:,:,t)=st_krig_result.diag_Var_y_hat(:,:,t).*mask;
                     end
                     for k=1:K
-                        st_krig_result.E_wg_y1(:,:,t,k)=st_krig_result.E_wg_y1(:,:,t,k).*mask;
+                        st_krig_result.E_wp_y1(:,:,t,k)=st_krig_result.E_wp_y1(:,:,t,k).*mask;
                     end
                 end
                 disp('Mask applied.');
@@ -607,7 +607,7 @@ classdef stem_krig < handle
             st_krig_result.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
         end
         
-        function [y_hat,diag_Var_y_hat,E_wg_y1,diag_Var_wg_y1] = E_step(obj,no_varcov)
+        function [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1] = E_step(obj,no_varcov)
             %DESCRIPTION: kriging is based on the E-step of the EM algorithm
             %
             %INPUT
@@ -617,23 +617,23 @@ classdef stem_krig < handle
             %OUTPUT
             %y_hat                          - [double]            (NNxT) the variable estimated over the kriging sites
             %diag_Var_y_hat                 - [double]            (NNxT) the variance of the variable estimated over the kriging sites
-            %E_wg_y1                        - [double]            (NNxTxK) E[wg|Y(1)] over the kriging sites
-            %diag_Var_wg_y1                 - [double]            (NNxTxK) diagonals of Var[wg|Y(1)] over the kriging sites
+            %E_wp_y1                        - [double]            (NNxTxK) E[wp|Y(1)] over the kriging sites
+            %diag_Var_wp_y1                 - [double]            (NNxTxK) diagonals of Var[wp|Y(1)] over the kriging sites
 
             N=obj.stem_model.stem_data.N;
-            if not(isempty(obj.stem_model.stem_data.stem_varset_r))
-                Nr=obj.stem_model.stem_data.stem_varset_r.N;
+            if not(isempty(obj.stem_model.stem_data.stem_varset_b))
+                Nb=obj.stem_model.stem_data.stem_varset_b.N;
             else
-                Nr=0;
+                Nb=0;
             end
-            Ng=obj.stem_model.stem_data.stem_varset_g.N;
+            Np=obj.stem_model.stem_data.stem_varset_p.N;
             T=obj.stem_model.stem_data.T;
             K=obj.stem_model.stem_par.k;
             p=obj.stem_model.stem_par.p;
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
-            [sigma_eps,sigma_W_r,sigma_W_g,sigma_geo,sigma_Z,aj_rg,aj_g,M] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,aj_bp,aj_p,M] = obj.stem_model.get_sigma();
             if p>0
                 st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
                 if not(data.X_z_tv)
@@ -700,45 +700,45 @@ classdef stem_krig < handle
             %   Conditional expectation, conditional variance and conditional covariance evaluation  %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
-            %cov_wr_yz time invariant case
-            if not(isempty(data.X_rg))
-                if not(data.X_rg_tv)
-                    cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,1),'r'),aj_rg,'r');
+            %cov_wb_yz time invariant case
+            if not(isempty(data.X_bp))
+                if not(data.X_bp_tv)
+                    cov_wb_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'r'),data.X_bp(:,1,1),'r'),aj_bp,'r');
                 end
-                E_wr_y1=zeros(Nr,T);
-                diag_Var_wr_y1=zeros(Nr,T);
-                cov_wr_z_y1=zeros(Nr,p,T);
+                E_wb_y1=zeros(Nb,T);
+                diag_Var_wb_y1=zeros(Nb,T);
+                cov_wb_z_y1=zeros(Nb,p,T);
             end
             
             
-            %cov_wg_yz time invariant case
-            if not(isempty(data.X_g))
-                if not(data.X_g_tv)
+            %cov_wp_yz time invariant case
+            if not(isempty(data.X_p))
+                if not(data.X_p_tv)
                     for k=1:K
-                        cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,1,k),'r'),aj_g(:,k),'r');
+                        cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p(:,1,1,k),'r'),aj_p(:,k),'r');
                     end
                 end
                 for h=1:K
                     for k=h+1:K
-                        cov_wgk_wgh_y1{k,h}=zeros(Ng,T);
+                        cov_wpk_wph_y1{k,h}=zeros(Np,T);
                     end
                 end
-                E_wg_y1=zeros(Ng,T,K);
+                E_wp_y1=zeros(Np,T,K);
                 if not(no_varcov)
-                    diag_Var_wg_y1=zeros(Ng,T,K);
+                    diag_Var_wp_y1=zeros(Np,T,K);
                 else
-                    diag_Var_wg_y1=[];
+                    diag_Var_wp_y1=[];
                 end
-                cov_wg_z_y1=zeros(Ng,p,T,K);
+                cov_wp_z_y1=zeros(Np,p,T,K);
             else
-                E_wg_y1=[];
-                diag_Var_wg_y1=[];
+                E_wp_y1=[];
+                diag_Var_wp_y1=[];
             end
             
-            if not(isempty(data.X_rg)) && not(isempty(data.X_g))
-                M_cov_wr_wg_y1=zeros(N,T,K);
+            if not(isempty(data.X_bp)) && not(isempty(data.X_p))
+                M_cov_wb_wp_y1=zeros(N,T,K);
             else
-                M_cov_wr_wg_y1=[];
+                M_cov_wb_wp_y1=[];
             end
             
             for t=1:T
@@ -746,48 +746,48 @@ classdef stem_krig < handle
                 t_partial1=clock;
                 Lt=not(isnan(data.Y(:,t)));
                 
-                if data.X_rg_tv
-                    tRG=t;
+                if data.X_bp_tv
+                    tBP=t;
                 else
-                    tRG=1;
+                    tBP=1;
                 end
                 if data.X_z_tv
                     tT=t;
                 else
                     tT=1;
                 end
-                if data.X_g_tv
-                    tG=t;
+                if data.X_p_tv
+                    tP=t;
                 else
-                    tG=1;
+                    tP=1;
                 end
                 
                 %evaluate var_yt in the time variant case
                 if data.X_tv
-                    if not(isempty(data.X_rg))
-                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'b'),data.X_rg(:,1,tRG),'b'),aj_rg,'b');
+                    if not(isempty(data.X_bp))
+                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),data.X_bp(:,1,tBP),'b'),aj_bp,'b');
                     end
                     
-                    if not(isempty(data.X_g))
-                        if isempty(data.X_rg)
+                    if not(isempty(data.X_p))
+                        if isempty(data.X_bp)
                             if obj.stem_model.tapering
-                                sigma_geo=spalloc(size(sigma_W_g{1},1),size(sigma_W_g{1},1),nnz(sigma_W_g{1}));
+                                sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
                                 sigma_geo=zeros(N);
                             end
                         end
-                        for k=1:size(data.X_g,4)
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'b'),aj_g(:,k),'b');
+                        for k=1:size(data.X_p,4)
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p(:,1,tP,k),'b'),aj_p(:,k),'b');
                         end
                     end
-                    if isempty(data.X_g)&&isempty(data.X_rg)
+                    if isempty(data.X_p)&&isempty(data.X_bp)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
                     end
                     
                     if not(isempty(data.X_z))
-                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                        if not(isempty(data.X_bp))||not(isempty(data.X_p))
                             if data.X_z_tv
                                 if obj.stem_model.tapering
                                     var_Zt=sparse(data.X_z(:,:,tT))*sparse(sigma_Z)*sparse(data.X_z(:,:,tT)');
@@ -804,7 +804,7 @@ classdef stem_krig < handle
                             var_Yt=sigma_geo+var_Zt;
                         end
                     else
-                        if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                        if not(isempty(data.X_bp))||not(isempty(data.X_p))
                             var_Yt=sigma_geo;
                         end
                     end
@@ -836,7 +836,7 @@ classdef stem_krig < handle
                     y_hat(:,t)=y_hat(:,t)+X_z_orlated*temp;
                 end
                 
-                if not(isempty(data.X_rg))||not(isempty(data.X_g))
+                if not(isempty(data.X_bp))||not(isempty(data.X_p))
                     %build the Ht matrix
                     if not(isempty(var_Zt))
                         H1t=[var_Yt(Lt,Lt), X_z_orlated(Lt,:)*sigma_Z; sigma_Z*X_z_orlated(Lt,:)', sigma_Z];
@@ -858,47 +858,47 @@ classdef stem_krig < handle
                     end
                 end
                 
-                if not(isempty(data.X_rg))
+                if not(isempty(data.X_bp))
                     %check if the pixel loadings are time variant
-                    if data.X_rg_tv
-                        %cov_wr_yz time variant case
-                        cov_wr_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_r,M,'r'),data.X_rg(:,1,tRG),'r'),aj_rg,'r');
+                    if data.X_bp_tv
+                        %cov_wb_yz time variant case
+                        cov_wb_y=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'r'),data.X_bp(:,1,tBP),'r'),aj_bp,'r');
                     end
-                    cov_wr_y1z=[cov_wr_y(:,Lt),zeros(size(cov_wr_y,1),p)];
+                    cov_wb_y1z=[cov_wb_y(:,Lt),zeros(size(cov_wb_y,1),p)];
                     
-                    %compute E(w_r|y1);
-                    E_wr_y1(:,t)=cov_wr_y1z*cs;
+                    %compute E(w_b|y1);
+                    E_wb_y1(:,t)=cov_wb_y1z*cs;
                     
                     if not(no_varcov)
-                        %compute diag(Var(w_r|y1))
+                        %compute diag(Var(w_b|y1))
                         if obj.stem_model.tapering
-                            temp_r(r,:)=stem_misc.chol_solve(chol_H1t,cov_wr_y1z(:,r)',1);
+                            temp_b(r,:)=stem_misc.chol_solve(chol_H1t,cov_wb_y1z(:,r)',1);
                         else
-                            temp_r=stem_misc.chol_solve(chol_H1t,cov_wr_y1z');
+                            temp_b=stem_misc.chol_solve(chol_H1t,cov_wb_y1z');
                         end
                         
-                        blocks=0:80:size(diag_Var_wr_y1,1);
-                        if not(blocks(end)==size(diag_Var_wr_y1,1))
-                            blocks=[blocks size(diag_Var_wr_y1,1)];
+                        blocks=0:80:size(diag_Var_wb_y1,1);
+                        if not(blocks(end)==size(diag_Var_wb_y1,1))
+                            blocks=[blocks size(diag_Var_wb_y1,1)];
                         end
                         for i=1:length(blocks)-1
-                            diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)=diag(sigma_W_r(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wr_y1z(blocks(i)+1:blocks(i+1),:)*temp_r(:,blocks(i)+1:blocks(i+1)));
+                            diag_Var_wb_y1(blocks(i)+1:blocks(i+1),t)=diag(sigma_W_b(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wb_y1z(blocks(i)+1:blocks(i+1),:)*temp_b(:,blocks(i)+1:blocks(i+1)));
                         end
                     end
                     
                     if (p>0)&&(not(no_varcov))
-                        %compute cov(w_r,z|y1)
-                        cov_wr_z_y1(:,:,t)=temp_r(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                        blocks=0:80:size(diag_Var_wr_y1,1);
-                        if not(blocks(end)==size(diag_Var_wr_y1,1))
-                            blocks=[blocks size(diag_Var_wr_y1,1)];
+                        %compute cov(w_b,z|y1)
+                        cov_wb_z_y1(:,:,t)=temp_b(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                        blocks=0:80:size(diag_Var_wb_y1,1);
+                        if not(blocks(end)==size(diag_Var_wb_y1,1))
+                            blocks=[blocks size(diag_Var_wb_y1,1)];
                         end
                         for i=1:length(blocks)-1
-                            diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_wr_y1(blocks(i)+1:blocks(i+1),t)+diag(cov_wr_z_y1(blocks(i)+1:blocks(i+1),:,t)*temp_r(end-p+1:end,blocks(i)+1:blocks(i+1)));
+                            diag_Var_wb_y1(blocks(i)+1:blocks(i+1),t)=diag_Var_wb_y1(blocks(i)+1:blocks(i+1),t)+diag(cov_wb_z_y1(blocks(i)+1:blocks(i+1),:,t)*temp_b(end-p+1:end,blocks(i)+1:blocks(i+1)));
                         end
-                        clear temp_r
+                        clear temp_b
                         %update diag(Var(e|y1))
-                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wr_z_y1(:,:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                        temp=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(cov_wb_z_y1(:,:,t),M,'l'),data.X_bp(:,1,tBP),'l'),aj_bp,'l');
                         if N>obj.stem_model.system_size
                             blocks=0:80:size(diag_Var_e_y1,1);
                             if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -912,59 +912,59 @@ classdef stem_krig < handle
                             diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_z_orlated');
                         end
                     else
-                        cov_wr_z_y1=[];
-                        clear temp_r
+                        cov_wb_z_y1=[];
+                        clear temp_b
                     end
                     %update y_hat
-                    y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
+                    y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(E_wb_y1(:,t),M,'l'),data.X_bp(:,1,tBP),'l'),aj_bp,'l');
                     %update diag(Var(e|y1))
                     if not(no_varcov)
-                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wr_y1(:,t),M,'l'),data.X_rg(:,1,tRG),'b'),aj_rg,'b'); %tested
+                        diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(diag_Var_wb_y1(:,t),M,'l'),data.X_bp(:,1,tBP),'b'),aj_bp,'b'); %tested
                     end
                 end
                 
-                if not(isempty(data.X_g))
+                if not(isempty(data.X_p))
                     %check if the point loadings are time variant
-                    if data.X_g_tv
-                        %cov_wg_yz time invariant case
+                    if data.X_p_tv
+                        %cov_wp_yz time invariant case
                         for k=1:K
-                            cov_wg_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_g{k},data.X_g(:,1,tG,k),'r'),aj_g(:,k),'r');
+                            cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p(:,1,tP,k),'r'),aj_p(:,k),'r');
                         end
                     end
                     for k=1:K
-                        cov_wg_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
-                        %compute E(w_g_k|y1);
-                        E_wg_y1(:,t,k)=cov_wg_y1z*cs;
+                        cov_wp_y1z=[cov_wp_y{k}(:,Lt) zeros(size(cov_wp_y{k},1),p)];
+                        %compute E(w_p_k|y1);
+                        E_wp_y1(:,t,k)=cov_wp_y1z*cs;
                         
                         if not(no_varcov)
-                            %compute diag(Var(w_g_k|y1))
+                            %compute diag(Var(w_p_k|y1))
                             if obj.stem_model.tapering
-                                temp_g{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wg_y1z(:,r)',1);
+                                temp_p{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wp_y1z(:,r)',1);
                             else
-                                temp_g{k}=stem_misc.chol_solve(chol_H1t,cov_wg_y1z');
+                                temp_p{k}=stem_misc.chol_solve(chol_H1t,cov_wp_y1z');
                             end
                             
-                            blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
-                            if not(blocks(end)==size(diag_Var_wg_y1(:,t,k),1))
-                                blocks=[blocks size(diag_Var_wg_y1(:,t,k),1)];
+                            blocks=0:80:size(diag_Var_wp_y1(:,t,k),1);
+                            if not(blocks(end)==size(diag_Var_wp_y1(:,t,k),1))
+                                blocks=[blocks size(diag_Var_wp_y1(:,t,k),1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(sigma_W_g{k}(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wg_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
+                                diag_Var_wp_y1(blocks(i)+1:blocks(i+1),t,k)=diag(sigma_W_p{k}(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1))-cov_wp_y1z(blocks(i)+1:blocks(i+1),:)*temp_p{k}(:,blocks(i)+1:blocks(i+1)));
                             end
                         end
                         
                         if (p>0)&&(not(no_varcov))
-                            %compute cov(w_g,z|y1)
-                            cov_wg_z_y1(:,:,t,k)=temp_g{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
-                            blocks=0:80:size(diag_Var_wg_y1(:,t,k),1);
-                            if not(blocks(end)==size(diag_Var_wg_y1(:,t,k),1))
-                                blocks=[blocks size(diag_Var_wg_y1(:,t,k),1)];
+                            %compute cov(w_p,z|y1)
+                            cov_wp_z_y1(:,:,t,k)=temp_p{k}(end-p+1:end,:)'*st_kalmansmoother_result.Pk_s(:,:,t+1);
+                            blocks=0:80:size(diag_Var_wp_y1(:,t,k),1);
+                            if not(blocks(end)==size(diag_Var_wp_y1(:,t,k),1))
+                                blocks=[blocks size(diag_Var_wp_y1(:,t,k),1)];
                             end
                             for i=1:length(blocks)-1
-                                diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag_Var_wg_y1(blocks(i)+1:blocks(i+1),t,k)+diag(cov_wg_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1)));
+                                diag_Var_wp_y1(blocks(i)+1:blocks(i+1),t,k)=diag_Var_wp_y1(blocks(i)+1:blocks(i+1),t,k)+diag(cov_wp_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_p{k}(end-p+1:end,blocks(i)+1:blocks(i+1)));
                             end
                             %update diag(Var(e|y1))
-                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wg_z_y1(:,:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wp_z_y1(:,:,t,k),data.X_p(:,1,tP,k),'l'),aj_p(:,k),'l');
                             if N>obj.stem_model.system_size
                                 blocks=0:80:size(diag_Var_e_y1,1);
                                 if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -977,17 +977,17 @@ classdef stem_krig < handle
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_z_orlated');
                             end
                         else
-                            cov_wg_z_y1=[];
+                            cov_wp_z_y1=[];
                         end
                         %y_hat
-                        y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wg_y1(:,t,k),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
+                        y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wp_y1(:,t,k),data.X_p(:,1,tP,k),'l'),aj_p(:,k),'l');
                         
                         if not(no_varcov)
                             %update diag(Var(e|y1))
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wg_y1(:,t,k),data.X_g(:,:,tG,k),'b'),aj_g(:,k),'b'); %K varianze
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wp_y1(:,t,k),data.X_p(:,:,tP,k),'b'),aj_p(:,k),'b'); %K varianze
 
-                            if not(isempty(data.X_rg))
-                                %compute M_cov(w_r,w_g|y1); cioè M*cov(w_r,w_g|y1) da tenere in considerazione nelle forme chiuse!
+                            if not(isempty(data.X_bp))
+                                %compute M_cov(w_b,w_p|y1); cioè M*cov(w_b,w_p|y1) da tenere in considerazione nelle forme chiuse!
                                 if length(M)>obj.stem_model.system_size
                                     blocks=0:80:length(M);
                                     if not(blocks(end)==length(M))
@@ -996,58 +996,58 @@ classdef stem_krig < handle
                                     for i=1:length(blocks)-1
                                         %tested
                                         if p>0
-                                            M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1))+cov_wr_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_g{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'stem_misc.M_apply su left!!
+                                            M_cov_wb_wp_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wb_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_p{k}(:,blocks(i)+1:blocks(i+1))+cov_wb_z_y1(M(blocks(i)+1:blocks(i+1)),:,t)*temp_p{k}(end-p+1:end,blocks(i)+1:blocks(i+1))); %ha gia' l'stem_misc.M_apply su left!!
                                         else
-                                            M_cov_wr_wg_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wr_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_g{k}(:,blocks(i)+1:blocks(i+1)));
+                                            M_cov_wb_wp_y1(blocks(i)+1:blocks(i+1),t,k)=diag(-cov_wb_y1z(M(blocks(i)+1:blocks(i+1)),:)*temp_p{k}(:,blocks(i)+1:blocks(i+1)));
                                         end
                                     end
                                 else
                                     if p>0
-                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M))+cov_wr_z_y1(M,:,t)*temp_g{k}(end-p+1:end,1:length(M))); %ha già l'stem_misc.M_apply su left!!
+                                        M_cov_wb_wp_y1(1:length(M),t,k)=diag(-cov_wb_y1z(M,:)*temp_p{k}(:,1:length(M))+cov_wb_z_y1(M,:,t)*temp_p{k}(end-p+1:end,1:length(M))); %ha già l'stem_misc.M_apply su left!!
                                     else
-                                        M_cov_wr_wg_y1(1:length(M),t,k)=diag(-cov_wr_y1z(M,:)*temp_g{k}(:,1:length(M)));
+                                        M_cov_wb_wp_y1(1:length(M),t,k)=diag(-cov_wb_y1z(M,:)*temp_p{k}(:,1:length(M)));
                                     end
                                 end
                                 %update diag(Var(e|y1)) - tested
-                                temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wr_wg_y1(:,t,k),data.X_rg(:,1,tRG),'l'),aj_rg,'l');
-                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,k);zeros(Nr,1)],'l'),aj_g(:,k),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(M_cov_wb_wp_y1(:,t,k),data.X_bp(:,1,tBP),'l'),aj_bp,'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_p(:,1,tP,k);zeros(Nb,1)],'l'),aj_p(:,k),'l');
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
                         end
                     end
                     
                     if (K>1)&&(not(no_varcov))
-                        %compute cov(w_gk,w_gh|y1);
+                        %compute cov(w_pk,w_ph|y1);
                         for h=1:K
                             for k=h+1:K
-                                cov_wgk_y1z=[cov_wg_y{k}(:,Lt) zeros(size(cov_wg_y{k},1),p)];
+                                cov_wpk_y1z=[cov_wp_y{k}(:,Lt) zeros(size(cov_wp_y{k},1),p)];
                                 if N>obj.stem_model.system_size
-                                    blocks=0:80:size(cov_wgk_y1z,1);
-                                    if not(blocks(end)==size(cov_wgk_y1z,1))
-                                        blocks=[blocks size(cov_wgk_y1z,1)];
+                                    blocks=0:80:size(cov_wpk_y1z,1);
+                                    if not(blocks(end)==size(cov_wpk_y1z,1))
+                                        blocks=[blocks size(cov_wpk_y1z,1)];
                                     end
                                     for i=1:length(blocks)-1
-                                        if not(isempty(cov_wg_z_y1))
-                                            cov_wgk_wgh_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wgk_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{h}(:,blocks(i)+1:blocks(i+1))+cov_wg_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_g{h}(end-p+1:end,blocks(i)+1:blocks(i+1)));
+                                        if not(isempty(cov_wp_z_y1))
+                                            cov_wpk_wph_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wpk_y1z(blocks(i)+1:blocks(i+1),:)*temp_p{h}(:,blocks(i)+1:blocks(i+1))+cov_wp_z_y1(blocks(i)+1:blocks(i+1),:,t,k)*temp_p{h}(end-p+1:end,blocks(i)+1:blocks(i+1)));
                                         else
-                                            cov_wgk_wgh_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wgk_y1z(blocks(i)+1:blocks(i+1),:)*temp_g{h}(:,blocks(i)+1:blocks(i+1)));
+                                            cov_wpk_wph_y1{k,h}(blocks(i)+1:blocks(i+1),t)=diag(-cov_wpk_y1z(blocks(i)+1:blocks(i+1),:)*temp_p{h}(:,blocks(i)+1:blocks(i+1)));
                                         end
                                     end
                                 else
-                                    if not(isempty(cov_wg_z_y1))
-                                        cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h}+cov_wg_z_y1(:,:,t,k)*temp_g{h}(end-p+1:end,:));
+                                    if not(isempty(cov_wp_z_y1))
+                                        cov_wpk_wph_y1{k,h}(:,t)=diag(-cov_wpk_y1z*temp_p{h}+cov_wp_z_y1(:,:,t,k)*temp_p{h}(end-p+1:end,:));
                                     else
-                                        cov_wgk_wgh_y1{k,h}(:,t)=diag(-cov_wgk_y1z*temp_g{h});
+                                        cov_wpk_wph_y1{k,h}(:,t)=diag(-cov_wpk_y1z*temp_p{h});
                                     end
                                 end
-                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wgk_wgh_y1{k,h}(:,t),data.X_g(:,1,tG,k),'l'),aj_g(:,k),'l');
-                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_g(:,1,tG,h);zeros(Nr,1)],'l'),aj_g(:,h),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(cov_wpk_wph_y1{k,h}(:,t),data.X_p(:,1,tP,k),'l'),aj_p(:,k),'l');
+                                temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_p(:,1,tP,h);zeros(Nb,1)],'l'),aj_p(:,h),'l');
                                 %update diag(Var(e|y1))
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*temp;
                             end
                         end
                     end
-                    clear temp_g
+                    clear temp_p
                 end
                 t_partial2=clock;
             end
