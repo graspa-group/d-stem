@@ -165,27 +165,56 @@ classdef stem_EM < EM
             st_EM_result.y_hat(isnan(st_EM_result.y_hat))=0;
             st_EM_result.y_hat=st_EM_result.y_hat-E_e_y1;
             st_EM_result.res=obj.stem_model.stem_data.Y-st_EM_result.y_hat;
-            
-            %DA GENERALIZZARE AL CASO MULTIVARIATO!!
-            if obj.stem_model.stem_data.stem_varset_p.standardized
-                s=obj.stem_model.stem_data.stem_varset_p.Y_stds{1};
-                m=obj.stem_model.stem_data.stem_varset_p.Y_means{1};
+
+            blocks=[0 cumsum(obj.stem_model.dim)];
+            counter=1;
+            for i=1:obj.stem_model.stem_data.stem_varset_p.nvar
+                if obj.stem_model.stem_data.stem_varset_p.standardized
+                    s=obj.stem_model.stem_data.stem_varset_p.Y_stds{i};
+                    m=obj.stem_model.stem_data.stem_varset_p.Y_means{i};
+                end
+                if (obj.stem_model.stem_data.stem_varset_p.standardized)&&not(obj.stem_model.stem_data.stem_varset_p.log_transformed)
+                    y_hat_back=st_EM_result.y_hat(blocks(counter)+1:blocks(counter+1),:)*s+m;
+                    y=obj.stem_model.stem_data.Y(blocks(counter)+1:blocks(counter+1),:)*s+m;
+                    st_EM_result.y_hat_back(blocks(counter)+1:blocks(counter+1),:)=y_hat_back;
+                    st_EM_result.y_back(blocks(counter)+1:blocks(counter+1),:)=y;
+                    st_EM_result.res_back(blocks(counter)+1:blocks(counter+1),:)=y-y_hat_back;
+                end
+                if (obj.stem_model.stem_data.stem_varset_p.standardized)&&(obj.stem_model.stem_data.stem_varset_p.log_transformed)
+                    y_hat_back=st_EM_result.y_hat(blocks(counter)+1:blocks(counter+1),:);
+                    y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
+                    %y_hat_back=exp(y_hat_back*s+m);
+                    y=exp(obj.stem_model.stem_data.Y(blocks(counter)+1:blocks(counter+1),:)*s+m);
+                    st_EM_result.y_hat_back(blocks(counter)+1:blocks(counter+1),:)=y_hat_back;
+                    st_EM_result.y_back(blocks(counter)+1:blocks(counter+1),:)=y;
+                    st_EM_result.res_back(blocks(counter)+1:blocks(counter+1),:)=y-y_hat_back;
+                end
+                counter=counter+1;
             end
-            if (obj.stem_model.stem_data.stem_varset_p.standardized)&&not(obj.stem_model.stem_data.stem_varset_p.log_transformed)
-                y_hat_back=st_EM_result.y_hat*s+m;
-                y=obj.stem_model.stem_data.Y*s+m;
-                st_EM_result.y_hat_back=y_hat_back;
-                st_EM_result.y_back=y;
-                st_EM_result.res_back=y-y_hat_back;
-            end
-            if (obj.stem_model.stem_data.stem_varset_p.standardized)&&(obj.stem_model.stem_data.stem_varset_p.log_transformed)
-                y_hat_back=st_EM_result.y_hat;
-                y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
-                %y_hat_back=exp(y_hat_back*s+m);
-                y=exp(obj.stem_model.stem_data.Y*s+m);
-                st_EM_result.y_hat_back=y_hat_back;
-                st_EM_result.y_back=y;
-                st_EM_result.res_back=y-y_hat_back;
+            if not(isempty(obj.stem_model.stem_data.stem_varset_b))
+                for i=1:obj.stem_model.stem_data.stem_varset_b.nvar
+                    if obj.stem_model.stem_data.stem_varset_b.standardized
+                        s=obj.stem_model.stem_data.stem_varset_b.Y_stds{i};
+                        m=obj.stem_model.stem_data.stem_varset_b.Y_means{i};
+                    end
+                    if (obj.stem_model.stem_data.stem_varset_b.standardized)&&not(obj.stem_model.stem_data.stem_varset_b.log_transformed)
+                        y_hat_back=st_EM_result.y_hat(blocks(counter)+1:blocks(counter+1),:)*s+m;
+                        y=obj.stem_model.stem_data.Y(blocks(counter)+1:blocks(counter+1),:)*s+m;
+                        st_EM_result.y_hat_back(blocks(counter)+1:blocks(counter+1),:)=y_hat_back;
+                        st_EM_result.y_back(blocks(counter)+1:blocks(counter+1),:)=y;
+                        st_EM_result.res_back(blocks(counter)+1:blocks(counter+1),:)=y-y_hat_back;
+                    end
+                    if (obj.stem_model.stem_data.stem_varset_b.standardized)&&(obj.stem_model.stem_data.stem_varset_b.log_transformed)
+                        y_hat_back=st_EM_result.y_hat(blocks(counter)+1:blocks(counter+1),:);
+                        y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
+                        %y_hat_back=exp(y_hat_back*s+m);
+                        y=exp(obj.stem_model.stem_data.Y(blocks(counter)+1:blocks(counter+1),:)*s+m);
+                        st_EM_result.y_hat_back(blocks(counter)+1:blocks(counter+1),:)=y_hat_back;
+                        st_EM_result.y_back(blocks(counter)+1:blocks(counter+1),:)=y;
+                        st_EM_result.res_back(blocks(counter)+1:blocks(counter+1),:)=y-y_hat_back;
+                    end
+                    counter=counter+1;
+                end
             end
             
             st_EM_result.iterations=iteration;

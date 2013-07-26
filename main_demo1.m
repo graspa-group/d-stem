@@ -24,7 +24,6 @@
 % You should have received a copy of the GNU General Public License
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
-
 clc
 clear all
 close all
