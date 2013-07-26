@@ -1,13 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_model < handle
     
@@ -254,9 +269,9 @@ classdef stem_model < handle
                             for i=1:obj.stem_data.stem_varset_b.nvar
                                 idx_rc=blocks(i)+1:blocks(i+1);
                                 if not(obj.tapering_b)
-                                    sigma_W_b(idx_rc,idx_rc)=stem_misc.correlation_function(obj.stem_par.theta_b(i,:),obj.stem_data.DistMat_b(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                    sigma_W_b(idx_rc,idx_rc)=stem_misc.correlation_function(obj.stem_par.theta_b(:,i),obj.stem_data.DistMat_b(idx_rc,idx_rc),obj.stem_par.correlation_type);
                                 else
-                                    corr_result=stem_misc.correlation_function(obj.stem_par.theta_b(i,:),obj.stem_data.DistMat_b(idx_rc,idx_rc),obj.stem_par.correlation_type);
+                                    corr_result=stem_misc.correlation_function(obj.stem_par.theta_b(:,i),obj.stem_data.DistMat_b(idx_rc,idx_rc),obj.stem_par.correlation_type);
                                     weights=stem_misc.wendland(obj.stem_data.DistMat_b(idx_rc,idx_rc),obj.stem_data.stem_gridlist_b.tap);
                                     corr_result.correlation=obj.stem_par.v_b(i,i)*corr_result.correlation.*weights;
                                     siz=length(corr_result.I);
@@ -297,12 +312,12 @@ classdef stem_model < handle
                            idx_c=blocks(j)+1:blocks(j+1);
                            if not(obj.tapering_p)
                                sigma_W_p{k}(idx_r,idx_c)=obj.stem_par.v_p(i,j,k)*stem_misc.correlation_function(...
-                                   obj.stem_par.theta_p(k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
+                                   obj.stem_par.theta_p(:,k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
                                if not(i==j)
                                    sigma_W_p{k}(idx_c,idx_r)=sigma_W_p{k}(idx_r,idx_c)';
                                end
                            else
-                               corr_result=stem_misc.correlation_function(obj.stem_par.theta_p(k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
+                               corr_result=stem_misc.correlation_function(obj.stem_par.theta_p(:,k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
                                weights=stem_misc.wendland(obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_data.stem_gridlist_p.tap);
                                corr_result.correlation=obj.stem_par.v_p(i,j,k)*corr_result.correlation.*weights;
                                siz=length(corr_result.I);
@@ -739,7 +754,7 @@ classdef stem_model < handle
                             postfix='th';
                         end
                         output{k+1,1}=[num2str(k),postfix];
-                        output{k+1,2}=num2str(obj.stem_par.theta_p(k),'%06.2f');
+                        output{k+1,2}=num2str(obj.stem_par.theta_p(:,k),'%06.2f');
                         if not(isempty(obj.stem_EM_result.varcov))
                             output{k+1,3}=num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%05.2f');
                         else
@@ -956,10 +971,7 @@ classdef stem_model < handle
             if obj.estimated==0
                 error('The model has not been estimated yet');
             end
-            if strcmp(obj.stem_par.correlation_type,'exponential')==0
-                error('The Hessian matrix can be evaluated only in the case of exponential spatial correlation function');
-            end
-
+            
             N=obj.N;
             Np=obj.Np;
             T=obj.T;
@@ -1166,6 +1178,7 @@ classdef stem_model < handle
                 end
             end
             %theta_bp
+            
             if n_bp_theta>0
                 d=stem_misc.M_apply(obj.stem_data.DistMat_b,M,'b');
                 if not(par.pixel_correlated)&&(q>1)
@@ -1178,7 +1191,14 @@ classdef stem_model < handle
                             result1=d(idx,idx);
                             result2=result(idx,idx);
                             result2=stem_misc.D_apply(result2,aj_bp(idx),'b');
-                            result3=result1/(par.theta_b(j)^2).*result2;
+                            if strcmp(par.correlation_type,'exponential')
+                                result3=result1/(par.theta_b(j)^2).*result2;
+                            elseif strcmp(par.correleation_type,'matern32')
+                                result3=-sqrt(3)*result1/(par.theta_b(j)^2).*result2./(1+sqrt(3).*result1./par.theta_b(j))+result2.*sqrt(3).*result1./(par.theta_b(j)^2);
+                            else
+                                result3=(-sqrt(5)*result1/(par.theta_b(j)^2)-10/3*result1.^2/par.theta_b(j)^3).*result2./(1+sqrt(5).*result1./par.theta_b(j)+5/3*result1.^2/par.theta_b(j)^2)+result2.*sqrt(5).*result1./(par.theta_b(j)^2);
+                            end
+                            
                             L=find(result3);
                             [idx_I,idx_J]=ind2sub(size(result3),L);
                             Id=[Id; idx_I+blocks(j+(i-1)*2)];
@@ -1275,10 +1295,17 @@ classdef stem_model < handle
                     end
                 end
             end
+            
             %theta_p
             if n_p_theta>0
                 for k=1:par.k
-                    d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(sigma_W_p{k}.*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                    if strcmp(par.correlation_type,'exponential')
+                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(sigma_W_p{k}.*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                    elseif strcmp(par.correlation_type,'matern32')
+                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(-sqrt(3)*obj.stem_data.DistMat_p/(par.theta_p(k)^2).*exp(-sqrt(3)*obj.stem_data.DistMat_p/par.theta_p(k))+sigma_W_p{k}.*sqrt(3).*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                    else
+                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply((-sqrt(5)*obj.stem_data.DistMat_p/par.theta_p(k)^2-10/3.*obj.stem_data.DistMat_p.^2/par.theta_p(k)^3).*exp(-sqrt(5)*obj.stem_data.DistMat_p/par.theta_p(k))+sigma_W_p{k}.*sqrt(5).*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                    end
                     if stem_misc.zero_density(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k})>60
                         d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=sparse(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k});
                     end
@@ -1293,8 +1320,7 @@ classdef stem_model < handle
                             Id=[];
                             Jd=[];
                             elements=[];
-                            %since the block is extra-diagonal it has
-                            %two separated D_apply!
+                            %since the block is extra-diagonal it has two separated D_apply!
                             result1=sigma_W_p{k}(blocks(j)+1:blocks(j+1),blocks(i)+1:blocks(i+1));
                             result2=stem_misc.D_apply(result1,aj_p(blocks(j)+1:blocks(j+1),k),'l');
                             result2=stem_misc.D_apply(result2,aj_p(blocks(i)+1:blocks(i+1),k),'r');
@@ -1820,397 +1846,3 @@ classdef stem_model < handle
     end
 
 end
-
-%         function stem_par = get_initial_value_estimation(obj)
-%             % beta OLS
-%             if isempty(obj.stem_data.X)==0
-%                 [obj.stem_par.beta res_ols] = obj.beta_ols(obj.stem_data.Y,obj.stem_data.X);
-%             else
-%                 res_ols=obj.stem_data.Y;
-%             end
-%             
-%             % G and sigma_eta (only diagonal)
-% %             if obj.stem_par.p>0
-% %                 [G sigma_eta obj.stem_par.sigma_eps] = obj.method_of_moment(res_ols,obj.stem_data.dim);
-% %                 if size(G,1)==obj.stem_par.p
-% %                     obj.stem_par.G=G;
-% %                     obj.stem_par.sigma_eta=sigma_eta;
-% %                 else
-% %                     obj.stem_par.G=mean(diag(G));
-% %                     obj.stem_par.sigma_eta=mean(diag(sigma_eta));
-% %                 end
-% %                 
-% %                 stem_kalman_obj=stem_kalman(obj);
-% %                 zk_s = stem_kalman_obj.smoother();
-% %                 
-% %                 res_kalman = get_temporal_residual(res_ols,zk_s(:,2:end),obj.stem_par.K);
-% %             else
-% %                 res_kalman=res_ols;
-% %             end
-%  
-%             % alpha and theta
-% %             n_steps=30;
-% %             [v theta obj.stem_par.sigma_eps] = obj.variogram(res_kalman,n_steps);
-% %             obj.stem_par.alpha=sqrt(diag(v))';
-% %             obj.stem_par.theta=diag(theta)';
-% %             if obj.stem_par.c>0
-% %                 obj.stem_par.delta=obj.stem_par.alpha/2;
-% %                 obj.stem_par.theta_coreg=theta(2,1);
-% %                 obj.stem_par.v=eye(obj.stem_par.q);
-% %                 obj.stem_par.v(1,2)=v(2,1)/sqrt(v(1,1)*v(2,2));
-% %                 obj.stem_par.v(2,1)=obj.stem_par.v(1,2);
-% %             end
-%             
-%             %INITIAL VALUES OVERRIDING FOR TESTING PURPOSES!
-%             
-%             stem_par=obj.stem_par;
-%             
-% 
-%             if obj.stem_par.p>0
-%                 stem_par.G=diag(repmat(0.8,obj.stem_par.p,1));
-%                 stem_par.sigma_eta=diag(repmat(0.2,obj.stem_par.p,1));
-%             end
-%             
-%             if obj.stem_par.stem_par_constraint.sigma_eps_diag
-%                 stem_par.sigma_eps=repmat(0.2,1,obj.stem_par.q);
-%             else
-%                 stem_par.sigma_eps=0.2*ones(obj.N,1);
-%             end
-%             stem_par.sigma_eps=diag(stem_par.sigma_eps);
-%             if obj.stem_par.stem_par_constraint.no_direct_components==0
-%                 stem_par.alpha=repmat(0.5,1,obj.stem_par.q);
-%             end
-%             
-%             if strcmp(stem_par.correlation_type,'exponential')
-%                 stem_par.theta=repmat(100,1,obj.stem_par.q);
-%             end
-%             if strcmp(stem_par.correlation_type,'matern')
-%                 stem_par.theta=[100,0.5];
-%             end
-%             if stem_par.c>0
-%                 stem_par.delta=repmat(0.3,1,obj.stem_par.q);
-%                 if strcmp(stem_par.correlation_type,'exponential')
-%                     stem_par.theta_coreg=[100]; %era 100 nella stima usata per kriging
-%                 end
-%                 if strcmp(stem_par.correlation_type,'matern')
-%                     stem_par.theta_coreg=[30 0.5];
-%                 end
-%                 %v_temp=obj.stem_data.temporal_correlation('colocated');
-%                 v_temp=eye(obj.stem_par.q);
-%                 if min(eig(v_temp))<0
-%                     [V,D]=eig(v_temp);
-%                     for i=1:size(V,1)
-%                         if D(i,i)<0
-%                             D(i,i)=0.001;
-%                         end
-%                     end
-%                     v_temp2=V*D*V';
-%                     for j=1:size(V,1)
-%                         for i=1:size(V,1)
-%                             if i~=j
-%                                 v_temp2(i,j)=v_temp2(i,j)/sqrt(v_temp2(i,i)*v_temp2(j,j));
-%                             end
-%                         end
-%                     end
-%                     for i=1:size(V,1)
-%                         v_temp2(i,i)=1;
-%                     end
-%                     stem_par.v=repmat(v_temp2,[1,1,stem_par.c]);
-%                     disp('Correlation matrix adjusted to be sdp');
-%                     stem_par.v-v_temp
-%                 else
-%                     stem_par.v=repmat(v_temp,[1,1,stem_par.c]);
-%                 end
-%             end
-%             
-%             stem_par.print();
-%         end
-        
-%         function [v,theta,sigma_eps] = variogram(obj,Y,n_steps)
-%             if nargin<2
-%                 Y=obj.stem_data.Y;
-%             end
-%             if nargin<3
-%                 n_steps=50;
-%             end
-%             options = optimset('Display','off');
-%             
-%             T=obj.stem_data.T;
-%             dim=obj.stem_data.dim;
-%             
-%             v=zeros(length(dim));
-%             theta=zeros(length(dim));
-%             sigma_eps=zeros(length(dim));
-%             
-%             blocks=[0 cumsum(dim)];
-%             for k=1:length(dim)
-%                 for h=k:length(dim)
-%                     y_sub1=Y(blocks(h)+1:blocks(h+1),:); 
-%                     y_sub2=Y(blocks(k)+1:blocks(k+1),:);
-%                     DistMat_sub=obj.stem_data.DistMat(blocks(h)+1:blocks(h+1),blocks(k)+1:blocks(k+1));
-%                     max_distance=max(obj.stem_data.DistMat(:));
-%                     step=max_distance/n_steps;
-%                     groups=0:step:max_distance;
-%                     group=zeros(length(groups)-1,length(dim));
-%                     count=zeros(length(groups)-1,length(dim));
-%                     
-%                     index_m=1;
-%                     for t=1:T
-%                         if (sum(isnan(y_sub1(:,t)))/length(y_sub1(:,t))<0.8)&&(sum(isnan(y_sub2(:,t)))/length(y_sub2(:,t))<0.8)
-%                             index=1;
-%                             tot=dim(k)*dim(h);
-%                             vx=zeros(tot,1);
-%                             vy=zeros(tot,1);
-%                             for j=1:dim(k)
-%                                 for i=1:dim(h)
-%                                     vx(index)=DistMat_sub(i,j);
-%                                     vy(index)=0.5*(y_sub1(i,t)-y_sub2(j,t))^2;
-%                                     index=index+1;
-%                                 end
-%                             end
-%                             for i=2:length(groups)
-%                                 data=vy(vx>=groups(i-1)&vx<groups(i));
-%                                 group(i-1,k)=nanmean(data);
-%                                 count(i-1,k)=length(data(isnotnan(data)));
-%                             end
-%                             xv=(groups(2:8)+(step/2))';
-%                             yv=group(2:8,k);
-%                             xv=xv(not(isnan(yv)));
-%                             yv=yv(not(isnan(yv)));
-%                             b=regress(yv,[ones(length(xv),1) xv]);
-%                             v0(index_m)=b(1);
-%                             
-%                             L=not(isnan(group(:,k)));
-%                             L(1)=0;
-%                             g=groups(1:end-1)+(step/2);
-%                             x1=g(L)';
-%                             y1=group(L,k);
-%                             weights=count(L,k);
-%                             x0=[1 20];
-%                             
-%                             if 1
-%                                 f = @(x,xdata) x(1)*(1-exp(-xdata/x(2)))+v0(index_m);'x';'xdata';
-%                                 c = lsqcurvefit(f,x0,x1,y1,[],[],options);
-%                                 theta0(index_m)=c(2);
-%                                 vv(index_m)=c(1);
-%                                 index_m=index_m+1;
-%                             else
-%                                 o = fitoptions('Method','NonlinearLeastSquares');
-%                                 o.Weights=weights;
-%                                 o.StartPoint=[1 20];
-%                                 f = fittype('a*(1-exp(-x/b))');
-%                                 try
-%                                     fit1 = fit(x1,y1-v0(index_m),f,o);
-%                                     c=coeffvalues(fit1);
-%                                     theta0(index_m)=c(2);
-%                                     vv(index_m)=c(1);
-%                                     index_m=index_m+1;
-%                                 catch
-%                                     disp('Error');
-%                                 end
-%                             end
-%                             
-%                             
-%                             if 0
-%                                 xx=0:0.1:max(groups);
-%                                 yy=c(1)*(1-exp(-xx./c(2)))+v0(index_m);
-%                                 plot(groups(1:end-1)+(step/2),group(:,k),'o');
-%                                 hold on
-%                                 plot(xx,yy,'-r');
-%                             end
-%                         end
-%                     end
-%                     filter=(theta0<max_distance/0.75)&(v0>0);
-%                     theta0=theta0(filter);
-%                     vv=vv(filter); %filtro anche v_tot perch� stimato congiuntamente a theta
-%                     v0=v0(filter);
-%                     
-%                     sigma_eps(h,k)=mean(v0);
-%                     v(h,k)=mean(vv);
-%                     theta(h,k)=mean(theta0);   
-%                 end
-%             end
-%         end
-
-%         function data_reset(obj)
-%             obj.stem_data.reset();
-%         end
-        
-%         function plot_par(obj,iterations)
-%             if isempty(obj.stem_par_all)==0
-%                 n_sub=2*obj.stem_par.q+length(obj.stem_par.beta)+2*obj.stem_par.p^2;
-%                 if strcmp(obj.stem_par.correlation_type,'exponential')
-%                     n_sub=n_sub+obj.stem_par.q;
-%                 end
-%                 if strcmp(obj.stem_par.correlation_type,'matern')
-%                     n_sub=n_sub+obj.stem_par.q*2;
-%                 end
-%                 if obj.stem_data.simulated
-%                     n_sub=n_sub+obj.stem_par.q; %for the error term
-%                 end
-%                 if obj.stem_par.c>0
-%                     n_sub=n_sub+obj.stem_par.q+(obj.stem_par.q*(obj.stem_par.q-1))/2;
-%                     if strcmp(obj.stem_par.correlation_type,'exponential')
-%                         n_sub=n_sub+obj.stem_par.c;
-%                     end
-%                     if strcmp(obj.stem_par.correlation_type,'matern')
-%                         n_sub=n_sub+2*obj.stem_par.c;
-%                     end
-%                     if obj.stem_data.simulated
-%                         n_sub=n_sub+obj.stem_par.c;%for the error term
-%                     end
-%                 end
-%                 l=n_sub^0.5;
-%                 if round(l)^2==n_sub
-%                     rows=l;
-%                     cols=l;
-%                 else
-%                     rows=ceil(l);
-%                     cols=round(l);
-%                 end
-%                 
-%                 counter=1;
-%                 for i=1:length(obj.stem_par.beta)
-%                     subplot(rows,cols,counter);
-%                     plot(obj.stem_par_all(counter,:));
-%                     title(['beta ',num2str(counter)]);
-%                     xlim([1 iterations]);
-%                     counter=counter+1;
-%                 end
-%                 for i=1:obj.stem_par.q
-%                     subplot(rows,cols,counter);
-%                     plot(obj.stem_par_all(counter,:));
-%                     title(['sigma eps ',obj.stem_data.variable_name{i}]);
-%                     xlim([1 iterations]);
-%                     counter=counter+1;
-%                 end
-%                 for i=1:obj.stem_par.q
-%                     subplot(rows,cols,counter);
-%                     plot(obj.stem_par_all(counter,:));
-%                     title(['alpha ',obj.stem_data.variable_name{i}]);
-%                     xlim([1 iterations]);
-%                     counter=counter+1;
-%                 end
-%                 for i=1:obj.stem_par.q
-%                     if strcmp(obj.stem_par.correlation_type,'exponential')
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['theta ',obj.stem_data.variable_name{i}]);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                     end
-%                     if strcmp(obj.stem_par.correlation_type,'matern')
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['matern alpha ',obj.stem_data.variable_name{i}]);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                         
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['matern nu ',obj.stem_data.variable_name{i}]);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                     end
-%                 end
-%                 if obj.stem_par.c>0
-%                     for i=1:obj.stem_par.q
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['delta ',obj.stem_data.variable_name{i}]);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                     end
-%                     for i=1:obj.stem_par.c
-%                         if strcmp(obj.stem_par.correlation_type,'exponential')
-%                             subplot(rows,cols,counter);
-%                             plot(obj.stem_par_all(counter,:));
-%                             title(['theta coreg ',num2str(i)]);
-%                             xlim([1 iterations]);
-%                             counter=counter+1;
-%                         end
-%                         if strcmp(obj.stem_par.correlation_type,'matern')
-%                             subplot(rows,cols,counter);
-%                             plot(obj.stem_par_all(counter,:));
-%                             title(['matern coreg alpha ',num2str(i)]);
-%                             xlim([1 iterations]);
-%                             counter=counter+1;
-%                             subplot(rows,cols,counter);
-%                             plot(obj.stem_par_all(counter,:));
-%                             title(['matern coreg nu ',num2str(i)]);
-%                             xlim([1 iterations]);
-%                             counter=counter+1;
-%                         end
-%                     end
-%                     for i=1:(obj.stem_par.q*(obj.stem_par.q-1))/2
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['v ',num2str(i)]);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                     end
-%                 end
-%                 if obj.stem_par.p>0
-%                     for i=1:obj.stem_par.p^2
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['G ']);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                     end
-%                     for i=1:obj.stem_par.p^2
-%                         subplot(rows,cols,counter);
-%                         plot(obj.stem_par_all(counter,:));
-%                         title(['sigma eta ']);
-%                         xlim([1 iterations]);
-%                         counter=counter+1;
-%                     end
-%                 end
-%                 drawnow
-%             end
-%         end  %dovrebbe diventare un metodo di stem_par?
-
-%     methods (Static)
-%         
-%         function [G sigma_eta sigma_eps]=method_of_moment(Y,dim)
-%             n_var=length(dim);
-%             
-%             row_start=1;
-%             for j=1:n_var
-%                 index=1;
-%                 for i=row_start:row_start+dim(j)-1
-%                     if sum(isnan(Y(i,:)))/length(Y(i,:))<0.9 %se i missing sono meno del 50% allora stimo g
-%                         L=not(isnan(Y(i,:)));
-%                         data=Y(i,L);
-%                         if length(data)>=1
-%                             c=xcorr(data,2,'unbiased');
-%                             g0(index)=c(end)/c(end-1);
-%                             temp=xcov(data,1,'unbiased');
-%                             gamma0(index)=temp(end-1);
-%                             gamma1(index)=temp(end);
-%                             index=index+1;
-%                         end
-%                     end
-%                 end
-%                 filter=abs(g0)<1;
-%                 g0=g0(filter);
-%                 gamma0=gamma0(filter);
-%                 gamma1=gamma1(filter);
-%                 for i=1:length(g0)
-%                     s2eta0(i)=gamma1(i)*(1-g0(i)^2)/g0(i);
-%                     s2eps0(i)=gamma0(i)-(s2eta0(i)/(1-g0(i)^2));
-%                 end
-%                 s2eps0=s2eps0(s2eps0>0);
-%                 s2eps0=median(s2eps0);
-%                 s2eta0=s2eta0(s2eta0>0);
-%                 s2eta0=median(s2eta0);
-%                 g0=median(g0);
-%                 
-%                 G(j,j)=g0;
-%                 sigma_eta(j,j)=s2eta0;
-%                 sigma_eps(j,j)=s2eps0;
-%                 row_start=row_start+dim(j)-1;
-%             end
-%         end
-%     end
-

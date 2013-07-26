@@ -1,12 +1,29 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
+
 
 
 classdef stem_datestamp < handle
@@ -26,8 +43,8 @@ classdef stem_datestamp < handle
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %date_start    - [string|integer>0]     (1x1) the date related to the first time step. It can be a string in the format dd-mm-yyyy or an integer index 
-            %date_end      - [string|integer>0]     (1x1) the date related to the last  time step. It can be a string in the format dd-mm-yyyy or an integer index
+            %date_start    - [string|integer>0]     (1x1) the date related to the first time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index 
+            %date_end      - [string|integer>0]     (1x1) the date related to the last  time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index
             %T             - [integer>0]            (1x1) the total number of time steps
             %
             %OUTPUT
@@ -39,12 +56,12 @@ classdef stem_datestamp < handle
             if isnumeric(date_start)
                 obj.date_start=date_start;
             else
-                obj.date_start=datenum(date_start,'dd-mm-yyyy');
+                obj.date_start=datenum(date_start,'dd-mm-yyyy HH:MM');
             end
             if isnumeric(date_end)
                 obj.date_end=date_end;
             else
-                obj.date_end=datenum(date_end,'dd-mm-yyyy');
+                obj.date_end=datenum(date_end,'dd-mm-yyyy HH:MM');
             end
             if obj.date_end<obj.date_start
                 error('date_start cannot be higher than date_end');

@@ -1,13 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_par
    
@@ -22,7 +37,7 @@ classdef stem_par
         p=[];                               %[integer]    (1x1) dimension of the latent temporal state
         k=[];                               %[integer]    (1x1) number of coregionalization components for the point level variables
         n_beta=[];                          %[integer]    (1x1)
-        correlation_type='exponential';     %[string]     (1x1) spatial correlation function type  
+        correlation_type='exponential';     %[string]     (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2  
         theta_clustering=0;                 %[double >=0] (1x1) parameter of the spatial correlation fo clustering
         
         %estimated parameters
@@ -115,12 +130,12 @@ classdef stem_par
                 disp('WARNING: Exponential correlation function is considered');
             else
                 if not(isempty(correlation_type))
-                    if sum(strcmp(correlation_type,{'exponential','matern'}))==0
-                        error('Only ''exponential'' and ''matern'' correlation functions are supported');
+                    if sum(strcmp(correlation_type,{'exponential','matern32','matern52'}))==0
+                        error('Only ''exponential'', ''matern32'' and ''matern52'' correlation functions are supported');
                     end
                     obj.correlation_type=correlation_type;
                 else
-                    disp('WARNING: Exponential correlation function is considered');
+                    disp('WARNING: the exponential correlation function is considered');
                 end
             end
             
@@ -179,18 +194,11 @@ classdef stem_par
             if not(isempty(stem_data.stem_varset_b))
                 obj.alpha_bp=zeros(obj.q*2,1);
                 obj.sigma_eps=zeros(obj.q*2);
-                if strcmp(obj.correlation_type,'exponential') && obj.pixel_correlated
+                if obj.pixel_correlated
                     obj.theta_b=0;
-                end
-                if strcmp(obj.correlation_type,'matern') && obj.pixel_correlated
-                    obj.theta_b=zeros(1,2);
-                end
-                if strcmp(obj.correlation_type,'exponential') && not(obj.pixel_correlated)
+                else
                     obj.theta_b=zeros(obj.q,1);
                 end                
-                if strcmp(obj.correlation_type,'matern') && not(obj.pixel_correlated)
-                    obj.theta_b=zeros(obj.q,2);
-                end 
                 obj.v_b=eye(obj.q);
             else
                 obj.sigma_eps=zeros(obj.q);
@@ -198,12 +206,7 @@ classdef stem_par
             
             if obj.k>0
                 obj.alpha_p=zeros(obj.q,obj.k);
-                if strcmp(obj.correlation_type,'exponential')
-                    obj.theta_p=zeros(obj.k,1);
-                else
-                    obj.theta_p=zeros(obj.k,2);
-                end
-                
+                obj.theta_p=zeros(obj.k,1);
                 for i=1:obj.k
                     v_p(:,:,i)=eye(obj.q);
                 end
@@ -229,21 +232,14 @@ classdef stem_par
             all_par=[all_par; diag(obj.sigma_eps)];
 
             all_par=[all_par; obj.alpha_bp];
-            if strcmp(obj.correlation_type,'exponential')
-                all_par=[all_par; obj.theta_b];
-            else
-                all_par=[all_par; obj.theta_b(:)];
-            end
+            all_par=[all_par; obj.theta_b(:)];
+
             if obj.pixel_correlated
                 all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_b)];
             end
 
             all_par=[all_par; obj.alpha_p(:)];
-            if strcmp(obj.correlation_type,'exponential')
-                all_par=[all_par; obj.theta_p];
-            else
-                all_par=[all_par;obj.theta_p(:)];
-            end
+            all_par=[all_par;obj.theta_p(:)];
             for i=1:obj.k
                 all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_p(:,:,i))];
             end
@@ -277,10 +273,10 @@ classdef stem_par
             disp(['alpha_p: ',num2str(obj.alpha_p(:)')]);
             end
             if not(isempty(obj.theta_b))
-            disp(['theta_b: ',num2str(obj.theta_b')]);
+            disp(['theta_b: ',num2str(obj.theta_b(:)')]);
             end
             if not(isempty(obj.theta_p))
-                disp(['theta_p: ',num2str(obj.theta_p')]);
+                disp(['theta_p: ',num2str(obj.theta_p(:)')]);
             end
             if not(isempty(obj.v_b))
                 if (obj.pixel_correlated)&&(obj.q>1)
@@ -342,44 +338,27 @@ classdef stem_par
         end        
         
         function obj = set.theta_b(obj,theta_b)
-            if strcmp(obj.correlation_type,'exponential')
-                if not(obj.pixel_correlated) && not(length(theta_b)==obj.q)
-                    error(['The length of theta_b must be equal to ',num2str(obj.q)]);
-                end
-                if obj.pixel_correlated && not(length(theta_b)==1)
-                    error('theta_b must be a scalar');
-                end
-                if sum(theta_b<0)>0
-                    error('The element of theta_b cannot be negative');
-                end
+            if not(obj.pixel_correlated) && not(length(theta_b)==obj.q)
+                error(['The length of theta_b must be equal to ',num2str(obj.q)]);
             end
-            if strcmp(obj.correlation_type,'matern')
-                if not(obj.pixel_correlated) && not(size(theta_b,2)==2) && not(size(theta_b,1)==obj.q*2)
-                    error(['The size of theta_b must be ',num2str(2*obj.q),' x 2']);
-                end
-                if obj.pixel_correlated && not(size(theta_b,2)==2) && not(size(theta_b,1)==1)
-                    error('The size of theta_b must be 1 x 2');
-                end                
+            if obj.pixel_correlated && not(length(theta_b)==1)
+                error('theta_b must be a scalar');
             end
-            obj.theta_b=theta_b; 
+            if sum(theta_b<0)>0
+                error('The element of theta_b cannot be negative');
+            end
+            obj.theta_b=theta_b;
         end
         
         function obj = set.theta_p(obj,theta_p)
-            if strcmp(obj.correlation_type,'exponential')
-                if not(length(theta_p)==obj.k)
-                    error(['The length of theta_p must be equal to ',num2str(obj.k)]);
-                end
-                if sum(theta_p<0)>0
-                    error('The element of theta_p cannot be negative');
-                end
+            if not(length(theta_p)==obj.k)
+                error(['theta_p must be 1x',num2str(obj.k)]);
             end
-            if strcmp(obj.correlation_type,'matern')
-                if not(size(theta_p,2)==2) && not(size(theta_p,1)==obj.k)
-                    error(['The size of theta_p must be ',num2str(obj.k),' x 2']);
-                end
+            if sum(theta_p<0)>0
+                error('The element of theta_p cannot be negative');
             end
-            obj.theta_p=theta_p; 
-        end        
+            obj.theta_p=theta_p;
+        end
 
         function obj = set.v_b(obj,v_b)
             if not(size(v_b,1)==obj.q)||(size(v_b,2)~=obj.q)

@@ -1,13 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_kalman < handle
     
@@ -352,13 +367,15 @@ classdef stem_kalman < handle
                 temp2=temp*X_z_orlated;
                 
                 if not(time_diagonal)
-                    %filter
+                    %FILTERING
                     zk_f(:,t)=G*zk_u(:,t-1); %(6.19) Stoffer
                     Pk_f(:,:,t)=G*Pk_u(:,:,t-1)*G'+sigma_eta; %(6.20) Stoffer
                     
-                    %update
-                    %original formula
+                    %UPDATING
+                    
+                    %Original formula
                     %J(i,Lt,t)=Pk_f(i,i,t)*X_z(Lt,i,tK-1)'/(X_z(Lt,i,tK-1)*Pk_f(i,i,t)*X_z(Lt,i,tK-1)'+sigma_geo(Lt,Lt)); %(6.23) Stoffer
+                    
                     %Sherman-Morrison-Woodbury formula: (B*P*B+D)^-1=D^-1-D^-1*B(P^-1+B*D^-1*B)^-1*B*D^-1
                     %J(i,Lt,t)=Pk_f(i,i,t)*X_z(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_z(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_z(Lt,i,tK-1)'*sigma_geo_inv*X_z(Lt,i,tK-1))*(X_z(Lt,i,tK-1)'*sigma_geo_inv));
                     
@@ -380,13 +397,13 @@ classdef stem_kalman < handle
                     zk_u(:,t)=zk_f(:,t)+J(:,Lt)*innovation(Lt,1); 
                     Pk_u(:,:,t)=(eye(p)-J(:,Lt)*X_z_orlated)*Pk_f(:,:,t);  %(6.22) Stoffer
                 else
-                    %filter
+                    %FILTERING
                     zk_f(:,t)=diag(G).*zk_u(:,t-1); %(6.19) Stoffer
                     Pk_f(:,:,t)=diag(diag(G).^2.*diag(Pk_u(:,:,t-1))+diag(sigma_eta)); %(6.20) Stoffer
                     
-                    %update
+                    %UPDATING
 
-                    %original formula
+                    %Original formula
                     %J(i,Lt,t)=Pk_f(i,i,t)*X_z(Lt,i,tK-1)'/(X_z(Lt,i,tK-1)*Pk_f(i,i,t)*X_z(Lt,i,tK-1)'+sigma_geo(Lt,Lt)); %(6.23) Stoffer
                     %Sherman-Morrison-Woodbury formula: (B*P*B+D)^-1=D^-1-D^-1*B(P^-1+B*D^-1*B)^-1*B*D^-1
                     %J(i,Lt,t)=Pk_f(i,i,t)*X_z(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_z(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_z(Lt,i,tK-1)'*sigma_geo_inv*X_z(Lt,i,tK-1))*(X_z(Lt,i,tK-1)'*sigma_geo_inv));
@@ -631,11 +648,11 @@ classdef stem_kalman < handle
                     end
                     
                     if not(time_diagonal)
-                        %filter
+                        %FILTERING
                         zk_f(:,t)=G*zk_u(:,t-1); %(6.19) Stoffer
                         Pk_f(:,:,t)=G*Pk_u(:,:,t-1)*G'+sigma_eta; %(6.20) Stoffer
                         
-                        %update
+                        %UPDATING
                         if t<=max_ts %the time steps up to max_ts are computed locally
                             temp=sigma_geo(Lt,Lt);
                             if tapering
@@ -693,13 +710,13 @@ classdef stem_kalman < handle
                         zk_u(:,t)=zk_f(:,t)+J(:,Lt)*innovation(Lt,1);
                         Pk_u(:,:,t)=(eye(p)-J(:,Lt)*X_z_orlated)*Pk_f(:,:,t);  %(6.22) Stoffer
                     else
-                        %filter
+                        %FILTERING
                         zk_f(:,t)=diag(G).*zk_u(:,t-1); %(6.19) Stoffer
                         Pk_f(:,:,t)=diag(diag(G).^2.*diag(Pk_u(:,:,t-1))+diag(sigma_eta)); %(6.20) Stoffer
                         
-                        %update
+                        %UPDATING
                         
-                        %original formula
+                        %Original formula
                         %J(i,Lt,t)=Pk_f(i,i,t)*X_z(Lt,i,tK-1)'/(X_z(Lt,i,tK-1)*Pk_f(i,i,t)*X_z(Lt,i,tK-1)'+sigma_geo(Lt,Lt)); %(6.23) Stoffer
                         %Sherman-Morrison-Woodbury formula: (B*P*B+D)^-1=D^-1-D^-1*B(P^-1+B*D^-1*B)^-1*B*D^-1
                         %J(i,Lt,t)=Pk_f(i,i,t)*X_z(Lt,i,tK-1)'*(sigma_geo_inv-sigma_geo_inv*X_z(Lt,i,tK-1)/(1/Pk_f(i,i,t)+X_z(Lt,i,tK-1)'*sigma_geo_inv*X_z(Lt,i,tK-1))*(X_z(Lt,i,tK-1)'*sigma_geo_inv));
@@ -852,7 +869,6 @@ classdef stem_kalman < handle
                     
                     save([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],'temp','temp2');
                     movefile([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],[pathparallel,'kalman_ouput_',num2str(t),'.mat']);
-                    %disp(['Saved kalman_ouput_',num2str(t),'.mat']);
                 end
                 J_last=[];
                 J=[];

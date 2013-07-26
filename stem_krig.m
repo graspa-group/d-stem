@@ -1,12 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_krig < handle
     
@@ -872,7 +888,7 @@ classdef stem_krig < handle
                     if not(no_varcov)
                         %compute diag(Var(w_b|y1))
                         if obj.stem_model.tapering
-                            temp_b(r,:)=stem_misc.chol_solve(chol_H1t,cov_wb_y1z(:,r)',1);
+                            temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)',1);
                         else
                             temp_b=stem_misc.chol_solve(chol_H1t,cov_wb_y1z');
                         end
@@ -939,7 +955,7 @@ classdef stem_krig < handle
                         if not(no_varcov)
                             %compute diag(Var(w_p_k|y1))
                             if obj.stem_model.tapering
-                                temp_p{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wp_y1z(:,r)',1);
+                                temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)',1);
                             else
                                 temp_p{k}=stem_misc.chol_solve(chol_H1t,cov_wp_y1z');
                             end

@@ -1,12 +1,29 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
+
 
 classdef stem_EM < EM
     
@@ -18,11 +35,16 @@ classdef stem_EM < EM
     %S   = 2 if both point and pixel data are considered. S = 1 if only point data are considered.
     %T   - number of temporal steps
     %TT  = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
-    %p   - dimension of the latent temporal variable z    
-   
+    %p   - dimension of the latent temporal variable z
+    
     properties
         stem_model=[];               %[stem_model object] (1x1)
         stem_EM_options=[];          %[stem_EM_options]   (1x1)
+    end
+    
+    properties (SetAccess = private)
+        timeout_parallel=72000;      %[integer] (1x1) - timeout in seconds when waiting for the data from the nodes
+        timeout_nodes=120;           %[integer] (1x1) - timeout in seconds when looking for the available nodes
     end
     
     methods
@@ -38,7 +60,7 @@ classdef stem_EM < EM
             if nargin<2
                 error('All the arguments must be provided');
             end
-
+            
             if isa(stem_model,'stem_model')
                 obj.stem_model=stem_model;
             else
@@ -50,10 +72,10 @@ classdef stem_EM < EM
             else
                 error('The second argument must be of class stem_EM_options');
             end
-
+            
             if isempty(obj.stem_model.stem_par_initial)
                 error('Initial value estimation for model parameters must be provided first');
-            end            
+            end
         end
         
         function st_EM_result = estimate(obj)
@@ -77,7 +99,7 @@ classdef stem_EM < EM
             last_logL=0;
             last_stem_par=obj.stem_model.stem_par;
             iteration=0;
-            st_EM_result=stem_EM_result(); 
+            st_EM_result=stem_EM_result();
             st_EM_result.max_iterations=obj.stem_EM_options.max_iterations;
             st_EM_result.exit_toll=obj.stem_EM_options.exit_toll;
             st_EM_result.machine=computer;
@@ -93,7 +115,7 @@ classdef stem_EM < EM
                 clear sum_Var_wb_y1
                 clear diag_Var_wb_y1
                 clear cov_wb_z_y1
-                clear E_wg_y1 
+                clear E_wg_y1
                 clear sum_Var_wp_y1
                 clear diag_Var_wp_y1
                 clear cov_wp_z_y1
@@ -103,10 +125,10 @@ classdef stem_EM < EM
                 clear E_e_y1
                 clear sigma_eps
                 clear Xbeta
-
+                
                 [E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_b,sigma_W_p,Xbeta,st_kalmansmoother_result] = obj.E_step();
                 obj.M_step(E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,iteration);
-
+                
                 st_EM_result.stem_par_all(:,iteration)=obj.stem_model.stem_par.vec;
                 if not(isempty(st_kalmansmoother_result))
                     if not(st_kalmansmoother_result.logL==0)
@@ -118,7 +140,7 @@ classdef stem_EM < EM
                         disp( ['logL: ',num2str(logL)]);
                         disp(['relative delta logL: ',num2str(delta_logL)]);
                     else
-                       delta_logL=9999; 
+                        delta_logL=9999;
                     end
                 else
                     delta_logL=9999;
@@ -165,7 +187,7 @@ classdef stem_EM < EM
                 st_EM_result.y_back=y;
                 st_EM_result.res_back=y-y_hat_back;
             end
-         
+            
             st_EM_result.iterations=iteration;
             st_EM_result.computation_time=etime(t2_full,t1_full);
         end
@@ -178,7 +200,7 @@ classdef stem_EM < EM
             %pathparallel         - [string]              (1x1)  full or relative path of the folder to use for distributed computation
             %
             %OUTPUT
-            %st_EM_result         - [st_EM_result object] (1x1)            
+            %st_EM_result         - [st_EM_result object] (1x1)
             t1_full=clock;
             if isempty(obj.stem_model)&&(nargin==0)
                 error('You have to set the stem_model property first');
@@ -195,7 +217,7 @@ classdef stem_EM < EM
             last_logL=0;
             last_stem_par=obj.stem_model.stem_par;
             iteration=0;
-            st_EM_result=stem_EM_result(); 
+            st_EM_result=stem_EM_result();
             st_EM_result.max_iterations=obj.stem_EM_options.max_iterations;
             st_EM_result.exit_toll=obj.stem_EM_options.exit_toll;
             st_EM_result.machine=computer;
@@ -235,11 +257,11 @@ classdef stem_EM < EM
                     %create the file for the whoishere request
                     disp('  Looking for distributed clients...');
                     whoishere.IDrequest=unifrnd(0,100000,1,1);
-
+                    
                     save([pathparallel,'temp/whoishere.mat'],'whoishere');
                     pause(0.5);
                     movefile([pathparallel,'temp/whoishere.mat'],[pathparallel,'whoishere.mat']);
-                   
+                    
                     if iteration==1
                         hosts=[];
                     end
@@ -278,7 +300,7 @@ classdef stem_EM < EM
                             end
                         end
                         wait2=clock;
-                        if etime(wait2,wait1)>120 %120 seconds timeout
+                        if etime(wait2,wait1)>obj.timeout_nodes
                             exit=1;
                         end
                         pause(0.1);
@@ -310,7 +332,7 @@ classdef stem_EM < EM
                     else
                         disp('  No clients found. Only the server is used');
                     end
-                   
+                    
                     if nhosts>=1
                         %the st_par to be distributed is the same for all the clients
                         disp('  Saving st_par to distribute')
@@ -341,7 +363,7 @@ classdef stem_EM < EM
                     t2=find(Lt_csum>=l2,1);
                     time_steps=t1:t2;
                     local_cb=sum(Lt_all(time_steps));
-                    disp(['  ',num2str(length(time_steps)),' time will be assigned to the server machine']);                    
+                    disp(['  ',num2str(length(time_steps)),' time will be assigned to the server machine']);
                     
                     %Kalman smoother
                     if obj.stem_model.stem_par.p>0
@@ -417,7 +439,7 @@ classdef stem_EM < EM
                         movefile([pathparallel,'temp/data_parallel_',num2str(hosts(i).node_code),'.mat'],[pathparallel,'data_parallel_',num2str(hosts(i).node_code),'.mat']);
                     end
                     clear data
-
+                    
                     %local E-step computation
                     ct1_local=clock;
                     [E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1] = obj.E_step_parallel(time_steps,st_kalmansmoother_result);
@@ -525,7 +547,7 @@ classdef stem_EM < EM
                                 end
                             end
                             wait2=clock;
-                            if etime(wait2,wait1)>72000 %two hours
+                            if etime(wait2,wait1)>obj.timeout_parallel
                                 disp('    Timeout');
                                 timeout=1;
                                 exit=1;
@@ -580,7 +602,7 @@ classdef stem_EM < EM
                     obj.M_step_parallel(E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,index_local);
                 end
                 
-                %Attende la ricezione dagli altri nodi
+                %Wait for the other nodes
                 if nhosts>0
                     disp(['  Wait for output_mstep from the client(s)']);
                     exit=0;
@@ -603,7 +625,7 @@ classdef stem_EM < EM
                                     if not(isempty(output.index))
                                         for z=1:length(output.index)
                                             obj.stem_model.stem_par.v_p(:,:,output.index(z))=output.mstep_par.v_p(:,:,output.index(z));
-                                            obj.stem_model.stem_par.theta_p(output.index(z))=output.mstep_par.theta_p(output.index(z));
+                                            obj.stem_model.stem_par.theta_p(:,output.index(z))=output.mstep_par.theta_p(:,output.index(z));
                                             disp(['  ',num2str(output.index(z)),'th component of vg and theta_p updated']);
                                         end
                                     else
@@ -638,7 +660,7 @@ classdef stem_EM < EM
                             %end
                         end
                         wait2=clock;
-                        if etime(wait2,wait1)>72000 %two hours
+                        if etime(wait2,wait1)>obj.timeout_parallel
                             disp('    Timeout');
                             timeout=1;
                             exit=1;
@@ -650,7 +672,7 @@ classdef stem_EM < EM
                         hosts(i).data_received=0;
                     end
                 end
-
+                
                 if not(isempty(st_kalmansmoother_result))
                     if not(st_kalmansmoother_result.logL==0)
                         logL=st_kalmansmoother_result.logL;
@@ -661,7 +683,7 @@ classdef stem_EM < EM
                         disp( ['logL: ',num2str(logL)]);
                         disp(['relative delta logL: ',num2str(delta_logL)]);
                     else
-                       delta_logL=9999; 
+                        delta_logL=9999;
                     end
                 else
                     delta_logL=9999;
@@ -684,7 +706,7 @@ classdef stem_EM < EM
             st_EM_result.diag_Var_wb_y1=diag_Var_wb_y1;
             st_EM_result.iterations=iteration;
             st_EM_result.computation_time=etime(t2_full,t1_full);
-        end        
+        end
         
         function [E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1,sigma_eps,sigma_W_b,sigma_W_p,Xbeta,st_kalmansmoother_result] = E_step(obj,T)
             %DESCRIPTION: E-step of the EM algorithm
@@ -711,7 +733,7 @@ classdef stem_EM < EM
             %sigma_W_p                      - [double]          {k}(N_pxN_p) sigma_wp
             %Xbeta                          - [double]          (NxT) X*beta'
             %st_kalmansmoother_result       - [stem_kalmansmoother_result object] (1x1)
-
+            
             if nargin==1
                 T=obj.stem_model.stem_data.T;
             end
@@ -726,7 +748,7 @@ classdef stem_EM < EM
             K=obj.stem_model.stem_par.k;
             p=obj.stem_model.stem_par.p;
             par=obj.stem_model.stem_par;
-
+            
             disp('  E step started...');
             ct1_estep=clock;
             
@@ -1010,23 +1032,8 @@ classdef stem_EM < EM
                     E_wb_y1(:,t)=cov_wb_y1z*cs;
                     %compute Var(w_b|y1)
                     if obj.stem_model.tapering
-                        temp_b(r,:)=stem_misc.chol_solve(chol_H1t,cov_wb_y1z(:,r)',1);
-                        blocks=0:200:size(cov_wb_y1z,1);
-                        if not(blocks(end)==size(cov_wb_y1z,1))
-                            blocks=[blocks size(cov_wb_y1z,1)];
-                        end
-                        Id=[];
-                        Jd=[];
-                        elements=[];
-                        for i=1:length(blocks)-1
-                            temp_b2=cov_wb_y1z(blocks(i)+1:blocks(i+1),:)*temp_b;  
-                            idx=find(temp_b2);
-                            [idx_I,idx_J]=ind2sub(size(temp_b2),idx);
-                            Id=[Id;idx_I+blocks(i)];
-                            Jd=[Jd;idx_J];
-                            elements=[elements;temp_b2(idx)];
-                        end
-                        Var_wb_y1=sigma_W_b-sparse(Id,Jd,elements,size(sigma_W_b,1),size(sigma_W_b,2));
+                        temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)');
+                        Var_wb_y1=sigma_W_b-cov_wb_y1z*temp_b;
                     else
                         temp_b=stem_misc.chol_solve(chol_H1t,cov_wb_y1z');
                         Var_wb_y1=sigma_W_b-cov_wb_y1z*temp_b;
@@ -1090,23 +1097,8 @@ classdef stem_EM < EM
                         E_wp_y1(:,t,k)=cov_wp_y1z*cs;
                         %compute Var(w_p_k|y1)
                         if obj.stem_model.tapering
-                            temp_p{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wp_y1z(:,r)',1);
-                            blocks=0:200:size(cov_wp_y1z,1);
-                            if not(blocks(end)==size(cov_wp_y1z,1))
-                                blocks=[blocks size(cov_wp_y1z,1)];
-                            end
-                            Id=[];
-                            Jd=[];
-                            elements=[];
-                            for i=1:length(blocks)-1
-                                temp_p2=cov_wp_y1z(blocks(i)+1:blocks(i+1),:)*temp_p{k};
-                                idx=find(temp_p2);
-                                [idx_I,idx_J]=ind2sub(size(temp_p2),idx);
-                                Id=[Id;idx_I+blocks(i)];
-                                Jd=[Jd;idx_J];
-                                elements=[elements;temp_p2(idx)];
-                            end
-                            Var_wp_y1=sigma_W_p{k}-sparse(Id,Jd,elements,size(sigma_W_p{k},1),size(sigma_W_p{k},2));
+                            temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)');
+                            Var_wp_y1=sigma_W_p{k}-cov_wp_y1z*temp_p{k};
                         else
                             temp_p{k}=stem_misc.chol_solve(chol_H1t,cov_wp_y1z');
                             Var_wp_y1=sigma_W_p{k}-cov_wp_y1z*temp_p{k};
@@ -1253,7 +1245,7 @@ classdef stem_EM < EM
             %E_e_y1                         - [double]          (NxT) E[e|Y(1)]
             %sigma_eps                      - [double]          (NxN) sigma_eps
             %st_kalmansmoother_result       - [st_kalmansmoother_result object] (1x1)
-            %iteration                      - [double]          (1x1) EM iteration number     
+            %iteration                      - [double]          (1x1) EM iteration number
             %
             %OUTPUT
             %none: the stem_par property of the stem_model object is updated
@@ -1329,12 +1321,12 @@ classdef stem_EM < EM
             temp=temp/T;
             blocks=[0 cumsum(dim)];
             for i=1:length(dim)
-               st_par_em_step.sigma_eps(i,i)=mean(temp(blocks(i)+1:blocks(i+1)));
+                st_par_em_step.sigma_eps(i,i)=mean(temp(blocks(i)+1:blocks(i+1)));
             end
             ct2=clock;
             disp(['    sigma_eps update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
-           
-
+            
+            
             %%%%%%%%%%%%%%%%%%%%%%%%%
             %    G and sigma_eta    %
             %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1355,9 +1347,9 @@ classdef stem_EM < EM
                 if max(eig(temp))<1
                     st_par_em_step.G=temp;
                 else
-                    warning('G is not stable. The last G is retained.');    
+                    warning('G is not stable. The last G is retained.');
                 end
-
+                
                 temp=(S11-S10*par.G'-par.G*S10'+par.G*S00*par.G')/T;
                 %st_par_em_step.sigma_eta=(S11-S10*par.G'-par.G*S10'+par.G*S00*par.G')/T;
                 %st_par_em_step.sigma_eta=(S11-st_par_em_step.G*S10')/T;
@@ -1451,13 +1443,11 @@ classdef stem_EM < EM
                 st_par_em_step.alpha_bp=alpha_bp';
                 ct2=clock;
                 disp(['    alpha_bp update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
-
+                
                 disp('    v_b update started...');
                 ct1=clock;
                 
                 if Nb<=obj.stem_EM_options.mstep_system_size
-                    %TEMP NbxNb VA CALCOLATA IN OGNI CASO SE NON SI RISOLVE
-                    %LA STIMA A BLOCCHI DI v E theta NEL CASO DI v NON DIAGONALE!!!
                     temp=zeros(size(sum_Var_wb_y1));
                     for t=1:T
                         temp=temp+E_wb_y1(:,t)*E_wb_y1(:,t)';
@@ -1465,11 +1455,9 @@ classdef stem_EM < EM
                     temp=temp+sum_Var_wb_y1;
                 end
                 
-                %MANCA LA STIMA A BLOCCHI COS� COME FATTO PER THETA!
-                
-                
                 if par.pixel_correlated
                     %indices are permutated in order to avoid deadlock
+                    v_temp=par.v_b;
                     kindex=randperm(size(par.v_b,1));
                     for k=kindex
                         hindex=randperm(size(par.v_b,1)-k)+k;
@@ -1483,16 +1471,21 @@ classdef stem_EM < EM
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_b,par.theta_b,par.correlation_type,obj.stem_model.stem_data.DistMat_b,...
                                     obj.stem_model.stem_data.stem_varset_b.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_b.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
-                            st_par_em_step.v_b(k,h)=min_result;
-                            st_par_em_step.v_b(h,k)=min_result;
+                            v_temp(k,h)=min_result;
+                            v_temp(h,k)=min_result;
                         end
+                    end
+                    if min(eig(v_temp))>=0
+                        st_par_em_step.v_b=v_temp;
+                    else
+                        disp('    v_b is not positive definited. The last v_b is retained');    
                     end
                     ct2=clock;
                     disp(['    v_b update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 else
                     %nothing because V in this case is the identity matrix
                 end
-
+                
                 disp('    theta_b updating started...');
                 ct1=clock;
                 initial=par.theta_b;
@@ -1534,7 +1527,7 @@ classdef stem_EM < EM
                         for i=1:obj.stem_model.stem_data.stem_varset_b.nvar
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_b,par.correlation_type,obj.stem_model.stem_data.DistMat_b(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
                                 obj.stem_model.stem_data.stem_varset_b.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_b.tap),log(initial(i)),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                            st_par_em_step.theta_b(i)=exp(min_result);
+                            st_par_em_step.theta_b(:,i)=exp(min_result);
                         end
                     else
                         blocks_var=[0 cumsum(obj.stem_model.stem_data.stem_varset_b.dim)];
@@ -1557,14 +1550,14 @@ classdef stem_EM < EM
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_b,par.correlation_type,obj.stem_model.stem_data.DistMat_b(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_b.tap),log(initial(i)),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
-                            st_par_em_step.theta_b(i)=exp(mean(min_result));
+                            st_par_em_step.theta_b(:,i)=exp(mean(min_result));
                         end
                     end
                 end
                 ct2=clock;
                 disp(['    theta_b update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
-
+            
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %          alpha_p               %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1662,14 +1655,11 @@ classdef stem_EM < EM
                 st_par_em_step.alpha_p=alpha_p;
                 ct2=clock;
                 disp(['    alpha_p update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
-                
-                
+                  
                 disp('    v_p and theta_p update started...');
                 ct1=clock;
-                for z=1:K
-                    disp(num2str(z));%Da eliminare
-                    
-                    %AGGIUNGERE LA STIMA A BLOCCHI ANCHE PER v_p?????
+                v_temp=par.v_p;
+                for z=1:K                    
                     if Np<=obj.stem_EM_options.mstep_system_size
                         temp=zeros(size(sum_Var_wp_y1{z}));
                         for t=1:T
@@ -1686,32 +1676,32 @@ classdef stem_EM < EM
                             initial=par.v_p(k,h,z);
                             ctv1=clock;
                             if Np<=obj.stem_EM_options.mstep_system_size
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                     obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             else
                                 disp('WARNING: this operation will take a long time');
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                     obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
                             ctv2=clock;
                             disp(['    v_p(',num2str(h),',',num2str(k),') update ended in ',stem_misc.decode_time(etime(ctv2,ctv1))]);
-                            st_par_em_step.v_p(k,h,z)=min_result;
-                            st_par_em_step.v_p(h,k,z)=min_result;
+                            v_temp(k,h,z)=min_result;
+                            v_temp(h,k,z)=min_result;
                         end
                     end
                     
-                    initial=par.theta_p(z);
+                    initial=par.theta_p(:,z);
                     ctv1=clock;
                     if Np<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_p(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                             obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                        st_par_em_step.theta_p(z)=exp(min_result);
+                        st_par_em_step.theta_p(:,z)=exp(min_result);
                     else
                         if obj.stem_model.stem_data.stem_varset_p.nvar>1
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_p(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                 obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                            st_par_em_step.theta_p(z)=exp(min_result);
+                            st_par_em_step.theta_p(:,z)=exp(min_result);
                         else
                             s=ceil(Np/obj.stem_EM_options.mstep_system_size);
                             step=ceil(Np/s);
@@ -1730,7 +1720,7 @@ classdef stem_EM < EM
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_p(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
-                            st_par_em_step.theta_p(z)=exp(mean(min_result));
+                            st_par_em_step.theta_p(:,z)=exp(mean(min_result));
                         end
                         ctv2=clock;
                         disp(['    theta_p(',num2str(z),') update ended in ',stem_misc.decode_time(etime(ctv2,ctv1))]);
@@ -1738,9 +1728,16 @@ classdef stem_EM < EM
                     ct2=clock;
                     disp(['    v_p and theta_p update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 end
+                for z=1:K
+                    if min(eig(v_temp(:,:,z)))>=0
+                        st_par_em_step.v_p(:,:,z)=v_temp(:,:,z);
+                    else
+                        disp(['    v_p(:,:,',num2str(z),') is not positive definited. The last matrix is retained.']);
+                    end
+                end
             end
             
-            if obj.stem_model.stem_par.clustering==1
+            if obj.stem_model.stem_par.clustering>=1
                 if not(isempty(st_kalmansmoother_result))
                     E_e_y1=[];
                     diag_Var_e_y1=[];
@@ -1751,6 +1748,16 @@ classdef stem_EM < EM
                     I=[];
                     K=[];
                     if size(obj.stem_model.stem_data.X_z,3)==1
+                        %obj.stem_model.stem_data.X_z=zeros(size(obj.stem_model.stem_data.X_z));
+                        %
+                        %temp_Y=obj.stem_model.stem_data.Y;
+                        %temp_Y(isnan(temp_Y))=0;
+                        %obj.stem_model.stem_data.X_z=temp_Y*st_kalmansmoother_result.zk_s(:,2:end)';
+                        %obj.stem_model.stem_data.X_z=obj.stem_model.stem_data.X_z/S11;
+                        %if obj.stem_model.stem_par.clustering==1
+                        %  obj.stem_model.stem_data.X_z(obj.stem_model.stem_data.X_z<0)=0;
+                        %end
+                        
                         %correlation computation
                         for i=1:N
                             L=not(isnan(obj.stem_model.stem_data.Y(i,:)));
@@ -1762,82 +1769,88 @@ classdef stem_EM < EM
                             else
                                 temp=repmat(0.0001,1,par.p);
                             end
-                            temp(temp<=0)=0.0001;
+                            if obj.stem_model.stem_par.clustering==1
+                                temp(temp<=0)=0.0001;
+                            end
                             temp(isnan(temp))=0.0001;
                             obj.stem_model.stem_data.X_z(i,:)=temp;
                         end
-                        
-                        theta_clustering=obj.stem_model.stem_par.theta_clustering;
-                        if theta_clustering>0
-                            for i=1:N
-                                v=exp(-obj.stem_model.stem_data.DistMat_p(:,i)/theta_clustering);
-                                for j=1:par.p
-                                    obj.stem_model.stem_data.X_z(i,j)=(v'*obj.stem_model.stem_data.X_z(:,j))/length(v);
-                                end
-                            end
-                        end
+
+                        %theta_clustering=obj.stem_model.stem_par.theta_clustering;
+                        %if theta_clustering>0
+                        %for i=1:N
+                        %  v=exp(-obj.stem_model.stem_data.DistMat_p(:,i)/theta_clustering);
+                        %   for j=1:par.p
+                        %    obj.stem_model.stem_data.X_z(i,j)=(v'*obj.stem_model.stem_data.X_z(:,j))/length(v);
+                        %   end
+                        %  end
+                        %end
                         
                         %weight computation
                         for h=1:iteration
-                            obj.stem_model.stem_data.X_z=obj.stem_model.stem_data.X_z.^2;
-                            ss=sum(obj.stem_model.stem_data.X_z,2);
+                            if obj.stem_model.stem_par.clustering==1
+                                obj.stem_model.stem_data.X_z=obj.stem_model.stem_data.X_z.^2;
+                                ss=sum(obj.stem_model.stem_data.X_z,2);
+                            else
+                                obj.stem_model.stem_data.X_z=obj.stem_model.stem_data.X_z.^2.*sign(obj.stem_model.stem_data.X_z);
+                                ss=sum(abs(obj.stem_model.stem_data.X_z),2);
+                            end
                             for j=1:size(obj.stem_model.stem_data.X_z,2)
                                 obj.stem_model.stem_data.X_z(:,j)=obj.stem_model.stem_data.X_z(:,j)./ss;
                             end
                         end
                     else
-                        %DA MODIFICARE NON CREANDO VARIABILI TEMPORANEE!!!
-                        %correlation computation
-                        for t=1:T
-                            t1=t-30;
-                            t2=t+30;
-                            if t1<1
-                                t1=1;
-                            end
-                            if t2>T
-                                t2=T;
-                            end
-                            Y_temp=obj.stem_model.stem_data.Y(:,t1:t2);
-                            z_temp=st_kalmansmoother_result.zk_s(:,t1+1:t2+1)';
-                            parfor i=1:N
-                                L=not(isnan(Y_temp(i,:)));
-                                a=Y_temp(i,L)';
-                                b=z_temp(L,:);
-                                if not(isempty(b))
-                                    temp=corr(a,b);
-                                else
-                                    temp=repmat(0.0001,1,par.p);
-                                end
-                                temp(temp<=0)=0.0001;
-                                temp(isnan(temp))=0.0001;
-                                X_z_new(i,:,t)=temp;
-                            end
-                        end
-                        
-                        theta_clustering=obj.stem_model.stem_par.theta_clustering;
-                        if theta_clustering>0
-                            X_z_new2=zeros(size(X_z_new));
-                            for t=1:T
-                                for i=1:N
-                                    v=exp(-obj.stem_model.stem_data.DistMat_p(:,i)/theta_clustering);
-                                    for j=1:par.p
-                                        X_z_new2(i,j,t)=(v'*X_z_new(:,j,t))/length(v);
-                                    end
-                                end
-                            end
-                            X_z_new=X_z_new2;
-                        end
-                        
-                        %weight computation
-                        for h=1:iteration
-                            X_z_new=X_z_new.^2;
-                            for t=1:T
-                                ss=sum(X_z_new(:,:,t),2);
-                                for j=1:size(X_z_new,2)
-                                    X_z_new(:,j,t)=X_z_new(:,j,t)./ss;
-                                end
-                            end
-                        end
+                        % correlation computation
+                        % for t=1:T
+                        %     t1=t-30;
+                        %     t2=t+30;
+                        %     if t1<1
+                        %         t1=1;
+                        %     end
+                        %     if t2>T
+                        %         t2=T;
+                        %     end
+                        %     Y_temp=obj.stem_model.stem_data.Y(:,t1:t2);
+                        %     z_temp=st_kalmansmoother_result.zk_s(:,t1+1:t2+1)';
+                        %     parfor i=1:N
+                        %         L=not(isnan(Y_temp(i,:)));
+                        %         a=Y_temp(i,L)';
+                        %         b=z_temp(L,:);
+                        %         if not(isempty(b))
+                        %             temp=corr(a,b);
+                        %         else
+                        %             temp=repmat(0.0001,1,par.p);
+                        %         end
+                        %         temp(temp<=0)=0.0001;
+                        %         temp(isnan(temp))=0.0001;
+                        %         X_z_new(i,:,t)=temp;
+                        %     end
+                        % end
+                        %
+                        % theta_clustering=obj.stem_model.stem_par.theta_clustering;
+                        % if theta_clustering>0
+                        %     X_z_new2=zeros(size(X_z_new));
+                        %     for t=1:T
+                        %         for i=1:N
+                        %             v=exp(-obj.stem_model.stem_data.DistMat_p(:,i)/theta_clustering);
+                        %             for j=1:par.p
+                        %                 X_z_new2(i,j,t)=(v'*X_z_new(:,j,t))/length(v);
+                        %             end
+                        %         end
+                        %     end
+                        %     X_z_new=X_z_new2;
+                        % end
+                        %
+                        % weight computation
+                        % for h=1:iteration
+                        %     X_z_new=X_z_new.^2;
+                        %     for t=1:T
+                        %         ss=sum(X_z_new(:,:,t),2);
+                        %         for j=1:size(X_z_new,2)
+                        %             X_z_new(:,j,t)=X_z_new(:,j,t)./ss;
+                        %         end
+                        %     end
+                        % end
                     end
                 else
                     error('The Kalman smoother output is empty');
@@ -1845,15 +1858,14 @@ classdef stem_EM < EM
                 
                 if obj.stem_model.stem_par.clustering==1
                     obj.stem_model.stem_data.stem_varset_p.Y{1}=obj.stem_model.stem_data.Y;
-                end 
+                end
             end
-            
             
             obj.stem_model.stem_par=st_par_em_step;
             ct2_mstep=clock;
             disp(['  M step ended in ',stem_misc.decode_time(etime(ct2_mstep,ct1_mstep))]);
         end
-            
+        
         function [E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1] = E_step_parallel(obj,time_steps,st_kalmansmoother_result)
             %DESCRIPTION: parallel version of the E-step of the EM algorithm
             %
@@ -1889,7 +1901,7 @@ classdef stem_EM < EM
             par=obj.stem_model.stem_par;
             
             fts=time_steps(1);
-
+            
             disp('  E step started...');
             ct1_estep=clock;
             
@@ -1911,15 +1923,15 @@ classdef stem_EM < EM
                 end
                 if not(isempty(sigma_geo))&&(not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p)))
                     var_Yt=sigma_geo+var_Zt;
-                end                
+                end
             else
-                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);    
+                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[],[]);
                 var_Zt=[];
                 %variance of Y
                 if not(isempty(sigma_geo))&&(not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p)))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
-                end                
-            end            
+                end
+            end
             
             E_e_y1=obj.stem_model.stem_data.Y(:,time_steps);
             E_e_y1(isnan(E_e_y1))=0;
@@ -2094,7 +2106,7 @@ classdef stem_EM < EM
                     else
                         orlated=false;
                     end
-
+                    
                     if N>obj.stem_model.system_size
                         blocks=0:80:size(diag_Var_e_y1,1);
                         if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -2166,23 +2178,8 @@ classdef stem_EM < EM
                     E_wb_y1(:,t)=cov_wb_y1z*cs;
                     %compute Var(w_b|y1)
                     if obj.stem_model.tapering
-                        temp_b(r,:)=stem_misc.chol_solve(chol_H1t,cov_wb_y1z(:,r)',1);
-                        blocks=0:200:size(cov_wb_y1z,1);
-                        if not(blocks(end)==size(cov_wb_y1z,1))
-                            blocks=[blocks size(cov_wb_y1z,1)];
-                        end
-                        Id=[];
-                        Jd=[];
-                        elements=[];
-                        for i=1:length(blocks)-1
-                            temp_b2=cov_wb_y1z(blocks(i)+1:blocks(i+1),:)*temp_b;  
-                            idx=find(temp_b2);
-                            [idx_I,idx_J]=ind2sub(size(temp_b2),idx);
-                            Id=[Id;idx_I+blocks(i)];
-                            Jd=[Jd;idx_J];
-                            elements=[elements;temp_b2(idx)];
-                        end
-                        Var_wb_y1=sigma_W_b-sparse(Id,Jd,elements,size(sigma_W_b,1),size(sigma_W_b,2));
+                        temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)',1);
+                        Var_wb_y1=sigma_W_b-cov_wb_y1z*temp_b;
                     else
                         temp_b=stem_misc.chol_solve(chol_H1t,cov_wb_y1z');
                         Var_wb_y1=sigma_W_b-cov_wb_y1z*temp_b;
@@ -2207,7 +2204,7 @@ classdef stem_EM < EM
                                 end
                             end
                         else
-                            %faster for N 
+                            %faster for N
                             if orlated
                                 diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+2*diag(temp*X_z_orlated');
                             else
@@ -2246,23 +2243,8 @@ classdef stem_EM < EM
                         E_wp_y1(:,t,k)=cov_wp_y1z*cs;
                         %compute Var(w_p_k|y1)
                         if obj.stem_model.tapering
-                            temp_p{k}(r,:)=stem_misc.chol_solve(chol_H1t,cov_wp_y1z(:,r)',1);
-                            blocks=0:200:size(cov_wp_y1z,1);
-                            if not(blocks(end)==size(cov_wp_y1z,1))
-                                blocks=[blocks size(cov_wp_y1z,1)];
-                            end
-                            Id=[];
-                            Jd=[];
-                            elements=[];
-                            for i=1:length(blocks)-1
-                                temp_p2=cov_wp_y1z(blocks(i)+1:blocks(i+1),:)*temp_p{k};
-                                idx=find(temp_p2);
-                                [idx_I,idx_J]=ind2sub(size(temp_p2),idx);
-                                Id=[Id;idx_I+blocks(i)];
-                                Jd=[Jd;idx_J];
-                                elements=[elements;temp_p2(idx)];
-                            end
-                            Var_wp_y1=sigma_W_p{k}-sparse(Id,Jd,elements,size(sigma_W_p{k},1),size(sigma_W_p{k},2));
+                            temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)',1);
+                            Var_wp_y1=sigma_W_p{k}-cov_wp_y1z*temp_p{k};
                         else
                             temp_p{k}=stem_misc.chol_solve(chol_H1t,cov_wp_y1z');
                             Var_wp_y1=sigma_W_p{k}-cov_wp_y1z*temp_p{k};
@@ -2399,11 +2381,11 @@ classdef stem_EM < EM
             %E_e_y1                         - [double]          (NxT) E[e|Y(1)]
             %sigma_eps                      - [double]          (NxN) sigma_eps
             %st_kalmansmoother_result       - [st_kalmansmoother_result object] (1x1)
-            %index                          - [integer >0]      (dKx1) the subset of indices from 1 to K with respect to which estimate the elements of theta_p and v_p          
-            %iteration                      - [double]          (1x1) EM iteration number     
+            %index                          - [integer >0]      (dKx1) the subset of indices from 1 to K with respect to which estimate the elements of theta_p and v_p
+            %iteration                      - [double]          (1x1) EM iteration number
             %
             %OUTPUT
-            %none: the stem_par property of the stem_model object is updated            
+            %none: the stem_par property of the stem_model object is updated
             
             disp('  M step started...');
             ct1_mstep=clock;
@@ -2592,7 +2574,6 @@ classdef stem_EM < EM
                 disp(['    alpha_bp update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 
                 disp('    v_b update started...');
-                %AGGIUNGERE LA STIMA A BLOCCHI ANCHE PER v_b?????
                 ct1=clock;
                 if Nb<=obj.stem_EM_options.mstep_system_size
                     temp=zeros(size(sum_Var_wb_y1));
@@ -2604,6 +2585,7 @@ classdef stem_EM < EM
                 
                 if par.pixel_correlated
                     %indices are permutated in order to avoid deadlock
+                    v_temp=par.v_b;
                     kindex=randperm(size(par.v_b,1));
                     for k=kindex
                         hindex=randperm(size(par.v_b,1)-k)+k;
@@ -2617,10 +2599,16 @@ classdef stem_EM < EM
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_b,par.theta_b,par.correlation_type,obj.stem_model.stem_data.DistMat_b,...
                                     obj.stem_model.stem_data.stem_varset_b.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_b.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
-                            st_par_em_step.v_b(k,h)=min_result;
-                            st_par_em_step.v_b(h,k)=min_result;
+                            v_temp(k,h)=min_result;
+                            v_temp(h,k)=min_result;
                         end
                     end
+                    if min(eig(v_temp))>=0
+                        st_par_em_step.v_b=v_temp;
+                    else
+                        disp('    v_b is not positive definited. The last v_b is retained');    
+                    end
+                    
                     ct2=clock;
                     disp(['    v_b update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
                 end
@@ -2666,7 +2654,7 @@ classdef stem_EM < EM
                         for i=1:obj.stem_model.stem_data.stem_varset_b.nvar
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_b,par.correlation_type,obj.stem_model.stem_data.DistMat_b(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),...
                                 obj.stem_model.stem_data.stem_varset_b.dim(i),temp(blocks(i)+1:blocks(i+1),blocks(i)+1:blocks(i+1)),T,obj.stem_model.stem_data.stem_gridlist_b.tap),log(initial(i)),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                            st_par_em_step.theta_b(i)=exp(min_result);
+                            st_par_em_step.theta_b(:,i)=exp(min_result);
                         end
                     else
                         blocks_var=[0 cumsum(obj.stem_model.stem_data.stem_varset_b.dim)];
@@ -2689,7 +2677,7 @@ classdef stem_EM < EM
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_b,par.correlation_type,obj.stem_model.stem_data.DistMat_b(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_b.tap),log(initial(i)),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
-                            st_par_em_step.theta_b(i)=exp(mean(min_result));
+                            st_par_em_step.theta_b(:,i)=exp(mean(min_result));
                         end
                     end
                     ct2=clock;
@@ -2730,6 +2718,12 @@ classdef stem_EM < EM
                             sum_num=sum_num+sum(temp1(Lt).*temp2(Lt)');
                             
                             if par.p>0
+                                if size(obj.stem_model.stem_data.X_z(:,:,tT),1)<N
+                                    X_z_orlated=[obj.stem_model.stem_data.X_z(:,:,tT);zeros(N-size(obj.stem_model.stem_data.X_z(:,:,tT),1),size(obj.stem_model.stem_data.X_z(:,:,tT),2))];
+                                    orlated=true;
+                                else
+                                    orlated=false;
+                                end
                                 temp1=stem_misc.D_apply(stem_misc.D_apply(cov_wp_z_y1(:,:,t,s),obj.stem_model.stem_data.X_p(:,1,tP,s),'l'),j_b,'l');
                                 temp2=zeros(size(temp1,1),1);
                                 if N>obj.stem_model.system_size
@@ -2792,7 +2786,8 @@ classdef stem_EM < EM
                 %indices are permutated in order to avoid deadlock
                 disp('    v_p and theta_p update started...');
                 ct1=clock;
-                for z=index %note that z moves over index and not from 1 to K 
+                v_temp=par.v_p;
+                for z=index %note that z moves over index and not from 1 to K
                     if Np<=obj.stem_EM_options.mstep_system_size
                         temp=zeros(size(sum_Var_wp_y1{z}));
                         for t=1:T
@@ -2808,32 +2803,32 @@ classdef stem_EM < EM
                             initial=par.v_p(k,h,z);
                             ctv1=clock;
                             if Np<=obj.stem_EM_options.mstep_system_size
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                     obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             else
                                 disp('WARNING: this operation will take a long time');
-                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
+                                min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_p(:,:,z),par.theta_p(:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                     obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
                             ctv2=clock;
                             disp(['    v_p(',num2str(h),',',num2str(k),') update ended in ',stem_misc.decode_time(etime(ctv2,ctv1))]);
-                            st_par_em_step.v_p(k,h,z)=min_result;
-                            st_par_em_step.v_p(h,k,z)=min_result;
+                            v_temp(k,h,z)=min_result;
+                            v_temp(h,k,z)=min_result;
                         end
                     end
                     
-                    initial=par.theta_p(z);
+                    initial=par.theta_p(:,z);
                     ctv1=clock;
                     if Np<=obj.stem_EM_options.mstep_system_size
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_p(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                             obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                        st_par_em_step.theta_p(z)=exp(min_result);
+                        st_par_em_step.theta_p(:,z)=exp(min_result);
                     else
                         if obj.stem_model.stem_data.stem_varset_p.nvar>1
                             disp('WARNING: this operation will take a long time');
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_p(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                 obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                            st_par_em_step.theta_p(z)=exp(min_result);
+                            st_par_em_step.theta_p(:,z)=exp(min_result);
                         else
                             s=ceil(Np/obj.stem_EM_options.mstep_system_size);
                             step=ceil(Np/s);
@@ -2852,12 +2847,13 @@ classdef stem_EM < EM
                                 min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_p(:,:,z),par.correlation_type,obj.stem_model.stem_data.DistMat_p(idx,idx),...
                                     length(idx),temp,t,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                             end
-                            st_par_em_step.theta_p(z)=exp(mean(min_result));
+                            st_par_em_step.theta_p(:,z)=exp(mean(min_result));
                         end
                     end
                     ctv2=clock;
                     disp(['    theta_p(',num2str(z),') update ended in ',stem_misc.decode_time(etime(ctv2,ctv1))]);
                 end
+                st_par_em_step.v_p=v_temp;
                 ct2=clock;
                 disp(['    v_p and theta_p update ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
@@ -2925,10 +2921,10 @@ classdef stem_EM < EM
             %E_wp_y1                        - [double]          (N_pxTxK) E[wp_k|Y(1)]
             %sum_Var_wp_y1                  - [double]          {k}(N_pxN_p) sum(Var[wp_k|Y(1)])
             %diag_Var_wp_y1                 - [double]          (N_pxTxK) diagonals of Var[wp_k|Y(1)]
-            %index                          - [integer >0]      (dKx1) the subset of indices from 1 to K with respect to which estimate the elements of theta_p and v_p          
+            %index                          - [integer >0]      (dKx1) the subset of indices from 1 to K with respect to which estimate the elements of theta_p and v_p
             %
             %OUTPUT
-            %none: the stem_par property of the stem_model object is updated               
+            %none: the stem_par property of the stem_model object is updated
             st_par_em_step=obj.stem_model.stem_par;
             Np=obj.stem_model.stem_data.stem_varset_p.N;
             for z=index
@@ -2946,11 +2942,11 @@ classdef stem_EM < EM
                         initial=st_par_em_step.v_p(k,h,z);
                         ctv1=clock;
                         if Np<=obj.stem_EM_options.mstep_system_size
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,st_par_em_step.v_p(:,:,z),st_par_em_step.theta_p(z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p,...
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,st_par_em_step.v_p(:,:,z),st_par_em_step.theta_p(:,z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                 obj.stem_model.stem_data.stem_varset_p.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                         else
                             disp('WARNING: this operation will take a long time');
-                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,st_par_em_step.v_p(:,:,z),st_par_em_step.theta_p(z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p,...
+                            min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,st_par_em_step.v_p(:,:,z),st_par_em_step.theta_p(:,z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                                 obj.stem_model.stem_data.stem_varset_p.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                         end
                         ctv2=clock;
@@ -2960,18 +2956,18 @@ classdef stem_EM < EM
                     end
                 end
                 
-                initial=st_par_em_step.theta_p(z);
+                initial=st_par_em_step.theta_p(:,z);
                 ctv1=clock;
                 if Np<=obj.stem_EM_options.mstep_system_size
                     min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,st_par_em_step.v_p(:,:,z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                         obj.stem_model.stem_data.stem_varset_p.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                    st_par_em_step.theta_p(z)=exp(min_result);
+                    st_par_em_step.theta_p(:,z)=exp(min_result);
                 else
                     if obj.stem_model.stem_data.stem_varset_p.nvar>1
                         disp('WARNING: this operation will take a long time');
                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,st_par_em_step.v_p(:,:,z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p,...
                             obj.stem_model.stem_data.stem_varset_p.dim,temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
-                        st_par_em_step.theta_p(z)=exp(min_result);
+                        st_par_em_step.theta_p(:,z)=exp(min_result);
                     else
                         s=ceil(Np/obj.stem_EM_options.mstep_system_size);
                         step=ceil(Np/s);
@@ -2990,7 +2986,7 @@ classdef stem_EM < EM
                             min_result(j,:) = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,st_par_em_step.v_p(:,:,z),st_par_em_step.correlation_type,obj.stem_model.stem_data.DistMat_p(idx,idx),...
                                 length(idx),temp,obj.stem_model.stem_data.T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',20,'TolFun',1,'UseParallel','always'));
                         end
-                        st_par_em_step.theta_p(z)=exp(mean(min_result));
+                        st_par_em_step.theta_p(:,z)=exp(mean(min_result));
                     end
                 end
                 ctv2=clock;
@@ -3000,14 +2996,14 @@ classdef stem_EM < EM
         
         %Class set function
         function set.stem_model(obj,stem_model)
-            if strcmp(class(stem_model),'stem_model')
+            if isa(stem_model,'stem_model')
                 obj.stem_model=stem_model;
             else
                 error('You have to provide an object of class stem_model');
             end
         end
     end
-
+    
     
     methods (Static)
         function f = geo_coreg_function_theta(log_theta,v,correlation_type,DistMat,var_dims,U,T,tapering_par)
@@ -3016,7 +3012,7 @@ classdef stem_EM < EM
             %INPUT
             %log_theta          - [double]      (1x1) natural logarithm of theta
             %v                  - [double]      (qxq) the v_b of v_q matrix
-            %correlation type   - [double]      (1x1) either 'exponential' or 'matern'
+            %correlation type   - [string]      (1x1) spatial correlation type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2  
             %DistMat            - [double]      (N_p|N_bxN_p|N_b) the distance matrix
             %var_dims           - [double]      (qx1) the number of time series for each variable
             %U                  - [double]      (N_p|N_bxN_p|N_b) sum(Var[w|Y(1)]+E[w|Y(1)]*E[w|Y(1)]') there w is w_b of w_p
@@ -3072,17 +3068,10 @@ classdef stem_EM < EM
                         end
                     end
                 end
-                
-                if strcmp(correlation_type,'matern')
-                    for i=1:size(sigma_W,1)
-                        sigma_W(i,i)=1;
-                    end
-                    sigma_W(isnan(sigma_W_core))=0;
-                end
                 if not(isempty(tapering_par))
                     r = symamd(sigma_W);
                     c=chol(sigma_W(r,r));
-                    f=2*T*sum(log(diag(c)))+trace(sigma_W(r,r)\U(r,r));
+                    f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(full(c),U(r,r)));
                 else
                     c=chol(sigma_W);
                     f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(c,U));
@@ -3101,7 +3090,7 @@ classdef stem_EM < EM
             %col                - [double]      (1x1) the column index of the v_element
             %v                  - [double]      (qxq) the full v_b or v_p matrix
             %theta              - [double>0]    (1x1) the value of theta_b or theta_p
-            %correlation type   - [double]      (1x1) either 'exponential' or 'matern'
+            %correlation type   - [string]      (1x1) correlation type   - [string]      (1x1) spatial correlation type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2
             %DistMat            - [double]      (N_p|N_bxN_p|N_b) the distance matrix
             %var_dims           - [double]      (qx1) the number of time series for each variable
             %U                  - [double]      (N_p|N_bxN_p|N_b) sum(Var[w|Y(1)]+E[w|Y(1)]*E[w|Y(1)]') there w is w_b of w_p
@@ -3162,16 +3151,10 @@ classdef stem_EM < EM
                         end
                     end
                 end
-                if strcmp(correlation_type,'matern')
-                    for i=1:size(sigma_W,1)
-                        sigma_W(i,i)=1;
-                    end
-                    sigma_W(isnan(sigma_W_core))=0;
-                end
                 if not(isempty(tapering_par))
                     r = symamd(sigma_W);
                     c=chol(sigma_W(r,r));
-                    f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(c,U(r,r)));
+                    f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(full(c),U(r,r)));
                 else
                     c=chol(sigma_W);
                     f=2*T*sum(log(diag(c)))+trace(stem_misc.chol_solve(c,U));

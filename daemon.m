@@ -1,25 +1,38 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 clc
 clear all
 
-%pathparallel='/opt/matNfs/';
-pathparallel='c:\matNfs\';
+pathparallel='path_of_your_shared_folder';
 
-%address = java.net.InetAddress.getLocalHost;
-%split=regexp(char(address.getHostAddress),'\.','split');
 h=now;
 node_code = round((h-floor(h))*1000000);
 disp([datestr(now),' - Machine code: ',num2str(node_code)]);
-timeout=72000;
+timeout=72000; %seconds
 while(1)
     exit=0;
     disp([datestr(now),' - Waiting whois from server...']);
@@ -255,12 +268,12 @@ while(1)
     st_EM_options=stem_EM_options(0.001,1,'single',[],0,[]);
     st_EM=stem_EM(st_model,st_EM_options);
     ct1=clock;
-    [output.E_wr_y1,output.sum_Var_wr_y1,output.diag_Var_wr_y1,output.cov_wr_z_y1,output.E_wg_y1,...
-        output.sum_Var_wg_y1,output.diag_Var_wg_y1,output.cov_wg_z_y1,output.M_cov_wr_wg_y1,...
-        output.cov_wgk_wgh_y1,output.diag_Var_e_y1,output.E_e_y1] = st_EM.E_step_parallel(data.time_steps,data.st_kalmansmoother_result);
-    output.sum_Var_wr_y1=triu(output.sum_Var_wr_y1);
-    for k=1:length(output.sum_Var_wg_y1)
-        output.sum_Var_wg_y1{k}=triu(output.sum_Var_wg_y1{k});
+    [output.E_wb_y1,output.sum_Var_wb_y1,output.diag_Var_wb_y1,output.cov_wb_z_y1,output.E_wp_y1,...
+        output.sum_Var_wp_y1,output.diag_Var_wp_y1,output.cov_wp_z_y1,output.M_cov_wb_wp_y1,...
+        output.cov_wpk_wph_y1,output.diag_Var_e_y1,output.E_e_y1] = st_EM.E_step_parallel(data.time_steps,data.st_kalmansmoother_result);
+    output.sum_Var_wb_y1=triu(output.sum_Var_wb_y1);
+    for k=1:length(output.sum_Var_wp_y1)
+        output.sum_Var_wp_y1{k}=triu(output.sum_Var_wp_y1{k});
     end
     ct2=clock;
     output.ct=etime(ct2,ct1);
@@ -329,7 +342,7 @@ while(1)
     if not(isempty(data.index))
         disp([datestr(now),' - m-step running...']);
         ct1=clock;
-        output.mstep_par=st_EM.M_step_vg_and_theta(data.E_wg_y1,data.sum_Var_wg_y1,data.index);
+        output.mstep_par=st_EM.M_step_vg_and_theta(data.E_wp_y1,data.sum_Var_wp_y1,data.index);
         ct2=clock;
         output.ct=etime(ct2,ct1);
         output.index=data.index;

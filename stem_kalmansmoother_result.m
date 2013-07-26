@@ -1,14 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_kalmansmoother_result < handle
     properties
@@ -78,14 +92,14 @@ classdef stem_kalmansmoother_result < handle
                 plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)+2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','b:','LineWidth',2);
                 plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)-2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','b:','LineWidth',2);
                 xlim([obj.stem_datestamp.stamp(1),obj.stem_datestamp.stamp(end)]);
-                step=obj.stem_datestamp.T/4;
+                step=round(obj.stem_datestamp.T/4);
                 tick=obj.stem_datestamp.stamp(1):step:obj.stem_datestamp.stamp(end);
                 if not(tick(end)==obj.stem_datestamp.stamp(end))
                     tick=[tick obj.stem_datestamp.stamp(end)];
                 end
                 set(gca,'XTick',tick);
                 if not(min(tick)==1)
-                    formatOut = 'dd/mm/yyyy';
+                    formatOut = 'dd/mm/yyyy HH:MM';
                     ticklabel=datestr(tick,formatOut);
                     set(gca,'XTickLabel',ticklabel);
                     xlabel('Date');

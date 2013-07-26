@@ -1,13 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_misc
     
@@ -99,39 +114,47 @@ classdef stem_misc
             %
             %theta              - [double]      (1|2x1) the parameter scalar or vector of the spatial correlation function
             %DistMat            - [double]      (NxN)   the distance matrix
-            %type               - [string]      (1x1)   'exponential': exponential spatial correlation function; 'matern': Matern spatial correlation function 
+            %type               - [string]      (1x1)   'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2
             %
             %OUTPUT
             %
-            %corr               - [double]      (NxN)   spatial correlation matrix           
-            if strcmp(type,'exponential')
-                %theta(1)=theta
-                if not(isscalar(theta))
-                    error('Theta must be a scalar');
-                end
-                if not(issparse(DistMat))
+            %corr               - [double]      (NxN)   spatial correlation matrix
+            if sum(strcmp(type,{'exponential','matern32','matern52'}))==0
+                error('The correlation type must be either ''exponential'', ''matern32'' or ''matern52''');
+            end
+            
+            if not(isscalar(theta))
+                error('Theta must be a scalar');
+            end
+                        
+            if not(issparse(DistMat))
+                if strcmp(type,'exponential')
                     corr=exp(-DistMat/theta);
-                else
-                    %note that the diagonal of the variance-covariance matrices and
-                    %possibly some elements of the cross-covariance matrices are equal
-                    %to eps instead of zero. However, exp(eps)=1.
-                    idx=find(DistMat);
-                    correlation=exp(-DistMat(idx)/theta);
-                    [I,J]=ind2sub(size(DistMat),idx);
-                    corr.I=I;
-                    corr.J=J;
-                    corr.correlation=correlation;
+                end
+                if strcmp(type,'matern32')
+                    corr=(1+sqrt(3)*DistMat/theta).*exp(-sqrt(3)*DistMat/theta);
+                end
+                if strcmp(type,'matern52')
+                    corr=(1+sqrt(5)*DistMat/theta+5*DistMat.^2/(3*theta^2)).*exp(-sqrt(5)*DistMat/theta);
                 end
             else
-                %thata(1)=alpha
-                %theta(2)=nu
-                if issparse(DistMat)
-                    error('Sparse matrices not yet supported with Matern correlation function');
+                %note that the diagonal of the variance-covariance matrices and
+                %possibly some elements of the cross-covariance matrices are equal
+                %to eps instead of zero. However, exp(eps)=1.
+                idx=find(DistMat);
+                if strcmp(type,'exponential')
+                    correlation=exp(-DistMat(idx)/theta);
                 end
-                if not(size(theta,2)==2)
-                    error('Theta must be a 2x1 vector');
+                if strcmp(type,'matern32')
+                    correlation=(1+sqrt(3)*DistMat/theta).*exp(-sqrt(3)*DistMat/theta);
                 end
-                corr=1/(2^(theta(2)-1)*gamma(theta(2)))*((DistMat/theta(1)).^theta(2)).*besselk(theta(2),DistMat/theta(1));
+                if strcmp(type,'matern52')
+                    correlation=(1+sqrt(5)*DistMat/theta+5*DistMat.^2/(3*theta^2)).*exp(-sqrt(5)*DistMat/theta);
+                end
+                [I,J]=ind2sub(size(DistMat),idx);
+                corr.I=I;
+                corr.J=J;
+                corr.correlation=correlation;
             end
         end
         

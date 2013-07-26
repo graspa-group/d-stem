@@ -1,13 +1,28 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization      %
-%                                                              %
-% Author: Francesco Finazzi                                    %
-% E-mail: francesco.finazzi@unibg.it                           %
-% Affiliation: University of Bergamo - Dept. of Engineering    %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi  %
-% Code website: https://code.google.com/p/d-stem/              %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Economics and Quantitative Methods %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%% Code website: https://code.google.com/p/d-stem/                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% This file is part of D-STEM.
+% 
+% D-STEM is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 2 of the License, or
+% (at your option) any later version.
+% 
+% D-STEM is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+% GNU General Public License for more details.
+% 
+% You should have received a copy of the GNU General Public License
+% along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_krig_result < handle
     
@@ -149,41 +164,5 @@ classdef stem_krig_result < handle
                 fig_h=h;
             end
         end
-        
-        %         function google_map(obj,type)
-        %             if sum(strcmp(type,{'measure','std'}))==0
-        %                 error('type must be either measure or std');
-        %             end
-        %             if strcmp(type,'measure')
-        %                 datafile=[1,size(obj.y_hat,3),obj.stem_grid.pixel_side_w];
-        %                 csvwrite('..\Data\google_bridge\parameters_kriging.csv',datafile);
-        %                 for t=1:size(obj.y_hat,3)
-        %                     t
-        %                     min_value=nanmin(nanmin(obj.y_hat(:,:,t)));
-        %                     max_value=nanmax(nanmax(obj.y_hat(:,:,t)));
-        %                     data=obj.y_hat(:,:,t);
-        %                     data=data(:);
-        %                     value=(data-min_value)/(max_value-min_value);
-        %                     %color=stem_krig_result.toColor(value);
-        %                     datafile=[obj.stem_grid.coordinate(:,1),obj.stem_grid.coordinate(:,2),value,data];
-        %                     csvwrite(['..\Data\google_bridge\kriging',num2str(t),'.csv'],datafile);
-        %                 end
-        %             else
-        %                 datafile=[1,size(obj.var_y_hat,3),obj.stem_grid.pixel_side_w];
-        %                 csvwrite('..\Data\google_bridge\parameters_kriging.csv',datafile);
-        %                 for t=1:size(obj.var_y_hat,3)
-        %                     t
-        %                     min_value=nanmin(nanmin(sqrt(obj.var_y_hat(:,:,t))));
-        %                     max_value=nanmax(nanmax(sqrt(obj.var_y_hat(:,:,t))));
-        %                     data=sqrt(obj.var_y_hat(:,:,t));
-        %                     data=data(:);
-        %                     value=(data-min_value)/(max_value-min_value);
-        %                     datafile=[obj.stem_grid.coordinate(:,1),obj.stem_grid.coordinate(:,2),value,data];
-        %                     csvwrite(['..\Data\google_bridge\kriging',num2str(t),'.csv'],datafile);
-        %                 end
-        %                 winopen('..\Data\google_bridge\open_kriging.bat');
-        %             end
-        %         end
- 
     end
 end
