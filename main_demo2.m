@@ -73,12 +73,12 @@ obj_stem_varset_p=stem_varset(ground.Y,ground.Y_name,[],[],ground.X_beta,ground.
 
 obj_stem_gridlist_p=stem_gridlist();
 
-ground.coordinates=[no2_ground.lat,no2_ground.lon];
-obj_stem_grid=stem_grid(ground.coordinates,'deg','sparse','point');
-obj_stem_gridlist_p.add(obj_stem_grid);
-ground.coordinates=[pm25_ground.lat,pm25_ground.lon];
-obj_stem_grid=stem_grid(ground.coordinates,'deg','sparse','point');
-obj_stem_gridlist_p.add(obj_stem_grid);
+ground.coordinates{1}=[no2_ground.lat,no2_ground.lon];
+ground.coordinates{2}=[pm25_ground.lat,pm25_ground.lon];
+obj_stem_grid1=stem_grid(ground.coordinates{1},'deg','sparse','point');
+obj_stem_grid2=stem_grid(ground.coordinates{2},'deg','sparse','point');
+obj_stem_gridlist_p.add(obj_stem_grid1);
+obj_stem_gridlist_p.add(obj_stem_grid2);
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %      Model building     %

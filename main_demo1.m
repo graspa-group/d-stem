@@ -55,8 +55,8 @@ obj_stem_varset_p=stem_varset(ground.Y,ground.Y_name,[],[],ground.X_beta,ground.
 
 %coordinates
 obj_stem_gridlist_p=stem_gridlist();
-ground.coordinates=[no2_ground.lat,no2_ground.lon];
-obj_stem_grid=stem_grid(ground.coordinates,'deg','sparse','point');
+ground.coordinates{1}=[no2_ground.lat,no2_ground.lon];
+obj_stem_grid=stem_grid(ground.coordinates{1},'deg','sparse','point');
 obj_stem_gridlist_p.add(obj_stem_grid);
 clear no2_ground
 

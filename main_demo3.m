@@ -76,14 +76,14 @@ ground.X_p_name{2}={'elevation'};
 obj_stem_varset_p=stem_varset(ground.Y,ground.Y_name,ground.X_bp,ground.X_bp_name,ground.X_beta,ground.X_beta_name,ground.X_z,ground.X_z_name,ground.X_p,ground.X_p_name);
 
 tapering_p=[];
-obj_stem_gridliobj_stem_p=stem_gridlist(tapering_p);
+obj_stem_gridlist_p=stem_gridlist(tapering_p);
 
-ground.coordinates=[no2_ground.lat,no2_ground.lon];
-obj_stem_grid=stem_grid(ground.coordinates,'deg','sparse','point');
-obj_stem_gridliobj_stem_p.add(obj_stem_grid);
-ground.coordinates=[pm25_ground.lat,pm25_ground.lon];
-obj_stem_grid=stem_grid(ground.coordinates,'deg','sparse','point');
-obj_stem_gridliobj_stem_p.add(obj_stem_grid);
+ground.coordinates{1}=[no2_ground.lat,no2_ground.lon];
+ground.coordinates{2}=[pm25_ground.lat,pm25_ground.lon];
+obj_stem_grid1=stem_grid(ground.coordinates{1},'deg','sparse','point');
+obj_stem_grid2=stem_grid(ground.coordinates{2},'deg','sparse','point');
+obj_stem_gridlist_p.add(obj_stem_grid1);
+obj_stem_gridlist_p.add(obj_stem_grid2);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %      Remote sensing data  building     %
@@ -108,13 +108,13 @@ remote.X_bp_name{2}={'constant'};
 
 obj_stem_varset_b=stem_varset(remote.Y,remote.Y_name,remote.X_bp,remote.X_bp_name);
 
-obj_stem_gridliobj_stem_b=stem_gridlist();
-remote.coordinates=[no2_remote.lat(:),no2_remote.lon(:)];
-obj_stem_grid=stem_grid(remote.coordinates,'deg','regular','pixel',size(no2_remote.lat),'square',0.25,0.25);
-obj_stem_gridliobj_stem_b.add(obj_stem_grid);
-remote.coordinates=[aot_remote.lat(:),aot_remote.lon(:)];
-obj_stem_grid=stem_grid(remote.coordinates,'deg','regular','pixel',size(aot_remote.lat),'square',0.25,0.25);
-obj_stem_gridliobj_stem_b.add(obj_stem_grid);
+obj_stem_gridlist_b=stem_gridlist();
+remote.coordinates{1}=[no2_remote.lat(:),no2_remote.lon(:)];
+remote.coordinates{2}=[aot_remote.lat(:),aot_remote.lon(:)];
+obj_stem_grid1=stem_grid(remote.coordinates{1},'deg','regular','pixel',size(no2_remote.lat),'square',0.25,0.25);
+obj_stem_grid2=stem_grid(remote.coordinates{2},'deg','regular','pixel',size(aot_remote.lat),'square',0.25,0.25);
+obj_stem_gridlist_b.add(obj_stem_grid1);
+obj_stem_gridlist_b.add(obj_stem_grid2);
 clear aot_remote
 clear no2_remote
 
