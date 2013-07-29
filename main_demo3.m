@@ -129,7 +129,7 @@ flag_time_diagonal=0;
 
 %stem_data object creation
 shape=shaperead('../Demo/Maps/worldmap');
-obj_stem_data=stem_data(obj_stem_varset_p,obj_stem_gridliobj_stem_p,obj_stem_varset_b,obj_stem_gridliobj_stem_b,obj_stem_datestamp,shape,[],[],flag_pixel_correlated);
+obj_stem_data=stem_data(obj_stem_varset_p,obj_stem_gridlist_p,obj_stem_varset_b,obj_stem_gridlist_b,obj_stem_datestamp,shape,[],[],flag_pixel_correlated);
 %stem_par object creation
 obj_stem_par=stem_par(obj_stem_data,'exponential',flag_pixel_correlated,flag_time_diagonal);
 %stem_model object creation
