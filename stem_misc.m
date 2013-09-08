@@ -682,11 +682,15 @@ classdef stem_misc
                 axis equal
                 xlim([min(lon(:)),max(lon(:))]);
                 ylim([min(lat(:)),max(lat(:))]);
+                colormap summer;
                 colorbar;                
-                title(fig_title);
-                xlabel(fig_xlabel);
-                ylabel(fig_ylabel);
-                grid on
+                title(fig_title,'FontSize',16);
+                xlabel(fig_xlabel,'FontSize',16);
+                ylabel(fig_ylabel,'FontSize',16);
+                grid on;
+                box on;
+                set(gca,'FontSize',16);
+                set(gcf, 'renderer', 'zbuffer');
             else
                 if isvector(lat)&&isvector(lon)&&isvector(data)
                     h=figure;
@@ -712,10 +716,13 @@ classdef stem_misc
                             hold on
                         end
                     end
-                    title(fig_title);
-                    xlabel(fig_xlabel);
-                    ylabel(fig_ylabel);
-                    grid on
+                    title(fig_title,'FontSize',16);
+                    xlabel(fig_xlabel,'FontSize',16);
+                    ylabel(fig_ylabel,'FontSize',16);
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',16);
+                    set(gcf, 'renderer', 'zbuffer');
                 else
                     error('lat, lon and data must be either all matrices or all vectors');
                 end

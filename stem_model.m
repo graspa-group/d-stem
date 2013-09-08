@@ -490,10 +490,10 @@ classdef stem_model < handle
             st_EM=stem_EM(obj,stem_EM_options);
             %set the current parameter value with the estimated initial value
             obj.stem_par=obj.stem_par_initial;
-            if isempty(stem_EM_options.pathparallel)
+            if isempty(stem_EM_options.path_distributed_computing)
                 obj.stem_EM_result=st_EM.estimate();
             else
-                obj.stem_EM_result=st_EM.estimate_parallel(stem_EM_options.pathparallel);
+                obj.stem_EM_result=st_EM.estimate_parallel(stem_EM_options.path_distributed_computing);
             end
             obj.estimated=1;
             if obj.cross_validation

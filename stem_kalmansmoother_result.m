@@ -98,15 +98,16 @@ classdef stem_kalmansmoother_result < handle
                     tick=[tick obj.stem_datestamp.stamp(end)];
                 end
                 set(gca,'XTick',tick);
+                set(gca,'FontSize',16);
                 if not(min(tick)==1)
                     formatOut = 'dd/mm/yyyy HH:MM';
                     ticklabel=datestr(tick,formatOut);
                     set(gca,'XTickLabel',ticklabel);
-                    xlabel('Date');
+                    xlabel('Date','fontsize',16);
                 else
-                    xlabel('Time');
+                    xlabel('Time','fontsize',16);
                 end
-                ylabel(['z_',num2str(i),'(t)']);
+                ylabel(['z_',num2str(i),'(t)'],'fontsize',16);
                 grid on
             end
             if (flag_max)

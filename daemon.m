@@ -10,42 +10,49 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % This file is part of D-STEM.
-% 
+%
 % D-STEM is free software: you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation, either version 2 of the License, or
 % (at your option) any later version.
-% 
+%
 % D-STEM is distributed in the hope that it will be useful,
 % but WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 % GNU General Public License for more details.
-% 
+%
 % You should have received a copy of the GNU General Public License
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
-clc
-clear all
+function daemon(path_distributed_computing)
 
-pathparallel='path_of_your_shared_folder';
+%DESCRIPTION: code to run on each slave node for distributed computing
+%
+%INPUT
+%path_distributed_computing        - [string] (1x1) path_distributed_computingfull or relative path of the folder to use for distributed computing
+
+%create the temp folder if it does not exist
+if not(exist([path_distributed_computing,'temp'],'dir'))
+    mkdir([path_distributed_computing,'temp']);
+end
 
 h=now;
 node_code = round((h-floor(h))*1000000);
 disp([datestr(now),' - Machine code: ',num2str(node_code)]);
-timeout=72000; %seconds
+timeout=10000; %seconds
 while(1)
     exit=0;
-    disp([datestr(now),' - Waiting whois from server...']);
+    disp([datestr(now),' - Waiting request from master...']);
     while not(exit)
-        exit=exist([pathparallel,'whoishere.mat'],'file');
+        exit=exist([path_distributed_computing,'whoishere.mat'],'file');
         pause(0.1);
     end
     read=0;
     while not(read)
         try
-            load([pathparallel,'whoishere.mat']);
+            load([path_distributed_computing,'whoishere.mat']);
             read=1;
-            disp([datestr(now),' - whois received.']);
+            disp([datestr(now),' - Request from the master received.']);
         catch
         end
         pause(0.1);
@@ -57,25 +64,25 @@ while(1)
     else
         machine.require_stemmodel=1;
     end
-
-    save([pathparallel,'temp/machine_',num2str(node_code),'.mat'],'machine');
+    
+    save([path_distributed_computing,'temp/machine_',num2str(node_code),'.mat'],'machine');
     pause(0.5);
-    movefile([pathparallel,'temp/machine_',num2str(node_code),'.mat'],[pathparallel,'machine_',num2str(node_code),'.mat']);
-    disp([datestr(now),' - Replied to whois.']);
+    movefile([path_distributed_computing,'temp/machine_',num2str(node_code),'.mat'],[path_distributed_computing,'machine_',num2str(node_code),'.mat']);
+    disp([datestr(now),' - Answered the master.']);
     
     if machine.require_stemmodel
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %           st_model         %
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        disp([datestr(now),' - Waiting for st_model...']);
+        disp([datestr(now),' - Waiting for stem_model object...']);
         exit=0;
         ct1=clock;
         while not(exit)
-            exit=exist([pathparallel,'st_model_parallel_',num2str(node_code),'.mat'],'file');
+            exit=exist([path_distributed_computing,'st_model_parallel_',num2str(node_code),'.mat'],'file');
             pause(0.1);
             ct2=clock;
-            if etime(ct2,ct1)>timeout 
-                disp('Timeout in waiting for st_model_parallel');
+            if etime(ct2,ct1)>timeout
+                disp('Timeout while waiting for stem_model object.');
                 exit=1;
             end
         end
@@ -83,15 +90,15 @@ while(1)
         ct1=clock;
         while not(read)
             try
-                load([pathparallel,'st_model_parallel_',num2str(node_code),'.mat']);
-                disp([datestr(now),' - st_model received.']);
+                load([path_distributed_computing,'st_model_parallel_',num2str(node_code),'.mat']);
+                disp([datestr(now),' - stem_model object received.']);
                 read=1;
             catch
             end
             pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout
-                disp('Timeout in reading st_model_parallel');
+                disp('Timeout while loading stem_model object.');
                 read=1;
             end
         end
@@ -99,15 +106,15 @@ while(1)
         ct1=clock;
         while not(deleted)
             try
-                delete([pathparallel,'st_model_parallel_',num2str(node_code),'.mat']);
-                disp([datestr(now),' - st_model deleted.']);
+                delete([path_distributed_computing,'st_model_parallel_',num2str(node_code),'.mat']);
+                disp([datestr(now),' - stem_model object file deleted.']);
                 deleted=1;
             catch
             end
             pause(0.1);
             ct2=clock;
             if etime(ct2,ct1)>timeout
-                disp('Timeout in deleting st_model_parallel');
+                disp('Timeout while deleting stem_model object.');
                 deleted=1;
             end
         end
@@ -116,15 +123,15 @@ while(1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %           st_par           %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    disp([datestr(now),' - Waiting for st_par']);
+    disp([datestr(now),' - Waiting for stem_par object']);
     exit=0;
     ct1=clock;
     while not(exit)
-        exit=exist([pathparallel,'st_par_parallel_',num2str(node_code),'.mat'],'file');
+        exit=exist([path_distributed_computing,'st_par_parallel_',num2str(node_code),'.mat'],'file');
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in waiting for st_par_parallel');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while waiting for stem_par object.');
             exit=1;
         end
     end
@@ -132,15 +139,15 @@ while(1)
     ct1=clock;
     while not(read)
         try
-            load([pathparallel,'st_par_parallel_',num2str(node_code),'.mat']);
-            disp([datestr(now),' - st_par received.']);
+            load([path_distributed_computing,'st_par_parallel_',num2str(node_code),'.mat']);
+            disp([datestr(now),' - stem_par object received.']);
             read=1;
         catch
         end
         pause(0.05);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in reading st_par_parallel');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while loading stem_par object.');
             read=1;
         end
     end
@@ -148,15 +155,15 @@ while(1)
     ct1=clock;
     while not(deleted)
         try
-            delete([pathparallel,'st_par_parallel_',num2str(node_code),'.mat']);
-            disp([datestr(now),' - st_par deleted.']);
+            delete([path_distributed_computing,'st_par_parallel_',num2str(node_code),'.mat']);
+            disp([datestr(now),' - stem_par object file deleted.']);
             deleted=1;
         catch
         end
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in deleting st_par_parallel');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while deleting stem_par object file.');
             deleted=1;
         end
     end
@@ -166,15 +173,15 @@ while(1)
     %           Kalman           %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if st_model.stem_par.p>0
-        disp([datestr(now),' - Waiting for kalman_parallel...']);
+        disp([datestr(now),' - Waiting for Kalman filter data...']);
         exit=0;
         ct1=clock;
         while not(exit)
-            exit=exist([pathparallel,'kalman_parallel_',num2str(node_code),'.mat'],'file');
+            exit=exist([path_distributed_computing,'kalman_parallel_',num2str(node_code),'.mat'],'file');
             pause(0.1);
             ct2=clock;
-            if etime(ct2,ct1)>timeout 
-                disp('Timeout in waiting for kalman_parallel');
+            if etime(ct2,ct1)>timeout
+                disp('Timeout while waiting for Kalman filter data.');
                 exit=1;
             end
         end
@@ -182,15 +189,15 @@ while(1)
         ct1=clock;
         while not(read)
             try
-                load([pathparallel,'kalman_parallel_',num2str(node_code),'.mat']);
-                disp([datestr(now),' - kalman_parallel received']);
+                load([path_distributed_computing,'kalman_parallel_',num2str(node_code),'.mat']);
+                disp([datestr(now),' - Kalman filter data received.']);
                 read=1;
             catch
             end
             pause(0.1);
             ct2=clock;
-            if etime(ct2,ct1)>timeout 
-                disp('Timeout in loading kalman_parallel');
+            if etime(ct2,ct1)>timeout
+                disp('Timeout while loading Kalman filter data.');
                 read=1;
             end
         end
@@ -198,36 +205,36 @@ while(1)
         ct1=clock;
         while not(deleted)
             try
-                delete([pathparallel,'kalman_parallel_',num2str(node_code),'.mat']);
-                disp([datestr(now),' - kalman_parallel deleted']);
+                delete([path_distributed_computing,'kalman_parallel_',num2str(node_code),'.mat']);
+                disp([datestr(now),' - Kalman filter data file deleted.']);
                 deleted=1;
             catch
             end
             pause(0.1);
             ct2=clock;
-            if etime(ct2,ct1)>timeout 
-                disp('Timeout in deleting kalman_parallel');
+            if etime(ct2,ct1)>timeout
+                disp('Timeout while deleting Kalman filter data.');
                 deleted=1;
             end
         end
         
         st_kalman=stem_kalman(st_model);
-        st_kalman.filter(0,0,data.time_steps,pathparallel);
+        st_kalman.filter(0,0,data.time_steps,path_distributed_computing);
         clear data
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %         EM -  E step       %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    disp([datestr(now),' - Waiting for data_parallel...']);
+    disp([datestr(now),' - Waiting for E-step job...']);
     exit=0;
     ct1=clock;
     while not(exit)
-        exit=exist([pathparallel,'data_parallel_',num2str(node_code),'.mat'],'file');
+        exit=exist([path_distributed_computing,'data_parallel_',num2str(node_code),'.mat'],'file');
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in waiting for data_parallel');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while waiting for E-step job.');
             exit=1;
         end
     end
@@ -235,15 +242,15 @@ while(1)
     ct1=clock;
     while not(read)
         try
-            load([pathparallel,'data_parallel_',num2str(node_code),'.mat']);
-            disp([datestr(now),' - data_parallel received']);
+            load([path_distributed_computing,'data_parallel_',num2str(node_code),'.mat']);
+            disp([datestr(now),' - E-step job received.']);
             read=1;
         catch
         end
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in loading data_parallel');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while loading E-step job data.');
             read=1;
         end
     end
@@ -251,15 +258,15 @@ while(1)
     ct1=clock;
     while not(deleted)
         try
-            delete([pathparallel,'data_parallel_',num2str(node_code),'.mat']);
-            disp([datestr(now),' - data_parallel deleted']);
+            delete([path_distributed_computing,'data_parallel_',num2str(node_code),'.mat']);
+            disp([datestr(now),' - E-step job data file deleted.']);
             deleted=1;
         catch
         end
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in deleting data_parallel');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while deleting E-step job data file.');
             deleted=1;
         end
     end
@@ -281,26 +288,26 @@ while(1)
     output.iteration=data.iteration;
     output.time_steps=data.time_steps;
     output.node_code=node_code;
-    disp([datestr(now),' - saving output...']);
-    save([pathparallel,'temp/output_',num2str(node_code),'.mat'],'output','-v7.3');
+    disp([datestr(now),' - Saving E-step job result...']);
+    save([path_distributed_computing,'temp/output_',num2str(node_code),'.mat'],'output','-v7.3');
     pause(0.5);
-    movefile([pathparallel,'temp/output_',num2str(node_code),'.mat'],[pathparallel,'output_',num2str(node_code),'.mat']);
-    disp([datestr(now),' - output saved.']);
+    movefile([path_distributed_computing,'temp/output_',num2str(node_code),'.mat'],[path_distributed_computing,'output_',num2str(node_code),'.mat']);
+    disp([datestr(now),' - E-step job result saved.']);
     clear data
     clear output
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %         EM - M-Step        %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    disp([datestr(now),' - Waiting for data_parallel_mstep...']);
+    disp([datestr(now),' - Waiting for M-step job...']);
     exit=0;
     ct1=clock;
     while not(exit)
-        exit=exist([pathparallel,'data_parallel_mstep',num2str(node_code),'.mat'],'file');
+        exit=exist([path_distributed_computing,'data_parallel_mstep',num2str(node_code),'.mat'],'file');
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in waiting for data_parallelmstep');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while waiting for M-step job.');
             exit=1;
         end
     end
@@ -308,15 +315,15 @@ while(1)
     ct1=clock;
     while not(read)
         try
-            load([pathparallel,'data_parallel_mstep',num2str(node_code),'.mat']);
-            disp([datestr(now),' - data_parallelmstep received']);
+            load([path_distributed_computing,'data_parallel_mstep',num2str(node_code),'.mat']);
+            disp([datestr(now),' - M-step job received.']);
             read=1;
         catch
         end
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in loading data_parallelmstep');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while loading M-step job.');
             read=1;
         end
     end
@@ -324,37 +331,38 @@ while(1)
     ct1=clock;
     while not(deleted)
         try
-            delete([pathparallel,'data_parallel_mstep',num2str(node_code),'.mat']);
-            disp([datestr(now),' - data_parallelmstep deleted']);
+            delete([path_distributed_computing,'data_parallel_mstep',num2str(node_code),'.mat']);
+            disp([datestr(now),' - M-step job data file deleted.']);
             deleted=1;
         catch
         end
         pause(0.1);
         ct2=clock;
-        if etime(ct2,ct1)>timeout 
-            disp('Timeout in deleting data_parallelmstep');
+        if etime(ct2,ct1)>timeout
+            disp('Timeout while deleting M-step job data file.');
             deleted=1;
         end
-    end    
+    end
     
     output.iteration=data.iteration;
     output.node_code=node_code;
     if not(isempty(data.index))
-        disp([datestr(now),' - m-step running...']);
+        disp([datestr(now),' - M-step running...']);
         ct1=clock;
         output.mstep_par=st_EM.M_step_vg_and_theta(data.E_wp_y1,data.sum_Var_wp_y1,data.index);
         ct2=clock;
         output.ct=etime(ct2,ct1);
         output.index=data.index;
-        disp([datestr(now),' - saving output_mstep...']);
+        disp([datestr(now),' - Saving M-step job result...']);
     else
         output.index=[];
-        disp([datestr(now),' - saving output_mstep empty...']);
+        disp([datestr(now),' - Nothing to do. Saving empty M-step job result...']);
     end
-    save([pathparallel,'temp/output_mstep_',num2str(node_code),'.mat'],'output');
+    save([path_distributed_computing,'temp/output_mstep_',num2str(node_code),'.mat'],'output');
     pause(0.5);
-    movefile([pathparallel,'temp/output_mstep_',num2str(node_code),'.mat'],[pathparallel,'output_mstep_',num2str(node_code),'.mat']);
-    disp([datestr(now),' - output_mstep saved.']);
+    movefile([path_distributed_computing,'temp/output_mstep_',num2str(node_code),'.mat'],[path_distributed_computing,'output_mstep_',num2str(node_code),'.mat']);
+    disp([datestr(now),' - M-step result saved.']);
     clear data
     clear output
+end
 end

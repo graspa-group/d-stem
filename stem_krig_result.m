@@ -109,10 +109,10 @@ classdef stem_krig_result < handle
                 end
                 if time_step>0
                     temp=obj.y_hat(:,:,time_step);
-                    title([obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(time_step))]);
+                    title([obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(time_step))],'FontSize',16);
                 else
                     temp=mean(obj.y_hat,3);
-                    title(['Average ',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))]);
+                    title(['Average ',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
                 end
                 h = mapshow(lon,lat,temp,'DisplayType','texture');
                 set(h,'FaceColor','flat');
@@ -120,14 +120,18 @@ classdef stem_krig_result < handle
                 xlim([min(lon(:)),max(lon(:))]);
                 ylim([min(lat(:)),max(lat(:))]);
                 if strcmp(obj.stem_grid.unit,'deg')
-                    xlabel('Longitude');
-                    ylabel('Latitude');
+                    xlabel('Longitude','FontSize',16);
+                    ylabel('Latitude','FontSize',16);
                 else
                     xlabel(obj.stem_grid.unit);
                     ylabel(obj.stem_grid.unit);
                 end
+                colormap summer;
                 colorbar;
                 grid on;
+                box on;
+                set(gca,'FontSize',16);
+                set(gcf, 'renderer', 'zbuffer');
             end
 
             if strcmp(type,'both')
@@ -140,10 +144,10 @@ classdef stem_krig_result < handle
                 end
                 if time_step>0
                     temp=sqrt(obj.diag_Var_y_hat(:,:,time_step));
-                    title(['Std of ',obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(time_step))]);
+                    title(['Std of ',obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(time_step))],'FontSize',16);
                 else
                     temp=mean(sqrt(obj.diag_Var_y_hat),3);
-                    title(['Average std of',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))]);
+                    title(['Average std of',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
                 end
                 h = mapshow(lon,lat,temp,'DisplayType','texture');
                 set(h,'FaceColor','flat');
@@ -151,14 +155,18 @@ classdef stem_krig_result < handle
                 xlim([min(lon(:)),max(lon(:))]);
                 ylim([min(lat(:)),max(lat(:))]);
                 if strcmp(obj.stem_grid.unit,'deg')
-                    xlabel('Longitude');
-                    ylabel('Latitude');
+                    xlabel('Longitude','FontSize',16);
+                    ylabel('Latitude','FontSize',16);
                 else
-                    xlabel(obj.stem_grid.unit);
-                    ylabel(obj.stem_grid.unit);
-                end                
+                    xlabel(obj.stem_grid.unit,'FontSize',16);
+                    ylabel(obj.stem_grid.unit,'FontSize',16);
+                end    
+                colormap summer;
                 colorbar;
                 grid on;
+                box on;
+                set(gca,'FontSize',16);
+                set(gcf, 'renderer', 'zbuffer');
             end
             if nargout>0
                 fig_h=h;

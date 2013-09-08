@@ -42,11 +42,6 @@ classdef stem_EM < EM
         stem_EM_options=[];          %[stem_EM_options]   (1x1)
     end
     
-    properties (SetAccess = private)
-        timeout_parallel=72000;      %[integer] (1x1) - timeout in seconds when waiting for the data from the nodes
-        timeout_nodes=120;           %[integer] (1x1) - timeout in seconds when looking for the available nodes
-    end
-    
     methods
         function obj = stem_EM(stem_model,stem_EM_options)
             %DESCRIPTION: object constructor
@@ -138,7 +133,7 @@ classdef stem_EM < EM
                         last_logL=logL;
                         disp('****************');
                         disp( ['logL: ',num2str(logL)]);
-                        disp(['relative delta logL: ',num2str(delta_logL)]);
+                        disp(['logL relative delta: ',num2str(delta_logL)]);
                     else
                         delta_logL=9999;
                     end
@@ -147,7 +142,7 @@ classdef stem_EM < EM
                 end
                 delta=norm(obj.stem_model.stem_par.vec()-last_stem_par.vec())/norm(last_stem_par.vec());
                 last_stem_par=obj.stem_model.stem_par;
-                disp(['Norm: ',num2str(delta)]);
+                disp(['Parameter delta norm: ',num2str(delta)]);
                 obj.stem_model.stem_par.print;
                 ct2=clock;
                 disp('**********************************************');
@@ -221,12 +216,12 @@ classdef stem_EM < EM
             st_EM_result.computation_time=etime(t2_full,t1_full);
         end
         
-        function st_EM_result = estimate_parallel(obj,pathparallel)
+        function st_EM_result = estimate_parallel(obj,path_distributed_computing)
             %DESCRIPTION: EM parallel estimation
             %
             %INPUT
-            %obj                  - [stem_EM object]      (1x1)
-            %pathparallel         - [string]              (1x1)  full or relative path of the folder to use for distributed computation
+            %obj                                - [stem_EM object]      (1x1)
+            %path_distributed_computing         - [string]              (1x1)  full or relative path of the folder to use for distributed computing
             %
             %OUTPUT
             %st_EM_result         - [st_EM_result object] (1x1)
@@ -278,34 +273,34 @@ classdef stem_EM < EM
                     clear sigma_eps
                     
                     %delete all the file in the exchange directory
-                    files=dir([pathparallel,'*.mat']);
+                    files=dir([path_distributed_computing,'*.mat']);
                     for i=1:length(files)
-                        delete([pathparallel,files(i).name]);
+                        delete([path_distributed_computing,files(i).name]);
                     end
                     
                     %create the file for the whoishere request
-                    disp('  Looking for distributed clients...');
+                    disp('  Looking for slaves...');
                     whoishere.IDrequest=unifrnd(0,100000,1,1);
                     
-                    save([pathparallel,'temp/whoishere.mat'],'whoishere');
+                    save([path_distributed_computing,'temp/whoishere.mat'],'whoishere');
                     pause(0.5);
-                    movefile([pathparallel,'temp/whoishere.mat'],[pathparallel,'whoishere.mat']);
+                    movefile([path_distributed_computing,'temp/whoishere.mat'],[path_distributed_computing,'whoishere.mat']);
                     
                     if iteration==1
                         hosts=[];
                     end
                     nhosts=length(hosts);
                     
-                    %wait for the replies from the clients
+                    %wait for the replies from the slaves
                     wait1=clock;
                     exit=0;
                     while not(exit)
-                        files=dir([pathparallel,'machine_*.*']);
+                        files=dir([path_distributed_computing,'machine_*.*']);
                         for i=1:length(files)
                             try
-                                load([pathparallel,files(i).name])
+                                load([path_distributed_computing,files(i).name])
                                 if machine.IDrequest==whoishere.IDrequest
-                                    %check if the client is already in the hosts list
+                                    %check if the slave is already in the hosts list
                                     idx=[];
                                     for j=1:nhosts
                                         if hosts(j).node_code==machine.node_code
@@ -314,12 +309,12 @@ classdef stem_EM < EM
                                             idx=j;
                                         end
                                     end
-                                    %if not, add the client
+                                    %if not, add the slave
                                     if isempty(idx)
                                         nhosts=nhosts+1;
                                         hosts(nhosts).node_code=machine.node_code;
                                         hosts(nhosts).data_received=0;
-                                        %the first time a client is added it has the efficiency of the server
+                                        %the first time a slave is added it has the efficiency of the server
                                         hosts(nhosts).efficiency=local_efficiency;
                                         hosts(nhosts).require_stemmodel=machine.require_stemmodel;
                                         hosts(nhosts).active=1;
@@ -329,13 +324,13 @@ classdef stem_EM < EM
                             end
                         end
                         wait2=clock;
-                        if etime(wait2,wait1)>obj.timeout_nodes
+                        if etime(wait2,wait1)>obj.stem_EM_options.timeout_node_search
                             exit=1;
                         end
                         pause(0.1);
                     end
-                    delete([pathparallel,'whoishere.mat']);
-                    %check for inactive clients
+                    delete([path_distributed_computing,'whoishere.mat']);
+                    %check for inactive slaves
                     idx=[];
                     for i=1:nhosts
                         if hosts(i).active==0
@@ -347,28 +342,30 @@ classdef stem_EM < EM
                         nhosts=length(hosts);
                     end
                     
-                    %if there is at least one client then distribute the st_model
+                    %if there is at least one slave then distribute the st_model
                     if nhosts>=1
-                        disp(['  ',num2str(nhosts),' parallel client(s) found']);
-                        disp('  Saving st_model to distribute');
+                        disp(['  ',num2str(nhosts),' slave(s) found']);
+                        disp('  Sending stem_model object to slave(s)...');
                         st_model=obj.stem_model;
+                        compute_logL=obj.stem_EM_options.compute_logL_at_all_steps;
                         for i=1:nhosts
                             if hosts(i).require_stemmodel
-                                save([pathparallel,'temp/st_model_parallel_',num2str(hosts(i).node_code),'.mat'],'st_model','-v7.3');
-                                movefile([pathparallel,'temp/st_model_parallel_',num2str(hosts(i).node_code),'.mat'],[pathparallel,'st_model_parallel_',num2str(hosts(i).node_code),'.mat']);
+                                save([path_distributed_computing,'temp/st_model_parallel_',num2str(hosts(i).node_code),'.mat'],'st_model','compute_logL','-v7.3');
+                                movefile([path_distributed_computing,'temp/st_model_parallel_',num2str(hosts(i).node_code),'.mat'],[path_distributed_computing,'st_model_parallel_',num2str(hosts(i).node_code),'.mat']);
                             end
                         end
                     else
-                        disp('  No clients found. Only the server is used');
+                        disp('  No slaves found. Local computing.');
                     end
                     
                     if nhosts>=1
-                        %the st_par to be distributed is the same for all the clients
-                        disp('  Saving st_par to distribute')
+                        %the st_par to be distributed is the same for all
+                        %the slaves
+                        disp('  Sending stem_par object to slave(s)...')
                         st_par=obj.stem_model.stem_par;
                         for i=1:nhosts
-                            save([pathparallel,'temp/st_par_parallel_',num2str(hosts(i).node_code),'.mat'],'st_par');
-                            movefile([pathparallel,'temp/st_par_parallel_',num2str(hosts(i).node_code),'.mat'],[pathparallel,'st_par_parallel_',num2str(hosts(i).node_code),'.mat']);
+                            save([path_distributed_computing,'temp/st_par_parallel_',num2str(hosts(i).node_code),'.mat'],'st_par');
+                            movefile([path_distributed_computing,'temp/st_par_parallel_',num2str(hosts(i).node_code),'.mat'],[path_distributed_computing,'st_par_parallel_',num2str(hosts(i).node_code),'.mat']);
                         end
                         clear st_par
                     end
@@ -392,18 +389,19 @@ classdef stem_EM < EM
                     t2=find(Lt_csum>=l2,1);
                     time_steps=t1:t2;
                     local_cb=sum(Lt_all(time_steps));
-                    disp(['  ',num2str(length(time_steps)),' time will be assigned to the server machine']);
+                    disp(['  ',num2str(length(time_steps)),' time steps will be assigned to the master node']);
                     
                     %Kalman smoother
                     if obj.stem_model.stem_par.p>0
-                        %distribute the st_par and the data needed to the clients
+                        %distribute the st_par and the data needed to the
+                        %slaves
                         if nhosts>=1
-                            disp('  Saving the Kalman data structure to distribute')
+                            disp('  Sending Kalman filter data to slave(s)...')
                             %send the information for the computation of the parallel kalman
                             data.iteration=iteration;
                             last_t2=t2;
                             for i=1:nhosts
-                                %compute the time_steps for the clients
+                                %compute the time_steps for the slaves
                                 l1=Lt_sum*veff(i+1);
                                 l2=Lt_sum*veff(i+2);
                                 t1=find(Lt_csum>l1,1);
@@ -416,13 +414,13 @@ classdef stem_EM < EM
                                 end
                                 data.time_steps=t1:t2;
                                 last_t2=t2;
-                                disp(['  ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).node_code)]);
-                                save([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).node_code),'.mat'],'data');
-                                movefile([pathparallel,'temp/kalman_parallel_',num2str(hosts(i).node_code),'.mat'],[pathparallel,'kalman_parallel_',num2str(hosts(i).node_code),'.mat']);
+                                disp(['  ',num2str(length(data.time_steps)),' time steps assigned to slave ',num2str(hosts(i).node_code)]);
+                                save([path_distributed_computing,'temp/kalman_parallel_',num2str(hosts(i).node_code),'.mat'],'data');
+                                movefile([path_distributed_computing,'temp/kalman_parallel_',num2str(hosts(i).node_code),'.mat'],[path_distributed_computing,'kalman_parallel_',num2str(hosts(i).node_code),'.mat']);
                             end
                             %local Kalman Smoother computation
                             st_kalman=stem_kalman(obj.stem_model);
-                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0,time_steps,pathparallel);
+                            [st_kalmansmoother_result,sigma_eps,~,~,~,~,~,~,~] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0,time_steps,path_distributed_computing);
                         else
                             %The computation is only local. The standard Kalman smoother is considered
                             st_kalman=stem_kalman(obj.stem_model);
@@ -441,7 +439,7 @@ classdef stem_EM < EM
                     end
                     
                     ct1_distributed=clock;
-                    disp('  Saving the E-step data structure to distribute')
+                    disp('  Sending E-step data file to slave(s)...')
                     data.st_kalmansmoother_result=st_kalmansmoother_result;
                     data.iteration=iteration;
                     
@@ -449,7 +447,7 @@ classdef stem_EM < EM
                     t2=find(Lt_csum>=l2,1);
                     last_t2=t2;
                     for i=1:nhosts
-                        %compute the time_steps for the clients
+                        %compute the time_steps for the slaves
                         l1=Lt_sum*veff(i+1);
                         l2=Lt_sum*veff(i+2);
                         t1=find(Lt_csum>l1,1);
@@ -463,9 +461,9 @@ classdef stem_EM < EM
                         data.time_steps=t1:t2;
                         data.cb=sum(Lt_all(data.time_steps));
                         last_t2=t2;
-                        disp(['  ',num2str(length(data.time_steps)),' time steps assigned to client ',num2str(hosts(i).node_code)]);
-                        save([pathparallel,'temp/data_parallel_',num2str(hosts(i).node_code),'.mat'],'data');
-                        movefile([pathparallel,'temp/data_parallel_',num2str(hosts(i).node_code),'.mat'],[pathparallel,'data_parallel_',num2str(hosts(i).node_code),'.mat']);
+                        disp(['  ',num2str(length(data.time_steps)),' time steps assigned to slave ',num2str(hosts(i).node_code)]);
+                        save([path_distributed_computing,'temp/data_parallel_',num2str(hosts(i).node_code),'.mat'],'data');
+                        movefile([path_distributed_computing,'temp/data_parallel_',num2str(hosts(i).node_code),'.mat'],[path_distributed_computing,'data_parallel_',num2str(hosts(i).node_code),'.mat']);
                     end
                     clear data
                     
@@ -478,15 +476,15 @@ classdef stem_EM < EM
                     disp(['    Local efficiency: ',num2str(local_efficiency)]);
                     
                     if nhosts>=1
-                        disp('    Waiting for the results from the client(s)...');
+                        disp('    Waiting for the results from slave(s)...');
                         exit=0;
                         wait1=clock;
                         while not(exit)
-                            files=dir([pathparallel,'output_*.*']);
+                            files=dir([path_distributed_computing,'output_*.*']);
                             for i=1:length(files)
                                 ct2_distributed=clock;
-                                load([pathparallel,files(i).name]);
-                                disp(['    Received output file from client ',num2str(output.node_code)]);
+                                load([path_distributed_computing,files(i).name]);
+                                disp(['    Received result from slave ',num2str(output.node_code)]);
                                 if iteration==output.iteration
                                     idx=[];
                                     for j=1:nhosts
@@ -495,10 +493,10 @@ classdef stem_EM < EM
                                         end
                                     end
                                     if not(isempty(idx))
-                                        disp('    The data from the client was expected');
+                                        disp('    The result data file from the slave was expected.');
                                         hosts(idx).efficiency=output.cb/output.ct;
-                                        disp(['    Computational time of client ',num2str(hosts(idx).node_code),': ',num2str(output.ct)]);
-                                        disp(['    Efficiency of client ',num2str(hosts(idx).node_code),': ',num2str(hosts(idx).efficiency)]);
+                                        disp(['    Computational time of slave ',num2str(hosts(idx).node_code),': ',num2str(output.ct)]);
+                                        disp(['    Efficiency of slave ',num2str(hosts(idx).node_code),': ',num2str(hosts(idx).efficiency)]);
                                         tsteps=output.time_steps;
                                         if not(isempty(E_wb_y1))
                                             E_wb_y1(:,tsteps)=output.E_wb_y1;
@@ -561,7 +559,7 @@ classdef stem_EM < EM
                                         end
                                     end
                                     if exit==1
-                                        disp('    All the data from the client(s) have been collected');
+                                        disp('    All the data from the slave(s) have been collected');
                                     end
                                 else
                                     disp('    The iteration within the output file does not match. The file is deleted');
@@ -569,14 +567,14 @@ classdef stem_EM < EM
                                 deleted=0;
                                 while not(deleted)
                                     try
-                                        delete([pathparallel,files(i).name]);
+                                        delete([path_distributed_computing,files(i).name]);
                                         deleted=1;
                                     catch
                                     end
                                 end
                             end
                             wait2=clock;
-                            if etime(wait2,wait1)>obj.timeout_parallel
+                            if etime(wait2,wait1)>obj.stem_EM_options.timeout_distributed_computing
                                 disp('    Timeout');
                                 timeout=1;
                                 exit=1;
@@ -599,8 +597,8 @@ classdef stem_EM < EM
                     for i=1:nhosts
                         data.iteration=iteration;
                         data.index=[];
-                        save([pathparallel,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],'data');
-                        movefile([pathparallel,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],[pathparallel,'data_parallel_mstep',num2str(hosts(i).node_code),'.mat']);
+                        save([path_distributed_computing,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],'data');
+                        movefile([path_distributed_computing,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],[path_distributed_computing,'data_parallel_mstep',num2str(hosts(i).node_code),'.mat']);
                     end
                 else
                     step=ceil(K/(nhosts+1));
@@ -619,12 +617,12 @@ classdef stem_EM < EM
                     for i=1:nhosts
                         data.iteration=iteration;
                         data.index=index{i};
-                        disp(['    Preparing M-step data for client ',num2str(hosts(i).node_code)]);
+                        disp(['    Preparing M-step data file for slave ',num2str(hosts(i).node_code)]);
                         data.sum_Var_wp_y1=sum_Var_wp_y1(index{i});
                         data.E_wp_y1=E_wp_y1(:,:,index{i});
-                        disp(['    Sending M-step data to client ',num2str(hosts(i).node_code)]);
-                        save([pathparallel,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],'data');
-                        movefile([pathparallel,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],[pathparallel,'data_parallel_mstep',num2str(hosts(i).node_code),'.mat']);
+                        disp(['    Sending M-step data to slave ',num2str(hosts(i).node_code)]);
+                        save([path_distributed_computing,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],'data');
+                        movefile([path_distributed_computing,'temp/data_parallel_mstep',num2str(hosts(i).node_code),'.mat'],[path_distributed_computing,'data_parallel_mstep',num2str(hosts(i).node_code),'.mat']);
                         disp(['    M-Step data sent.']);
                     end
                     %M-step locale
@@ -633,15 +631,15 @@ classdef stem_EM < EM
                 
                 %Wait for the other nodes
                 if nhosts>0
-                    disp(['  Wait for output_mstep from the client(s)']);
+                    disp(['  Waiting for M-step result files from the slave(s)...']);
                     exit=0;
                     while not(exit)
-                        files=dir([pathparallel,'output_mstep_*.*']);
+                        files=dir([path_distributed_computing,'output_mstep_*.*']);
                         for i=1:length(files)
                             % try
                             ct2_distributed=clock;
-                            load([pathparallel,files(i).name]);
-                            disp(['  Received output_mstep file from client ',num2str(output.node_code)]);
+                            load([path_distributed_computing,files(i).name]);
+                            disp(['  Received M-step result file from slave ',num2str(output.node_code)]);
                             if iteration==output.iteration
                                 idx=[];
                                 for j=1:nhosts
@@ -650,7 +648,7 @@ classdef stem_EM < EM
                                     end
                                 end
                                 if not(isempty(idx))
-                                    disp('  The output_mstep from the client was expected');
+                                    disp('  The M-step result file from the slave was expected');
                                     if not(isempty(output.index))
                                         for z=1:length(output.index)
                                             obj.stem_model.stem_par.v_p(:,:,output.index(z))=output.mstep_par.v_p(:,:,output.index(z));
@@ -658,12 +656,12 @@ classdef stem_EM < EM
                                             disp(['  ',num2str(output.index(z)),'th component of vg and theta_p updated']);
                                         end
                                     else
-                                        disp('  The output_mstep data from the client is empty');
+                                        disp('  The M-step result file from the slave is empty as expected');
                                     end
                                     hosts(idx).data_received=1;
                                     clear output
                                 else
-                                    disp('    Something is wrong');
+                                    disp('    Something went wrong!');
                                 end
                                 exit=1;
                                 for j=1:nhosts
@@ -672,15 +670,15 @@ classdef stem_EM < EM
                                     end
                                 end
                                 if exit==1
-                                    disp('  All the M-step data from the client(s) have been collected');
+                                    disp('  All the M-step result data files from the slave(s) have been collected');
                                 end
                             else
-                                disp('    The iteration within the output file does not match. The file is deleted');
+                                disp('    The iteration number within the output file does not match. The file is deleted');
                             end
                             deleted=0;
                             while not(deleted)
                                 try
-                                    delete([pathparallel,files(i).name]);
+                                    delete([path_distributed_computing,files(i).name]);
                                     deleted=1;
                                 catch
                                 end
@@ -689,7 +687,7 @@ classdef stem_EM < EM
                             %end
                         end
                         wait2=clock;
-                        if etime(wait2,wait1)>obj.timeout_parallel
+                        if etime(wait2,wait1)>obj.stem_EM_options.timeout_distributed_computing
                             disp('    Timeout');
                             timeout=1;
                             exit=1;
@@ -710,7 +708,7 @@ classdef stem_EM < EM
                         last_logL=logL;
                         disp('****************');
                         disp( ['logL: ',num2str(logL)]);
-                        disp(['relative delta logL: ',num2str(delta_logL)]);
+                        disp(['logL relative delta: ',num2str(delta_logL)]);
                     else
                         delta_logL=9999;
                     end
@@ -719,7 +717,7 @@ classdef stem_EM < EM
                 end
                 delta=norm(obj.stem_model.stem_par.vec()-last_stem_par.vec())/norm(last_stem_par.vec());
                 last_stem_par=obj.stem_model.stem_par;
-                disp(['Norm: ',num2str(delta)]);
+                disp(['Parameter delta norm: ',num2str(delta)]);
                 obj.stem_model.stem_par.print;
                 ct2_iteration=clock;
                 disp('**********************************************');
