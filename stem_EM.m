@@ -2205,7 +2205,7 @@ classdef stem_EM < EM
                     E_wb_y1(:,t)=cov_wb_y1z*cs;
                     %compute Var(w_b|y1)
                     if obj.stem_model.tapering
-                        temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)',1);
+                        temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)');
                         Var_wb_y1=sigma_W_b-cov_wb_y1z*temp_b;
                     else
                         temp_b=stem_misc.chol_solve(chol_H1t,cov_wb_y1z');
@@ -2270,7 +2270,7 @@ classdef stem_EM < EM
                         E_wp_y1(:,t,k)=cov_wp_y1z*cs;
                         %compute Var(w_p_k|y1)
                         if obj.stem_model.tapering
-                            temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)',1);
+                            temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)');
                             Var_wp_y1=sigma_W_p{k}-cov_wp_y1z*temp_p{k};
                         else
                             temp_p{k}=stem_misc.chol_solve(chol_H1t,cov_wp_y1z');

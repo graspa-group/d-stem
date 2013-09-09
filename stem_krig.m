@@ -888,7 +888,7 @@ classdef stem_krig < handle
                     if not(no_varcov)
                         %compute diag(Var(w_b|y1))
                         if obj.stem_model.tapering
-                            temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)',1);
+                            temp_b(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wb_y1z(:,r)');
                         else
                             temp_b=stem_misc.chol_solve(chol_H1t,cov_wb_y1z');
                         end
@@ -955,7 +955,7 @@ classdef stem_krig < handle
                         if not(no_varcov)
                             %compute diag(Var(w_p_k|y1))
                             if obj.stem_model.tapering
-                                temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)',1);
+                                temp_p{k}(r,:)=stem_misc.chol_solve(full(chol_H1t),cov_wp_y1z(:,r)');
                             else
                                 temp_p{k}=stem_misc.chol_solve(chol_H1t,cov_wp_y1z');
                             end

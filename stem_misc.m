@@ -72,39 +72,19 @@ classdef stem_misc
             end
         end
         
-        function res = chol_solve(c,b,trim)
+        function res = chol_solve(c,b)
             %DESCRIPTION: linear system solving using Cholesky decomposition - res=a\b
             %
             %INPUT
             %
             %c                  - [double]      (NxN)  the Cholesky decomposition of the s.s.d. matrix a
             %b                  - [double]      (NxM)  the matri b
-            %trim               - [boolean]     (1x1)  1: force to zero the elements of the matrix y=c'\b and the elements of the matrix res=c\y that are close to zero  
             %
             %OUTPUT
             %
             %res                - [double]      (NxM)  the result of the linear system a\b
-            if nargin<3
-                trim=0;
-            end
             %solve inv(a)*b where c is chol(a)
-            if not(issparse(c))||(trim==0)
-                res=c\(c'\b);
-                %is 19% faster than
-                %y=(c'\b)
-                %res=c\y
-            else
-                y=(c'\b);
-                [I,J]=find(abs(y)>1e-3);
-                L=sub2ind(size(y),I,J);
-                elements=y(L);
-                y=sparse(I,J,elements,size(y,1),size(y,2));
-                res=c\y;
-                [I,J]=find(abs(res)>1e-3);
-                L=sub2ind(size(res),I,J);
-                elements=res(L);
-                res=sparse(I,J,elements,size(res,1),size(res,2));
-            end
+            res=c\(c'\b);
         end
         
         function corr = correlation_function(theta,DistMat,type)
