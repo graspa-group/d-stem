@@ -39,13 +39,13 @@ end
 h=now;
 node_code = round((h-floor(h))*1000000);
 disp([datestr(now),' - Machine code: ',num2str(node_code)]);
-timeout=10000; %seconds
+timeout=70000; %seconds
 while(1)
     exit=0;
     disp([datestr(now),' - Waiting request from master...']);
     while not(exit)
         exit=exist([path_distributed_computing,'whoishere.mat'],'file');
-        pause(0.1);
+        pause(4);
     end
     read=0;
     while not(read)
@@ -79,7 +79,7 @@ while(1)
         ct1=clock;
         while not(exit)
             exit=exist([path_distributed_computing,'st_model_parallel_',num2str(node_code),'.mat'],'file');
-            pause(0.1);
+            pause(4);
             ct2=clock;
             if etime(ct2,ct1)>timeout
                 disp('Timeout while waiting for stem_model object.');
@@ -128,7 +128,7 @@ while(1)
     ct1=clock;
     while not(exit)
         exit=exist([path_distributed_computing,'st_par_parallel_',num2str(node_code),'.mat'],'file');
-        pause(0.1);
+        pause(4);
         ct2=clock;
         if etime(ct2,ct1)>timeout
             disp('Timeout while waiting for stem_par object.');
@@ -178,7 +178,7 @@ while(1)
         ct1=clock;
         while not(exit)
             exit=exist([path_distributed_computing,'kalman_parallel_',num2str(node_code),'.mat'],'file');
-            pause(0.1);
+            pause(4);
             ct2=clock;
             if etime(ct2,ct1)>timeout
                 disp('Timeout while waiting for Kalman filter data.');
@@ -231,7 +231,7 @@ while(1)
     ct1=clock;
     while not(exit)
         exit=exist([path_distributed_computing,'data_parallel_',num2str(node_code),'.mat'],'file');
-        pause(0.1);
+        pause(4);
         ct2=clock;
         if etime(ct2,ct1)>timeout
             disp('Timeout while waiting for E-step job.');
@@ -304,7 +304,7 @@ while(1)
     ct1=clock;
     while not(exit)
         exit=exist([path_distributed_computing,'data_parallel_mstep',num2str(node_code),'.mat'],'file');
-        pause(0.1);
+        pause(4);
         ct2=clock;
         if etime(ct2,ct1)>timeout
             disp('Timeout while waiting for M-step job.');

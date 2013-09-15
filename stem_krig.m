@@ -406,7 +406,7 @@ classdef stem_krig < handle
             disp('Kriging started...');
             K=obj.stem_model.stem_par.k;
             
-            st_krig_result=stem_krig_result(variable_name,grid,obj.stem_model.stem_data.shape);
+            st_krig_result=stem_krig_result(variable_name,grid,obj.stem_model.stem_data.stem_gridlist_p.grid{index_var},obj.stem_model.stem_data.shape);
             st_krig_result.y_hat=zeros(size(grid.coordinate,1),obj.stem_model.T);
             if not(no_varcov)
                 st_krig_result.diag_Var_y_hat=zeros(size(grid.coordinate,1),obj.stem_model.T);
@@ -580,10 +580,14 @@ classdef stem_krig < handle
                         st_krig_result.diag_Var_y_hat=st_krig_result.diag_Var_y_hat*s^2;
                     end
                 end
+                
                 if (obj.stem_model.stem_data.stem_varset_p.standardized)&&(obj.stem_model.stem_data.stem_varset_p.log_transformed)
                     y_hat=st_krig_result.y_hat;
+                    st=nanstd(obj.stem_model.stem_data.stem_varset_p.Y{index_var});
+                    st=repmat(st,[size(y_hat,1),1]);
+                    st=st.^2*s;
+                    st_krig_result.y_hat=exp(y_hat*s+m+st/2);
                     diag_Var_y_hat=st_krig_result.diag_Var_y_hat;
-                    st_krig_result.y_hat=exp(y_hat*s+m+(s^2)/2);
                     if not(no_varcov)
                         st_krig_result.diag_Var_y_hat=(diag_Var_y_hat*s^2)*(exp(m)^2);
                     end

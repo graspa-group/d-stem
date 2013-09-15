@@ -47,6 +47,7 @@ classdef stem_EM_result < handle
         E_wb_y1=[];                     %[double]           (N_pxTxK) E[wp_k|Y(1)]
         diag_Var_wp_y1=[];              %[double]           (N_pxTxK) diagonals of Var[wp|Y(1)]
         diag_Var_wb_y1=[];              %[double]           (N_bxT)   diagonals of Var[wb|Y(1)]
+        diag_Var_e_y1=[];               %[double]           (NxT)     diagonals of Var[y|Y(1)]
         
         logL=[];                        %[double]           (1x1) observed-data log-likelihood at convergence
         logL_all=[];                    %[double]           (Ix1) observed-data log-likelihood at all EM iterations

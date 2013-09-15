@@ -35,6 +35,7 @@ classdef stem_krig_result < handle
         stem_grid=[];           %[stem_grid object]      (1x1) a stem_grid object with the information of the kriging grid
         stem_datestamp=[];      %[stem_datestamp object] (1x1) a stem_datestamp object with te information on the date stamps
         shape=[];               %[struct]                (1x1) boundary of the geographic region loaded from a shape file
+        stem_grid_sites=[];     %[stem_grid object]      (1x1) a stem_grid object with the sampling sites of the kriged variable
         
         y_hat=[];               %[double]                (NNxT)   the kriging result  
         diag_Var_y_hat=[];      %[double]                (NNxT)   the variance of the kriging result (only the variance and no covariance)
@@ -43,24 +44,26 @@ classdef stem_krig_result < handle
     end
     
     methods
-        function obj = stem_krig_result(variable_name,stem_grid,shape)
+        function obj = stem_krig_result(variable_name,stem_grid,stem_grid_sites,shape)
             %DESCRIPTION: the constructor of the class stem_krig_result
             %
             %INPUT
             %
             %variable_name      - [string]                (1x1) the name of the kriged variable
             %stem_grid          - [stem_grid object]      (1x1) a stem_grid object with the information of the kriging grid
+            %stem_grid_sites    - [stem_grid object]      (1x1) a stem_grid object with the sampling sites of the kriged variable
             %<shape>            - [stem_varset object]    (1x1) (default: []) boundary of the geographic region loaded from a shape file
             %
             %OUTPUT
             %obj                - [stem_krig_result object]  (1x1) the stem_krig_result object
                         
-            if nargin<2
+            if nargin<3
                 error('Not enough input arguments');
             end
             obj.variable_name=variable_name;
             obj.stem_grid=stem_grid;
-            if nargin>2
+            obj.stem_grid_sites=stem_grid_sites;
+            if nargin>3
                 obj.shape=shape;
             end
         end
@@ -114,7 +117,7 @@ classdef stem_krig_result < handle
                     temp=mean(obj.y_hat,3);
                     title(['Average ',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
                 end
-                h = mapshow(lon,lat,temp,'DisplayType','texture');
+                h = mapshow(lon,lat,temp,'DisplayType','texturemap');
                 set(h,'FaceColor','flat');
                 axis equal
                 xlim([min(lon(:)),max(lon(:))]);
@@ -126,6 +129,7 @@ classdef stem_krig_result < handle
                     xlabel(obj.stem_grid.unit);
                     ylabel(obj.stem_grid.unit);
                 end
+                mapshow(obj.stem_grid_sites.coordinate(:,2),obj.stem_grid_sites.coordinate(:,1),'DisplayType','multipoint','Marker','+','MarkerEdgeColor','k');
                 colormap summer;
                 colorbar;
                 grid on;
@@ -149,7 +153,7 @@ classdef stem_krig_result < handle
                     temp=mean(sqrt(obj.diag_Var_y_hat),3);
                     title(['Average std of',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
                 end
-                h = mapshow(lon,lat,temp,'DisplayType','texture');
+                h = mapshow(lon,lat,temp,'DisplayType','texturemap');
                 set(h,'FaceColor','flat');
                 axis equal
                 xlim([min(lon(:)),max(lon(:))]);
@@ -161,6 +165,7 @@ classdef stem_krig_result < handle
                     xlabel(obj.stem_grid.unit,'FontSize',16);
                     ylabel(obj.stem_grid.unit,'FontSize',16);
                 end    
+                mapshow(obj.stem_grid_sites.coordinate(:,2),obj.stem_grid_sites.coordinate(:,1),'DisplayType','multipoint','Marker','+','MarkerEdgeColor','k');
                 colormap summer;
                 colorbar;
                 grid on;

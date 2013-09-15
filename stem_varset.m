@@ -550,6 +550,6 @@ classdef stem_varset < handle
             end
             obj.X_p_name=X_p_name;
         end           
-        
     end
+    
 end

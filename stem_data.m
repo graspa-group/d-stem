@@ -607,6 +607,15 @@ classdef stem_data < handle
             %
             %none: the matrix Y is updated            
             
+            if obj.stem_varset_p.standardized
+                error('The log_transform method must be called before the standardize method');
+            end
+            if not(isempty(obj.stem_varset_b))
+                if obj.stem_varset_b.standardized
+                    error('The log_transform method must be called before the standardize method');
+                end
+            end
+            
             disp('Point level data log-transformation started...');
             obj.stem_varset_p.log_transform;
             disp('Point level data log-transformation ended.');

@@ -45,7 +45,7 @@ classdef stem_crossval < handle
         y_back=[];                  %[double]                  (dNxT) the original data (back-transformed) of the cross-validation sites
         y_hat_back=[];              %[double]                  (dNxT) the estimated data (back-transformed) for the cross-validation sites
         res=[];                     %[double]                  (dNxT) cross-validation residuals        
-        res_backtransformed=[];     %[double]                  (dNxT) back-transformed cross-validation residuals (if the original data are log-transformed and/or standardized)
+        res_back=[];                %[double]                  (dNxT) back-transformed cross-validation residuals (if the original data are log-transformed and/or standardized)
      
         mse=[];                     %[double >=0]              (dNx1) mean squared error for each cross-validation site
         relative_mse=[];            %[double >=0]              (dNx1) relative mean squared error for each cross-validation site

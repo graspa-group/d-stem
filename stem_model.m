@@ -423,6 +423,18 @@ classdef stem_model < handle
             %
             %none: the stem_EM object is created. The method stem_EM.estimate is used to estimate the model and it updates the stem_par object
 
+            standardized=1;
+            if not(obj.stem_data.stem_varset_p.standardized)
+               standardized=0;
+            end
+            if not(isempty(obj.stem_data.stem_varset_b))
+                if not(obj.stem_data.stem_varset_b.standardized)
+                    standardized=0;
+                end
+            end
+            if not(standardized)
+                error('Data must be standardized in order to avoid numerical stability problems. Use the method standardize of class stem_data.');
+            end
             if not(isempty(obj.stem_data.stem_crossval))
                 disp('Data modification for cross-validation started...');
                 idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_crossval.variable_name);
@@ -512,18 +524,19 @@ classdef stem_model < handle
                 if (obj.stem_data.stem_varset_p.standardized)&&not(obj.stem_data.stem_varset_p.log_transformed)
                     y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat*s+m;
                     y=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m;
-                    obj.stem_data.stem_crossval.res_backtransformed=y-y_hat_back;
-                    obj.stem_data.stem_crossval.y_back=y;
-                    obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
                 end
+                
                 if (obj.stem_data.stem_varset_p.standardized)&&(obj.stem_data.stem_varset_p.log_transformed)
                     y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat;
-                    y_hat_back=exp(y_hat_back*s+m+(s^2)/2);
+                    st=nanstd(obj.stem_data.stem_varset_p.Y{idx_var});
+                    st=repmat(st,[size(y_hat_back,1),1]);
+                    st=st.^2*s;
+                    y_hat_back=exp(y_hat_back*s+m+st/2);
                     y=exp(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m);
-                    obj.stem_data.stem_crossval.res_backtransformed=y-y_hat_back;
-                    obj.stem_data.stem_crossval.y_back=y;
-                    obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
                 end
+                obj.stem_data.stem_crossval.res_back=y-y_hat_back;
+                obj.stem_data.stem_crossval.y_back=y;
+                obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
             end
         end
           
