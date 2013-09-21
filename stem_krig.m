@@ -507,22 +507,22 @@ classdef stem_krig < handle
                     block.lon=grid.coordinate(obj.idx_notnan(block_krig),2);
                     
                     if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp{index_var}(obj.idx_notnan(block_krig),:,:);
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp{1}(obj.idx_notnan(block_krig),:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_bp{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_bp{index_var},X_krig_block);
                     end
                     
                     if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_p))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_p{index_var}(obj.idx_notnan(block_krig),:,:,:);
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_p{1}(obj.idx_notnan(block_krig),:,:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_p{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_p{index_var},X_krig_block);
                     end
                     
                     if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta{index_var}(obj.idx_notnan(block_krig),:,:);
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta{1}(obj.idx_notnan(block_krig),:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_beta{index_var},X_krig_block);
                     end
                     
                     if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_z))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_z{index_var}(obj.idx_notnan(block_krig),:,:);
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_z{1}(obj.idx_notnan(block_krig),:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_z{index_var},X_krig_block);
                     end
                 end

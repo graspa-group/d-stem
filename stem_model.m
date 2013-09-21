@@ -515,9 +515,9 @@ classdef stem_model < handle
                 no_varcov=1;
                 crossval=1;
                 obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,obj.stem_data.stem_crossval.stem_gridlist.grid{1},block_size,[],[],back_transform,no_varcov,crossval);
-                obj.stem_data.stem_crossval.res=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}-obj.stem_data.stem_crossval.stem_krig_result.y_hat;
+                obj.stem_data.stem_crossval.res=obj.stem_data.stem_crossval.stem_varset.Y{1}-obj.stem_data.stem_crossval.stem_krig_result.y_hat;
                 obj.stem_data.stem_crossval.mse=nanvar(obj.stem_data.stem_crossval.res');
-                obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}');
+                obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{1}');
 
                 s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
                 m=obj.stem_data.stem_varset_p.Y_means{idx_var};
@@ -532,7 +532,7 @@ classdef stem_model < handle
                     st=repmat(st,[size(y_hat_back,1),1]);
                     st=st.^2*s;
                     y_hat_back=exp(y_hat_back*s+m+st/2);
-                    y=exp(obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m);
+                    y=exp(obj.stem_data.stem_crossval.stem_varset.Y{1}*s+m);
                 end
                 obj.stem_data.stem_crossval.res_back=y-y_hat_back;
                 obj.stem_data.stem_crossval.y_back=y;
