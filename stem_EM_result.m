@@ -35,7 +35,6 @@ classdef stem_EM_result < handle
     
     properties
         stem_par=[];                    %[stem_par object]  (1x1) estimated model parameters after the last EM itaration
-        stem_par_all=[];                %[stem_par object]  (Ix1) estimated model parameters at all the EM iterations
         stem_kalmansmoother_result=[]   %[stem_kalmansmoother_result object]    (1x1) stem_kalmansmoother_result object
    
         y_hat=[];                       %[double]           (NxT) Estimated variable data with missing data filled

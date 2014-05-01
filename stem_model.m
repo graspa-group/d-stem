@@ -27,9 +27,11 @@
 classdef stem_model < handle
     
     %CONSTANTS
-    %N  = n1_p+...+nq_p+n1_b+...+nq_b - total number of observation sites
+    %N   = n1_p+...+nq_p+n1_b+...+nq_b - total number of observation sites
     %N_p = n1_p+...+nq_p - total number of point sites
     %N_b = n1_b+...+nq_b - total number of pixel sites
+    %K - the number of loading vectors related to the latent variable w_p
+    %r - total number of elements of the latent variable z when model_type=1
     %S = 1 if only point data are considered and S=2 if both point and pixel data are considered
     
     properties
@@ -65,6 +67,9 @@ classdef stem_model < handle
             end
             obj.stem_data=stem_data;
             obj.stem_par=stem_par;
+            if not(length(obj.stem_par.beta)==size(obj.stem_data.X_beta,2))
+                error(['The length of beta in stem_par must be equal to ',num2str(size(obj.stem_data.X_beta,2))]);
+            end
             
             if not(isempty(stem_data.stem_gridlist_b))
                 if not(isempty(stem_data.stem_gridlist_b.tap))
@@ -83,26 +88,23 @@ classdef stem_model < handle
             else
                 obj.tapering=obj.tapering_p;
             end
-            
-            if stem_par.theta_clustering>0
-                stem_data.update_distance('both',1);
-            end
         end
         
-        function [aj_bp,aj_p] = get_aj(obj)
-            %DESCRIPTION: provides the vector aj_bp and aj_p used in the EM estimation
+        function [aj_bp,aj_p,aj_z] = get_aj(obj)
+            %DESCRIPTION: provides the vector aj_bp, aj_p and aj_z used in the EM estimation
             %
             %INPUT
             %obj   - [stem_model object] (1x1)
             %
             %OUTPUT
-            %aj_bp - [double]            (Nx1) is the diagonal of the NxN diagonal matrix a*J_bp
-            %aj_p  - [double]            (Nx1) is the diagonal of the NxN diagonal matrix a*J_p. 
-            
+            %aj_bp - [double]            (Nx1) is the diagonal of the NxN diagonal matrix alpha_bp*J_bp
+            %aj_p  - [double]            (NxK) are the diagonals of the NxN diagonal matrices alpha_p*J_p 
+            %aj_z  - [double]            (Nx1) is the diagonal of the NxN diagonal matrix alpha_z*J_z
+            %
             %NOTE
-            %The elements of aj_p from Np+1 to N are all zeros. This allows the
+            %The elements of aj_p and aj_z from Np+1 to N are all zeros. This allows the
             %use of stem_misc.D_apply both for the pixel data and the point
-            %level data avoiding the use of J_bp and J_p
+            %level data avoiding the use of J_bp, J_p and J_z
             if not(isempty(obj.stem_data.stem_varset_b))
                 aj_bp=zeros(obj.stem_data.N,1);
                 blocks=[0 cumsum(obj.stem_data.dim)];
@@ -122,6 +124,21 @@ classdef stem_model < handle
                 end
             else
                 aj_p=[];
+            end
+            if obj.stem_data.model_type==1
+                dim=obj.stem_data.dim;
+                if obj.stem_data.model_subtype==1
+                    aj_z=kron(obj.stem_par.alpha_z,ones(dim(1),1));
+                else
+                    aj_z=[];         
+                    for i=1:obj.stem_par.p
+                        aj_z=cat(1,aj_z,obj.stem_par.alpha_z(i)*ones(dim(i),1));
+                    end
+                end
+                z=zeros(obj.stem_data.N-length(aj_z),1);
+                aj_z=[aj_z;z];
+            else
+                aj_z=[];
             end
         end
         
@@ -147,35 +164,57 @@ classdef stem_model < handle
             end
         end
         
-        function [aj_p_bs,j_b] = get_jg(obj,r,s)
-            %DESCRIPTION: provides the vectors aj_p_bs and j_b used in the EM estimation
+        function [aj_p_bs,j_p] = get_jp(obj,r,s)
+            %DESCRIPTION: provides the vectors aj_p_bs and j_p used in the EM estimation
             %
             %INPUT
             %obj     - [stem_model object] (1x1)
             %r       - [integer]           (1x1) is the index between 1 and q
-            %s       - [integer]           (1x1) is the index between 1 and q
+            %s       - [integer]           (1x1) is the index between 1 and K
             %
             %OUTPUT
             %aj_p_bs - [double]            (Nx1) is the vector with elements equal to alpha_p(i,s) only for the sites of the r-th variable
-            %j_b     - [double]            (Nx1) is the vector with elements equal to 1 only for the sites of the r-th variable
+            %j_p     - [double]            (Nx1) is the vector with elements equal to 1 only for the sites of the r-th variable
             aj_p_bs=zeros(obj.stem_data.N,1);
-            j_b=zeros(obj.stem_data.N,1);
+            j_p=zeros(obj.stem_data.N,1);
             blocks=[0 cumsum(obj.stem_data.dim)];
             for i=1:obj.stem_data.stem_varset_p.nvar
                 if i==r
-                    j_b(blocks(i)+1:blocks(i+1))=1;
+                    j_p(blocks(i)+1:blocks(i+1))=1;
                     aj_p_bs(blocks(i)+1:blocks(i+1))=obj.stem_par.alpha_p(i,s); 
+                end
+            end
+        end  
+        
+        function [aj_z_p,j_z] = get_jz(obj,r)
+            %DESCRIPTION: provides the vectors aj_z_p and j_z used in the EM estimation
+            %
+            %INPUT
+            %obj     - [stem_model object] (1x1)
+            %r       - [integer]           (1x1) is the index between 1 and p
+            %
+            %OUTPUT
+            %aj_z_p  - [double]            (Nx1) is the vector with elements equal to alpha_z(r) only for the sites of the r-th variable
+            %j_z     - [double]            (Nx1) is the vector with elements equal to 1 only for the sites of the r-th variable
+            
+            aj_z_p=zeros(obj.stem_data.N,1);
+            j_z=zeros(obj.stem_data.N,1);
+            blocks=[0 cumsum(obj.stem_data.dim)];
+            for i=1:obj.stem_par.p
+                if i==r
+                    j_z(blocks(i)+1:blocks(i+1))=1;
+                    aj_z_p(blocks(i)+1:blocks(i+1))=obj.stem_par.alpha_z(i);
                 end
             end
         end        
         
-        function [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,aj_bp,aj_p,M] = get_sigma(obj,sigma_W_b)
+        function [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,sigma_eta,G_tilde_diag,aj_bp,aj_p,aj_z,M] = get_sigma(obj,sigma_W_b)
             %DESCRIPTION: provides the variance-covariance matrices and some vectors that are used in the EM algorithm
             %
             %INPUT
             %
             %obj         - [stem_model object] (1x1)
-            %<sigma_W_b> - [double]            (NbxNb) (default: []) variance-covariance matrix of W_b. It is provided as input argument during kriging when sigma_W_b does not change across blocks  
+            %<sigma_W_b> - [double]            (NbxNb) (default: []) variance-covariance matrix of W_b. It is provided as input argument during kriging when sigma_W_b does not change across blocks
             %
             %OUTPUT
             %
@@ -184,8 +223,11 @@ classdef stem_model < handle
             %sigma_W_p   - [double]            {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
             %sigma_geo   - [double]            (NxN) variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
             %sigma_Z     - [double]            (pxp) variance-covariance of Z
-            %aj_bp       - [double]            (Nx1) see the details of the method get_aj;
-            %aj_p        - [double]            (Nx1) see the details of the method get_aj;
+            %sigma_eta   - [double]            (r x r) variance-covariance matrix of eta when model_type=1
+            %G_tilde_diag- [double]            (r x 1) diagonal of the G_tilde matrix when model_type=1
+            %aj_bp       - [double]            (Nx1) see the details of the method get_jbp
+            %aj_p        - [double]            (Nx1) see the details of the method get_jp
+            %aj_z        - [double]            (Nx1) see the details of the method get_jz
             %M           - [integer >0]        (N_px1) see the details of the method update_M of the class stem_data
             %
             %NOTE
@@ -204,7 +246,7 @@ classdef stem_model < handle
             %sigma_eps
             d=[];
             for i=1:nvar
-                d=[d;repmat(obj.stem_par.sigma_eps(i,i),dim(i),1)];
+                d=cat(1,d,repmat(obj.stem_par.sigma_eps(i,i),dim(i),1));
             end
             
             I=1:length(d);
@@ -294,97 +336,182 @@ classdef stem_model < handle
             clear weights
             clear corr_result
             
-           %sigma_W_p
-           if obj.stem_par.k>0
-               blocks=[0 cumsum(obj.stem_data.stem_varset_p.dim)];
-               for k=1:obj.stem_par.k
-                   if obj.tapering_p
-                       I=zeros(nnz(obj.stem_data.DistMat_p),1);
-                       J=zeros(nnz(obj.stem_data.DistMat_p),1);
-                       elements=zeros(nnz(obj.stem_data.DistMat_p),1);
-                   else
-                       sigma_W_p{k}=obj.stem_data.DistMat_p;   
-                   end
-                   idx=0;
-                   for j=1:obj.stem_data.stem_varset_p.nvar
-                       for i=j:obj.stem_data.stem_varset_p.nvar
-                           idx_r=blocks(i)+1:blocks(i+1);
-                           idx_c=blocks(j)+1:blocks(j+1);
-                           if not(obj.tapering_p)
-                               sigma_W_p{k}(idx_r,idx_c)=obj.stem_par.v_p(i,j,k)*stem_misc.correlation_function(...
-                                   obj.stem_par.theta_p(:,k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
-                               if not(i==j)
-                                   sigma_W_p{k}(idx_c,idx_r)=sigma_W_p{k}(idx_r,idx_c)';
-                               end
-                           else
-                               corr_result=stem_misc.correlation_function(obj.stem_par.theta_p(:,k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
-                               weights=stem_misc.wendland(obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_data.stem_gridlist_p.tap);
-                               corr_result.correlation=obj.stem_par.v_p(i,j,k)*corr_result.correlation.*weights;
-                               siz=length(corr_result.I);
-                               I(idx+1:idx+siz)=corr_result.I+blocks(i);
-                               J(idx+1:idx+siz)=corr_result.J+blocks(j);
-                               elements(idx+1:idx+siz)=corr_result.correlation;
-                               idx=idx+siz;
-                               if not(i==j)
-                                   I(idx+1:idx+siz)=corr_result.J+blocks(j);
-                                   J(idx+1:idx+siz)=corr_result.I+blocks(i);
-                                   elements(idx+1:idx+siz)=corr_result.correlation;
-                                   idx=idx+siz;
-                               end
-                           end
-                       end
-                   end
-                   if obj.tapering_p
-                       sigma_W_p{k}=sparse(I,J,elements);
-                   end
-               end
-           else
-               sigma_W_p=[];
-           end
-           clear I
-           clear J
-           clear elements
-           clear weights
-           clear corr_result
-           
-           %sigma_geo
-           [aj_bp,aj_p]=obj.get_aj;
-           if not(obj.stem_data.X_tv)
-               %time invariant case
-               if not(isempty(obj.stem_data.stem_varset_b))
-                   sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),obj.stem_data.X_bp(:,1,1),'b'),aj_bp,'b');
-               end
-               if obj.stem_par.k>0
-                   if isempty(obj.stem_data.stem_varset_b)
-                       %se manca il remoto allora sigma_geo non � stata
-                       %ancora allocata
-                       if obj.tapering
-                           sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
-                       else
-                           sigma_geo=zeros(N);
-                       end
-                   end
-                   for k=1:obj.stem_par.k
-                       sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_data.X_p(:,1,1,k),'b'),aj_p(:,k),'b');
-                   end
-               end
-               if (obj.stem_par.k==0)&&(isempty(obj.stem_data.stem_varset_b))
-                   sigma_geo=sigma_eps;
-               else
-                   sigma_geo=sigma_geo+sigma_eps;
-               end
-           else
-               sigma_geo=[]; %it means sigma_geo is time-variant and has to be evaluated at each time step
-           end
-           
-           if obj.stem_par.p>0
-               sigma_Z=(eye(obj.stem_par.p^2)-kron(obj.stem_par.G,obj.stem_par.G))\obj.stem_par.sigma_eta(:);%variance of a VAR (Lutkepohl pag.27)
-               sigma_Z=reshape(sigma_Z,obj.stem_par.p,obj.stem_par.p);
-           else
-               sigma_Z=[];
-           end   
-           ct2=clock;
-           disp(['    Marginal variance-covariance matrices evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
+            %sigma_W_p
+            if obj.stem_par.k>0
+                blocks=[0 cumsum(obj.stem_data.stem_varset_p.dim)];
+                sigma_W_p=cell(obj.stem_par.k,1);
+                for k=1:obj.stem_par.k
+                    if obj.tapering_p
+                        I=zeros(nnz(obj.stem_data.DistMat_p),1);
+                        J=zeros(nnz(obj.stem_data.DistMat_p),1);
+                        elements=zeros(nnz(obj.stem_data.DistMat_p),1);
+                    else
+                        sigma_W_p{k}=obj.stem_data.DistMat_p;
+                    end
+                    idx=0;
+                    for j=1:obj.stem_data.stem_varset_p.nvar
+                        for i=j:obj.stem_data.stem_varset_p.nvar
+                            idx_r=blocks(i)+1:blocks(i+1);
+                            idx_c=blocks(j)+1:blocks(j+1);
+                            if not(obj.tapering_p)
+                                sigma_W_p{k}(idx_r,idx_c)=obj.stem_par.v_p(i,j,k)*stem_misc.correlation_function(...
+                                    obj.stem_par.theta_p(:,k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
+                                if not(i==j)
+                                    sigma_W_p{k}(idx_c,idx_r)=sigma_W_p{k}(idx_r,idx_c)';
+                                end
+                            else
+                                corr_result=stem_misc.correlation_function(obj.stem_par.theta_p(:,k),obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
+                                weights=stem_misc.wendland(obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_data.stem_gridlist_p.tap);
+                                corr_result.correlation=obj.stem_par.v_p(i,j,k)*corr_result.correlation.*weights;
+                                siz=length(corr_result.I);
+                                I(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                J(idx+1:idx+siz)=corr_result.J+blocks(j);
+                                elements(idx+1:idx+siz)=corr_result.correlation;
+                                idx=idx+siz;
+                                if not(i==j)
+                                    I(idx+1:idx+siz)=corr_result.J+blocks(j);
+                                    J(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                    elements(idx+1:idx+siz)=corr_result.correlation;
+                                    idx=idx+siz;
+                                end
+                            end
+                        end
+                    end
+                    if obj.tapering_p
+                        sigma_W_p{k}=sparse(I,J,elements);
+                    end
+                end
+            else
+                sigma_W_p=[];
+            end
+            clear I
+            clear J
+            clear elements
+            clear weights
+            clear corr_result
+            
+            %sigma_eta
+            if obj.stem_data.model_type==1
+                if not(obj.tapering_p)
+                    sigma_eta=zeros(size(obj.stem_par.G));
+                end
+                
+                if obj.stem_data.model_subtype==0
+                    blocks=[0 cumsum(obj.stem_data.stem_varset_p.dim)];
+                else
+                    blocks=[0 cumsum(repmat(obj.stem_data.stem_varset_p.dim(1),[1,obj.stem_par.p]))];
+                end
+                
+                if obj.tapering_p
+                    if obj.stem_data.model_subtype==0
+                        I=zeros(nnz(obj.stem_data.DistMat_p),1);
+                        J=zeros(nnz(obj.stem_data.DistMat_p),1);
+                        elements=zeros(nnz(obj.stem_data.DistMat_p),1);
+                    else
+                        I=zeros(nnz(obj.stem_data.DistMat_z),1);
+                        J=zeros(nnz(obj.stem_data.DistMat_z),1);
+                        elements=zeros(nnz(obj.stem_data.DistMat_z),1);
+                    end
+                end
+                
+                idx=0;
+                for j=1:obj.stem_par.p
+                    for i=j:obj.stem_par.p
+                        idx_r=blocks(i)+1:blocks(i+1);
+                        idx_c=blocks(j)+1:blocks(j+1);
+                        if not(obj.tapering_p)
+                            if obj.stem_data.model_subtype==0
+                                sigma_eta(idx_r,idx_c)=obj.stem_par.v_z(i,j)*stem_misc.correlation_function(...
+                                    obj.stem_par.theta_z,obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
+                            else
+                                sigma_eta(idx_r,idx_c)=obj.stem_par.v_z(i,j)*stem_misc.correlation_function(...
+                                    obj.stem_par.theta_z,obj.stem_data.DistMat_z(idx_r,idx_c),obj.stem_par.correlation_type);
+                            end
+                            if not(i==j)
+                                sigma_eta(idx_c,idx_r)=sigma_eta(idx_r,idx_c)';
+                            end
+                        else
+                            if obj.stem_data.model_subtype==0
+                                corr_result=stem_misc.correlation_function(obj.stem_par.theta_z,obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_par.correlation_type);
+                                weights=stem_misc.wendland(obj.stem_data.DistMat_p(idx_r,idx_c),obj.stem_data.stem_gridlist_p.tap);
+                            else
+                                corr_result=stem_misc.correlation_function(obj.stem_par.theta_z,obj.stem_data.DistMat_z(idx_r,idx_c),obj.stem_par.correlation_type);
+                                weights=stem_misc.wendland(obj.stem_data.DistMat_z(idx_r,idx_c),obj.stem_data.stem_gridlist_p.tap);
+                            end
+                            corr_result.correlation=obj.stem_par.v_z(i,j)*corr_result.correlation.*weights;
+                            siz=length(corr_result.I);
+                            I(idx+1:idx+siz)=corr_result.I+blocks(i);
+                            J(idx+1:idx+siz)=corr_result.J+blocks(j);
+                            elements(idx+1:idx+siz)=corr_result.correlation;
+                            idx=idx+siz;
+                            if not(i==j)
+                                I(idx+1:idx+siz)=corr_result.J+blocks(j);
+                                J(idx+1:idx+siz)=corr_result.I+blocks(i);
+                                elements(idx+1:idx+siz)=corr_result.correlation;
+                                idx=idx+siz;
+                            end
+                        end
+                    end
+                end
+                if obj.tapering_p
+                    sigma_eta=sparse(I,J,elements);
+                end
+            else
+                sigma_eta=[];
+            end
+            
+            %sigma_geo
+            [aj_bp,aj_p,aj_z]=obj.get_aj;
+            if not(obj.stem_data.X_tv)
+                %time invariant case
+                if not(isempty(obj.stem_data.stem_varset_b))
+                    sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),obj.stem_data.X_bp(:,1,1),'b'),aj_bp,'b');
+                end
+                if obj.stem_par.k>0
+                    if not(exist('sigma_geo','var'))
+                        %se manca il remoto allora sigma_geo non � stata
+                        %ancora allocata
+                        if obj.tapering
+                            sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
+                        else
+                            sigma_geo=zeros(N);
+                        end
+                    end
+                    for k=1:obj.stem_par.k
+                        sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_data.X_p(:,1,1,k),'b'),aj_p(:,k),'b');
+                    end
+                end
+                if not(exist('sigma_geo','var'))
+                    sigma_geo=sigma_eps;
+                else
+                    sigma_geo=sigma_geo+sigma_eps;
+                end
+            else
+                sigma_geo=[]; %it means sigma_geo is time-variant and has to be evaluated at each time step
+            end
+            
+            if obj.stem_par.p>0
+                if not(obj.stem_data.model_type==1)
+                    sigma_Z=(eye(obj.stem_par.p^2)-kron(obj.stem_par.G,obj.stem_par.G))\obj.stem_par.sigma_eta(:);%variance of a VAR (Lutkepohl pag.27)
+                    sigma_Z=reshape(sigma_Z,obj.stem_par.p,obj.stem_par.p);
+                    G_tilde_diag=[];
+                else
+                    dim=obj.stem_data.dim;
+                    if obj.stem_data.model_subtype==1
+                        G_tilde_diag=kron(diag(obj.stem_par.G),ones(dim(1),1));
+                    else
+                        G_tilde_diag=[];
+                        for i=1:obj.stem_par.p
+                            G_tilde_diag=cat(1,G_tilde_diag,obj.stem_par.G(i,i)*ones(dim(i),1));
+                        end
+                    end
+                    sigma_Z=reshape(1./(1-kron(G_tilde_diag,G_tilde_diag)).*sigma_eta(:),length(G_tilde_diag),length(G_tilde_diag));
+                end
+            else
+                sigma_Z=[];
+            end
+            ct2=clock;
+            disp(['    Marginal variance-covariance matrices evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
         function simulate(obj,nan_rate,nan_pattern_par)
@@ -423,6 +550,8 @@ classdef stem_model < handle
             %
             %none: the stem_EM object is created. The method stem_EM.estimate is used to estimate the model and it updates the stem_par object
 
+            obj.set_system_size;
+            
             standardized=1;
             if not(obj.stem_data.stem_varset_p.standardized)
                standardized=0;
@@ -432,8 +561,11 @@ classdef stem_model < handle
                     standardized=0;
                 end
             end
-            if not(standardized)
-                error('Data must be standardized in order to avoid numerical stability problems. Use the method standardize of class stem_data.');
+            if not(standardized) && not(obj.stem_data.model_type==2||obj.stem_data.model_type==3)
+                warning('All X and Y are standardized in order to avoid numerical stability problems. Consider to explicitly use the method standardize of class stem_data. The estimated model parameters will reflect standardization.');
+                obj.stem_data.standardize;
+                obj.stem_par.beta = obj.get_beta0();
+                obj.stem_par_initial.beta=obj.stem_par.beta;
             end
             if not(isempty(obj.stem_data.stem_crossval))
                 disp('Data modification for cross-validation started...');
@@ -445,31 +577,31 @@ classdef stem_model < handle
                 %recover the indices of the cross-validation sites 
                 indices=obj.stem_data.stem_crossval.indices;
                 Y={obj.stem_data.stem_varset_p.Y{idx_var}(indices,:)};
-                Y_name={obj.stem_data.stem_varset_p.Y_name{idx_var}};
+                Y_name=obj.stem_data.stem_varset_p.Y_name(idx_var);
                 if not(isempty(obj.stem_data.stem_varset_p.X_bp))
                     X_bp={obj.stem_data.stem_varset_p.X_bp{idx_var}(indices,:,:)};
-                    X_bp_name={obj.stem_data.stem_varset_p.X_bp{idx_var}};
+                    X_bp_name=obj.stem_data.stem_varset_p.X_bp(idx_var);
                 else
                     X_bp={};
                     X_bp_name={};
                 end
                 if not(isempty(obj.stem_data.stem_varset_p.X_beta))
                     X_beta={obj.stem_data.stem_varset_p.X_beta{idx_var}(indices,:,:)};
-                    X_beta_name={obj.stem_data.stem_varset_p.X_beta_name{idx_var}};
+                    X_beta_name=obj.stem_data.stem_varset_p.X_beta_name(idx_var);
                 else
                     X_beta={};
                     X_beta_name={};
                 end 
                 if not(isempty(obj.stem_data.stem_varset_p.X_z))
                     X_z={obj.stem_data.stem_varset_p.X_z{idx_var}(indices,:,:)};
-                    X_z_name={obj.stem_data.stem_varset_p.X_z_name{idx_var}};
+                    X_z_name=obj.stem_data.stem_varset_p.X_z_name(idx_var);
                 else
                     X_z={};
                     X_z_name={};
                 end          
                 if not(isempty(obj.stem_data.stem_varset_p.X_p))
                     X_p={obj.stem_data.stem_varset_p.X_p{idx_var}(indices,:,:,:)};
-                    X_p_name={obj.stem_data.stem_varset_p.X_p_name{idx_var}};
+                    X_p_name=obj.stem_data.stem_varset_p.X_p_name(idx_var);
                 else
                     X_p={};
                     X_p_name={};
@@ -482,7 +614,7 @@ classdef stem_model < handle
                     temp_dist=obj.stem_data.DistMat_p(blocks(idx_var)+1:blocks(idx_var+1),blocks(idx_var)+1:blocks(idx_var+1));
                     temp_dist=temp_dist(indices,:);
                     temp_dist(:,indices)=[];
-                    obj.stem_data.stem_crossval.min_distance=min(temp_dist');
+                    obj.stem_data.stem_crossval.min_distance=min(temp_dist,[],2);
                     clear temp_dist
                 end
                 
@@ -517,20 +649,26 @@ classdef stem_model < handle
                 obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,obj.stem_data.stem_crossval.stem_gridlist.grid{1},block_size,[],[],back_transform,no_varcov,crossval);
                 obj.stem_data.stem_crossval.res=obj.stem_data.stem_crossval.stem_varset.Y{1}-obj.stem_data.stem_crossval.stem_krig_result.y_hat;
                 obj.stem_data.stem_crossval.mse=nanvar(obj.stem_data.stem_crossval.res');
+                obj.stem_data.stem_crossval.mse_time=nanvar(obj.stem_data.stem_crossval.res);
+         
                 obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{1}');
-
-                s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
-                m=obj.stem_data.stem_varset_p.Y_means{idx_var};
+                obj.stem_data.stem_crossval.relative_mse_time=obj.stem_data.stem_crossval.mse_time./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{1});
+                
                 if (obj.stem_data.stem_varset_p.standardized)&&not(obj.stem_data.stem_varset_p.log_transformed)
+                    s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
+                    m=obj.stem_data.stem_varset_p.Y_means{idx_var};
                     y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat*s+m;
-                    y=obj.stem_data.stem_crossval.stem_varset.Y{idx_var}*s+m;
+                    y=obj.stem_data.stem_crossval.stem_varset.Y{1}*s+m;
                 end
                 
                 if (obj.stem_data.stem_varset_p.standardized)&&(obj.stem_data.stem_varset_p.log_transformed)
+                    blocks=[0 cumsum(obj.stem_data.stem_varset_p.dim)];
+                    s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
+                    m=obj.stem_data.stem_varset_p.Y_means{idx_var};
                     y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat;
-                    st=nanstd(obj.stem_data.stem_varset_p.Y{idx_var});
+                    st=nanstd(obj.stem_EM_result.res(blocks(idx_var)+1:blocks(idx_var+1),:));
                     st=repmat(st,[size(y_hat_back,1),1]);
-                    st=st.^2*s;
+                    st=st.^2*s^2;
                     y_hat_back=exp(y_hat_back*s+m+st/2);
                     y=exp(obj.stem_data.stem_crossval.stem_varset.Y{1}*s+m);
                 end
@@ -578,7 +716,7 @@ classdef stem_model < handle
                 if not(isempty(obj.stem_par.beta))
                     for i=1:obj.stem_data.stem_varset_p.nvar
                         disp(['* Beta coefficients related to the point variable ',obj.stem_data.stem_varset_p.Y_name{i}]);
-                        output=[];
+                        output=cell(length(obj.stem_data.stem_varset_p.X_beta_name{i})+1,3);
                         output{1,1}='Loading coefficient';
                         output{1,2}='Value';
                         output{1,3}='Std';
@@ -598,7 +736,7 @@ classdef stem_model < handle
                         if not(isempty(obj.stem_data.stem_varset_b.X_beta))
                             for i=1:obj.stem_data.stem_varset_b.nvar
                                 disp(['* Beta coefficients related to the pixel variable ',obj.stem_data.stem_varset_b.Y_name{i}]);
-                                output=[];
+                                output=cell(length(obj.stem_data.stem_varset_b.X_beta_name{i})+1,3);
                                 output{1,1}='Loading coefficient';
                                 output{1,2}='Value';
                                 output{1,3}='Std';
@@ -617,7 +755,7 @@ classdef stem_model < handle
                         end
                     end
                 end
-                output=[];
+                output=cell(obj.stem_data.stem_varset_p.nvar+1,3);
                 disp('* Sigma_eps diagonal elements (Variance)')
                 output{1,1}='Variable';
                 output{1,2}='Value';
@@ -646,9 +784,9 @@ classdef stem_model < handle
                     end
                 end
                 disp(output);
-                output=[];
                 if not(isempty(obj.stem_data.stem_varset_b))
                     disp('* alpha_bp elements')
+                    output=cell(obj.stem_data.stem_varset_p.nvar+1,3);
                     output{1,1}='Variable';
                     output{1,2}='Value';
                     output{1,3}='Std';
@@ -689,7 +827,7 @@ classdef stem_model < handle
                         end
                         counter=counter+1;
                         disp(output);
-                        output=[];
+                        output=cell(obj.stem_data.stem_varset_b.nvar+1,obj.stem_data.stem_varset_b.nvar+1);
                         disp('* v_b matrix:');
                         for i=1:obj.stem_data.stem_varset_b.nvar
                             output{1,i+1}=obj.stem_data.stem_varset_b.Y_name{i};
@@ -709,11 +847,11 @@ classdef stem_model < handle
                             end
                         end
                         disp(output);
-                        output=[];
                     else
                         disp('* Pixel data are NOT cross-correlated.');
                         disp(' ');
                         disp('* Theta_b elements:');
+                        output=cell(obj.stem_data.stem_varset_b.nvar+1,3);
                         output{1,1}='Variable';
                         output{1,2}='Value [km]';
                         output{1,3}='Std [km]';
@@ -728,13 +866,13 @@ classdef stem_model < handle
                             counter=counter+1;
                         end
                         disp(output);
-                        output=[];
                     end
                 end
+                output=cell(obj.stem_data.stem_varset_p.nvar*2,obj.stem_par.k+1);
                 if obj.stem_par.k>0
                     disp(['* ',num2str(obj.stem_par.k),' fine-scale coregionalization components w_p']);
                     disp(' ');
-                    disp(['* alpha_p elements:'])
+                    disp('* alpha_p elements:')
                     for i=1:obj.stem_data.stem_varset_p.nvar
                         output{i*2,1}=obj.stem_data.stem_varset_p.Y_name{i};
                         for k=1:obj.stem_par.k
@@ -748,8 +886,8 @@ classdef stem_model < handle
                         end
                     end
                     disp(output);
-                    output=[];
-                    disp(['* theta_p elements:']);
+                    disp('* theta_p elements:');
+                    output=cell(1,3);
                     output{1,1}='Coreg. component';
                     output{1,2}='Value [km]';
                     output{1,3}='Std [km]';
@@ -776,7 +914,6 @@ classdef stem_model < handle
                         counter=counter+1;
                     end
                     disp(output);
-                    output=[];
                     for k=1:obj.stem_par.k
                         if k==1
                             postfix='st';
@@ -791,6 +928,7 @@ classdef stem_model < handle
                             postfix='th';
                         end                        
                         disp(['* v_p matrix for the ',num2str(k),postfix,' coreg. component:']);
+                        output=cell(obj.stem_data.stem_varset_p.nvar+1,obj.stem_data.stem_varset_p.nvar+1);
                         for i=1:obj.stem_data.stem_varset_p.nvar
                             output{1,i+1}=obj.stem_data.stem_varset_p.Y_name{i};
                             output{i+1,1}=obj.stem_data.stem_varset_p.Y_name{i};
@@ -809,10 +947,10 @@ classdef stem_model < handle
                             end
                         end                        
                         disp(output);
-                        output=[];
                     end
                 end
                 if obj.stem_par.p>0
+                    output=cell(obj.stem_par.p+1,obj.stem_par.p+1);
                     disp('* Transition matrix G:');
                     c=1;
                     for i=1:obj.stem_data.stem_varset_p.nvar
@@ -833,7 +971,7 @@ classdef stem_model < handle
                             end
                         end
                     end
-                    if obj.stem_par.time_diagonal
+                    if (obj.stem_par.time_diagonal) || (obj.stem_data.model_type==1)
                         for j=1:obj.stem_par.p
                             for i=1:obj.stem_par.p
                                 if i==j
@@ -861,64 +999,117 @@ classdef stem_model < handle
                         end
                     end
                     disp(output);
-                    output=[];
-                    disp('* Sigma_eta matrix:');
-                    c=1;
-                    for i=1:obj.stem_data.stem_varset_p.nvar
-                        for j=1:size(obj.stem_data.stem_varset_p.X_z{i},2)
-                            output{1,c+1}=[obj.stem_data.stem_varset_p.Y_name{i},' - ',obj.stem_data.stem_varset_p.X_z_name{i}{j}];
-                            output{c+1,1}=output{1,c+1};
-                            c=c+1;
-                        end
-                    end
-                    if not(isempty(obj.stem_data.stem_varset_b))
-                        if not(isempty(obj.stem_data.stem_varset_b.X_z))
-                            for i=1:obj.stem_data.stem_varset_b.nvar
-                                for j=1:size(obj.stem_data.stem_varset_b.X_z{i},2)
-                                    output{1,c+1}=[obj.stem_data.stem_varset_b.Y_name{i},' - ',obj.stem_data.stem_varset_b.X_z_name{i}{j}];
-                                    output{c+1,1}=output{1,c+1};
-                                    c=c+1;
-                                end
+                    if not(obj.stem_data.model_type==1)
+                        disp('* Sigma_eta matrix:');
+                        c=1;
+                        output=cell(obj.stem_par.p+1,obj.stem_par.p);
+                        for i=1:obj.stem_data.stem_varset_p.nvar
+                            for j=1:size(obj.stem_data.stem_varset_p.X_z{i},2)
+                                output{1,c+1}=[obj.stem_data.stem_varset_p.Y_name{i},' - ',obj.stem_data.stem_varset_p.X_z_name{i}{j}];
+                                output{c+1,1}=output{1,c+1};
+                                c=c+1;
                             end
                         end
-                    end
-                    if obj.stem_par.time_diagonal
-                        for j=1:obj.stem_par.p
-                            for i=1:obj.stem_par.p
-                                if i==j
-                                    if not(isempty(obj.stem_EM_result.varcov))
-                                        output{i+1,i+1}=[num2str(obj.stem_par.sigma_eta(i,i),'%+05.2f'),' (Std ',num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%03.2f'),')'];
-                                    else
-                                        output{i+1,i+1}=num2str(obj.stem_par.sigma_eta(i,i),'%+05.2f');
+                        if not(isempty(obj.stem_data.stem_varset_b))
+                            if not(isempty(obj.stem_data.stem_varset_b.X_z))
+                                for i=1:obj.stem_data.stem_varset_b.nvar
+                                    for j=1:size(obj.stem_data.stem_varset_b.X_z{i},2)
+                                        output{1,c+1}=[obj.stem_data.stem_varset_b.Y_name{i},' - ',obj.stem_data.stem_varset_b.X_z_name{i}{j}];
+                                        output{c+1,1}=output{1,c+1};
+                                        c=c+1;
                                     end
-                                    counter=counter+1;
-                                else
-                                    output{i+1,j+1}='0';
                                 end
                             end
                         end
-                    else
-                        for j=1:obj.stem_par.p
-                            for i=j:obj.stem_par.p
-                                if not(isempty(obj.stem_EM_result.varcov))
-                                    output{i+1,j+1}=[num2str(obj.stem_par.sigma_eta(i,j),'%+05.2f'),' (Std ',num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%03.2f'),')'];
-                                else
-                                    output{i+1,j+1}=num2str(obj.stem_par.sigma_eta(i,j),'%+05.2f');
+                        if obj.stem_par.time_diagonal
+                            for j=1:obj.stem_par.p
+                                for i=1:obj.stem_par.p
+                                    if i==j
+                                        if not(isempty(obj.stem_EM_result.varcov))
+                                            output{i+1,i+1}=[num2str(obj.stem_par.sigma_eta(i,i),'%+05.2f'),' (Std ',num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%03.2f'),')'];
+                                        else
+                                            output{i+1,i+1}=num2str(obj.stem_par.sigma_eta(i,i),'%+05.2f');
+                                        end
+                                        counter=counter+1;
+                                    else
+                                        output{i+1,j+1}='0';
+                                    end
                                 end
-                                output{j+1,i+1}=output{i+1,j+1};
+                            end
+                        else
+                            for j=1:obj.stem_par.p
+                                for i=j:obj.stem_par.p
+                                    if not(isempty(obj.stem_EM_result.varcov))
+                                        output{i+1,j+1}=[num2str(obj.stem_par.sigma_eta(i,j),'%+05.2f'),' (Std ',num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%03.2f'),')'];
+                                    else
+                                        output{i+1,j+1}=num2str(obj.stem_par.sigma_eta(i,j),'%+05.2f');
+                                    end
+                                    output{j+1,i+1}=output{i+1,j+1};
+                                    counter=counter+1;
+                                end
+                            end
+                        end
+                        disp(output);
+                    else
+                        disp('* Fine-scale coregionalization components z');
+                        disp(' ');
+                        disp('* alpha_z elements:')
+                        output=cell(obj.stem_par.p*2,2);
+                        for i=1:obj.stem_par.p
+                            output{i*2,1}=obj.stem_data.stem_varset_p.Y_name{i};
+                            output{i*2-1,2}=cell2mat(obj.stem_data.stem_varset_p.X_z_name{i});
+                            if not(isempty(obj.stem_EM_result.varcov))
+                                output{i*2,2}=[num2str(obj.stem_par.alpha_z(i),'%+05.3f'),' (Std ',num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%05.3f'),')'];
+                            else
+                                output{i*2,2}=num2str(obj.stem_par.alpha_z(i),'%+05.3f');
+                            end
+                            counter=counter+1;
+                        end
+                        disp(output);
+                        disp('* theta_z elements:');
+                        output=cell(1,3);
+                        output{1,1}='Coreg. component';
+                        output{1,2}='Value [km]';
+                        output{1,3}='Std [km]';
+                        
+                        output{2,2}=num2str(obj.stem_par.theta_z,'%06.2f');
+                        if not(isempty(obj.stem_EM_result.varcov))
+                            output{2,3}=num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%05.2f');
+                        else
+                            output{2,3}='Not computed';
+                        end
+                        counter=counter+1;
+                        
+                        disp(output);
+                        
+                        disp('* v_z matrix for the coreg. component:');
+                        output=cell(obj.stem_par.p+1,obj.stem_par.p+1);
+                        for i=1:obj.stem_par.p
+                            output{1,i+1}=obj.stem_data.stem_varset_p.Y_name{i};
+                            output{i+1,1}=obj.stem_data.stem_varset_p.Y_name{i};
+                            output{i+1,i+1}=num2str(1,'%+5.2f');
+                        end
+                        for i=1:obj.stem_par.p
+                            for j=i+1:obj.stem_par.p
+                                if not(isempty(obj.stem_EM_result.varcov))
+                                    output{i+1,j+1}=[num2str(obj.stem_par.v_z(i,j),'%+05.2f'),' (Std ',num2str(sqrt(obj.stem_EM_result.varcov(counter,counter)),'%03.2f'),')'];
+                                    output{j+1,i+1}=output{i+1,j+1};
+                                else
+                                    output{i+1,j+1}=num2str(obj.stem_par.v_z(i,j),'%+05.2f');
+                                    output{j+1,i+1}=output{i+1,j+1};
+                                end
                                 counter=counter+1;
                             end
                         end
+                        disp(output);
                     end
-                    disp(output);
-                  
                 end
             else
                 disp('The model has not been estimated yet. Use the method print of the class stem_data to print data information.');
             end            
         end
         
-        function set_system_size(obj,dim)
+        function set_system_size(obj)
             %DESCRIPTION: evaluate the minimum N after which it is faster to evaluate only the diagonal of a matrix product instead of the full matrix
             %
             %INPUT
@@ -928,27 +1119,25 @@ classdef stem_model < handle
             %OUTPUT
             %
             %none: the system_size property is updated
-            if nargin<2
-                dim=100;
-                t1=0;
-                t2=100;
-                while t1<t2
-                    m1=randn(dim);
-                    m2=randn(dim);
-                    tic
-                    m=diag(m1*m2);
-                    t1=toc;
-                    tic
-                    for i=1:size(m1)
-                        h=m1(i,:)*m2(:,i);
-                    end
-                    t2=toc;
-                    dim=dim+50;
+            
+            dim=100;
+            t1=0;
+            t2=1;
+            while t1<t2
+                m1=randn(dim);
+                m2=randn(dim);
+                tic
+                diag(m1*m2);
+                t1=toc;
+                tic
+                h2=zeros(dim,1);
+                for i=1:size(m1)
+                    h2(i)=m1(i,:)*m2(:,i);
                 end
-                obj.system_size=dim;
-            else
-                obj.system_size=dim;
+                t2=toc;
+                dim=dim+50;
             end
+            obj.system_size=dim;
         end
         
         function set_logL(obj)
@@ -968,7 +1157,7 @@ classdef stem_model < handle
             disp('Log-Likelihood computation ended.');
         end
         
-        function set_varcov(obj)
+        function set_varcov(obj) 
             %DESCRIPTION: evaluate the variance-covariance matrix of the model parameters
             %
             %INPUT
@@ -979,12 +1168,15 @@ classdef stem_model < handle
             %
             %none: the varcov property of the object stem_EM_result is updated    
             
-            %parameter order: beta,sigma_eps,alpha_bp,theta_b,v_b,alpha_p,theta_p,v_p,G,sigma_eta
+            %parameter order: beta,sigma_eps,alpha_bp,theta_b,v_b,alpha_p,theta_p,v_p,G,sigma_eta,[alpha_z,theta_z,v_z]
             
             if obj.estimated==0
                 error('The model has not been estimated yet');
             end
             
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %  dimension estimation   %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%
             N=obj.N;
             Np=obj.Np;
             T=obj.T;
@@ -996,25 +1188,25 @@ classdef stem_model < handle
             p=par.p;
             k=par.k;
 
-            %evaluate the number of parameters
             n_beta=0;
             n_bp_alpha=0;
             n_bp_theta=0;
             n_bp_v=0;
-            n_p_alpha=0;
+            n_p_alpha=0;            
             n_p_theta=0;
             n_p_v=0;
             n_time_G=0;
             n_time_s2e=0;
-                       
+            n_z_alpha=0;
+            
             if not(isempty(data.X_bp))
                 n_bp_alpha=2*q;
                 if par.pixel_correlated
                     n_bp_v=q*(q-1)/2; %v_bp extra-diagonal and univoc
                     n_bp_theta=1;
                 else
-                    %nothing to do for V as the V matrix is the identity
                     n_bp_theta=q;
+                    n_bp_v=0;
                 end
             end
             
@@ -1023,187 +1215,166 @@ classdef stem_model < handle
             end
             
             if p>0
-                if par.time_diagonal
-                    n_time_G=p;
-                    n_time_s2e=p;
+                if not(obj.stem_data.model_type==1)
+                    if par.time_diagonal
+                        n_time_G=p;
+                        n_time_s2e=p;
+                    else
+                        n_time_G=p^2;
+                        n_time_s2e=(p+1)*p/2;
+                    end
+                    n_time=n_time_G+n_time_s2e;
+                    n_z_alpha=0;
                 else
-                    n_time_G=p^2;
-                    n_time_s2e=(p+1)*p/2;
+                    n_time_G=p;
+                    n_z_alpha=p;
+                    n_z_theta=1;
+                    n_z_v=(p-1)*p/2;
+                    n_time_s2e=0;
+                    n_time=n_time_G+n_z_alpha+n_z_theta+n_z_v;
                 end
-                n_time=n_time_G+n_time_s2e;
             else
                 n_time=0;
             end
             
             if not(isempty(data.X_p))
-                n_p_alpha=q*k; %alpha_p
+                n_p_alpha=q*k;
                 n_p_v=q*(q-1)/2*k;
                 n_p_theta=k;
             end
             n_eps=size(par.sigma_eps,1);
             
-            n_psi=n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+n_p_v+n_time_G+n_time_s2e;
-            
+            n_psi=n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+n_p_v+n_time;
+                        
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %  extraction of the useful data   %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if p>0
                 %kalman filter
                 st_kalman=stem_kalman(obj);
                 compute_logL=0;
                 enable_varcov_computation=1;
-                [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,~,aj_bp,aj_p,M,sigma_geo] = st_kalman.filter(compute_logL,enable_varcov_computation);
+                [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_eta,G_tilde_diag,sigma_geo,aj_bp,aj_p,aj_z,M] = st_kalman.filter(compute_logL,enable_varcov_computation);
+                rr=size(sigma_Z,1);
+                if not(data.model_type==1)
+                    G=par.G;
+                else
+                    G=sparse(1:length(G_tilde_diag),1:length(G_tilde_diag),G_tilde_diag,length(G_tilde_diag),length(G_tilde_diag));
+                end
             else
-                [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,~,aj_bp,aj_p,M] = obj.get_sigma();
+                [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,~,sigma_eta,~,aj_bp,aj_p,aj_z,M] = obj.get_sigma();
                 st_kalmanfilter_result=stem_kalmanfilter_result([],[],[],[],[],[],[]);
+                rr=0;
             end            
-            J=st_kalmanfilter_result.J(:,:,2:end); %J for t=0 is deleted
-            st_kalmanfilter_result.J=st_kalmanfilter_result.J(:,:,2:end);
-            st_kalmanfilter_result.zk_f=st_kalmanfilter_result.zk_f(:,2:end);
-            st_kalmanfilter_result.Pk_f=st_kalmanfilter_result.Pk_f(:,:,2:end);            
-           
+            %J=st_kalmanfilter_result.J(:,:,2:end); %J for t=0 is not considered
+            J=st_kalmanfilter_result.J;
+            zk_f=st_kalmanfilter_result.zk_f;
+            Pk_f=st_kalmanfilter_result.Pk_f;
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %  derivatives allocation  %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             disp('Derivatives allocation...');
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %  allocation time variant derivatives  %
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            d_P=zeros(p,p,n_psi); %the first n_beta derivatives are zero
-            d_P_lag=zeros(p,p,n_psi);
-            
-            %d_J=zeros(p,N,n_psi); %the first n_beta derivatives are zero
-            %d_J_lag=zeros(p,N,n_psi);
-            for i=1:n_psi
-                d_J_Lt{i}=sparse(p,N);
+            d_e_Lt=cell(n_psi,1);
+            if not(isempty(data.X_z))
+                d_Z=cell(n_psi,1);
+                d_J_Lt=cell(n_psi,1);
+                d_P=cell(n_psi,1);
             end
+            d_St_Lt=cell(n_psi,1);
+            d_Sgeo=cell(n_psi,1);
             
-            d_Z=zeros(p,n_psi); %the first n_beta derivatives are zero
-            d_Z_lag=zeros(p,n_psi);
-            
-            d_e=zeros(N,n_psi);
-            d_e_lag=zeros(N,n_psi);
+            if not(isempty(data.X_beta))
+                d_beta=cell(n_psi,1);
+            end
+            d_Seps=cell(n_psi,1);
+            if not(isempty(data.X_bp))
+                d_alpha_bp=cell(n_psi,n_bp_alpha);
+                d_M_Sb=cell(n_psi,1);
+            end
+            if not(isempty(data.X_p))
+                d_alpha_p=cell(n_psi,n_p_alpha,k);
+                d_Sp=cell(n_psi,k);
+            end
+            if not(isempty(data.X_z))
+                d_G=cell(n_psi,1);
+                d_s2e=cell(n_psi,1);
+                d_alpha_z=cell(n_psi,1);
+                d_a_z_X=cell(n_psi,1);
+            end
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %  allocation of time invariant derivatives  %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            
-            d_beta=zeros(n_beta,1,n_psi);
-            d_G=zeros(p,p,n_psi);
-            d_s2e=zeros(p,p,n_psi);
-            
-            disp('Derivatives initialization...');
+            for i=1:n_psi
+                if not(isempty(data.X_beta))
+                    d_beta{i}=sparse(n_beta,1);
+                end
+                d_Seps{i}=sparse(N,N);
+                if not(isempty(data.X_bp))
+                    for j=1:n_bp_alpha
+                        d_alpha_bp{i,j}=sparse(N,1);
+                    end
+                    d_M_Sb{i}=sparse(N,N);
+                end
+                if not(isempty(data.X_p))
+                    for j=1:k
+                        d_Sp{i,j}=sparse(Np,Np);
+                        for z=1:n_p_alpha
+                            d_alpha_p{i,z,j}=sparse(N,1);
+                        end
+                    end
+                end
+                if not(isempty(data.X_z))
+                    if obj.stem_data.model_type==1
+                        for j=1:n_z_alpha
+                            d_alpha_z{i,j}=sparse(N,1);
+                        end
+                    end
+                    d_G{i}=sparse(rr,rr);
+                    d_s2e{i}=sparse(rr,rr);
+                end
+            end
+
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %  initialization of time invariant derivatives  %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            disp('Derivatives initialization...');
+            
             blocks=[0 cumsum(dim)];
-            %beta
-            if n_beta>0
+            
+            %d_beta
+            if not(isempty(data.X_beta))
                 for i=1:n_beta
-                    temp=zeros(n_beta,1);
-                    temp(i)=1;
-                    d_beta(:,1,i)=temp;
+                    d_beta{i}(i,1)=1;
                 end
             end
-            %G
-            if par.time_diagonal
-                for i=1:p
-                    temp=zeros(p);
-                    temp(i,i)=1;
-                    d_G(:,:,n_psi-n_time+i)=temp;
-                end
-            else
-                for i=1:p^2
-                    temp=zeros(p^2,1);
-                    temp(i)=1;
-                    d_G(:,:,n_psi-n_time+i)=reshape(temp,p,p);
-                end
-            end
-            %sigma2_eta
-            if par.time_diagonal
-                for i=1:p
-                    temp=zeros(p);
-                    temp(i,i)=1;
-                    d_s2e(:,:,n_psi-n_time_s2e+i)=temp;
-                end
-            else
-                j=1;
-                for i=1:(p*(p+1))/2
-                    temp=zeros(p);
-                    l=1;
-                    for h=1:p
-                        for k=h:p
-                            if i==l
-                                temp(h,k)=1;
-                                temp(k,h)=1;
-                            end
-                            l=l+1;
-                        end
-                    end
-                    d_s2e(:,:,n_psi-n_time_s2e+i)=temp;
-                    j=j+1;
-                end
-            end
-            
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %      compute d_Sgeo_prel     %
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-            %beta
-            for i=1:n_beta
-                d_Sgeo_prel{i}=sparse(N,N);
+            %d_Seps
+            for i=1:n_eps
+                Id=blocks(i)+1:blocks(i+1);
+                d_Seps{n_beta+i}=sparse(Id,Id,ones(length(Id),1),N,N);
             end
-            %sigma_eps
-            for i=n_beta+1:n_beta+n_eps
-                Id=blocks(i-n_beta)+1:blocks(i-n_beta+1);
-                d_Sgeo_prel{i}=sparse(Id,Id,ones(length(Id),1),N,N);
-            end
-            %alpha_bp
-            if n_bp_alpha>0
-                result=stem_misc.M_apply(sigma_W_b,M,'b');
-                for j=1:n_bp_alpha
-                    Id=[];
-                    Jd=[];
-                    elements=[];
-                    for i=1:n_bp_alpha
-                        temp=result(blocks(i)+1:blocks(i+1),blocks(j)+1:blocks(j+1));
-                        if i==j
-                            temp2=2*par.alpha_bp(j)*temp;
-                            L=find(temp2);
-                            [idx_I,idx_J]=ind2sub(size(temp2),L);
-                            Id=[Id; idx_I+blocks(i)];
-                            Jd=[Jd; idx_J+blocks(j)];
-                            elements=[elements; temp2(L)];
-                        else
-                            temp2=par.alpha_bp(i)*temp;
-                            L=find(temp2);
-                            [idx_I,idx_J]=ind2sub(size(temp2),L);
-                            Id=[Id; idx_I+blocks(i)];
-                            Jd=[Jd; idx_J+blocks(j)];
-                            elements=[elements; temp2(L)];
-                            Id=[Id; idx_J+blocks(j)];
-                            Jd=[Jd; idx_I+blocks(i)];
-                            elements=[elements; temp2(L)];
-                        end
-                    end
-                    zero_density=(1-length(Id)/(N^2))*100;
-                    if obj.tapering||zero_density>60
-                        d_Sgeo_prel{n_beta+n_eps+j}=sparse(Id,Jd,elements,N,N);
-                    else
-                        d_Sgeo_prel{n_beta+n_eps+j}=zeros(N);
-                        temp=sub2ind([N,N],Id,Jd);
-                        d_Sgeo_prel{n_beta+n_eps+j}(temp)=elements;
-                    end
-                end
-            end
-            %theta_bp
             
-            if n_bp_theta>0
+            if not(isempty(data.X_bp))
+                %d_alpha_bp
+                for i=1:n_bp_alpha
+                    [~,j_b] = obj.get_jbp(i);
+                    d_alpha_bp{n_beta+n_eps+i,i}=j_b;
+                end
+                
+                %d_M_Sb with respect to theta_bp
                 d=stem_misc.M_apply(obj.stem_data.DistMat_b,M,'b');
+                result=stem_misc.M_apply(sigma_W_b,M,'b');
                 if not(par.pixel_correlated)&&(q>1)
                     for j=1:q
                         Id=[];
                         Jd=[];
                         elements=[];
-                        for i=1:2 
-                            idx=blocks(j+(i-1)*2)+1:blocks(j+(i-1)*2+1);
+                        for i=1:2
+                            idx=blocks(j+(i-1)*q)+1:blocks(j+(i-1)*q+1);
                             result1=d(idx,idx);
                             result2=result(idx,idx);
-                            result2=stem_misc.D_apply(result2,aj_bp(idx),'b');
                             if strcmp(par.correlation_type,'exponential')
                                 result3=result1/(par.theta_b(j)^2).*result2;
                             elseif strcmp(par.correleation_type,'matern32')
@@ -1214,27 +1385,25 @@ classdef stem_model < handle
                             
                             L=find(result3);
                             [idx_I,idx_J]=ind2sub(size(result3),L);
-                            Id=[Id; idx_I+blocks(j+(i-1)*2)];
-                            Jd=[Jd; idx_J+blocks(j+(i-1)*2)];
-                            elements=[elements; result3(L)];
+                            Id=cat(1,Id,idx_I+blocks(j+(i-1)*2));
+                            Jd=cat(1,Jd,idx_J+blocks(j+(i-1)*2));
+                            elements=cat(1,elements,result3(L));
                         end
                         zero_density=(1-length(Id)/(N^2))*100;
                         if obj.tapering||zero_density>60
-                            d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+j}=sparse(Id,Jd,elements,N,N);
+                            d_M_Sb{n_beta+n_eps+n_bp_alpha+j}=sparse(Id,Jd,elements,N,N);
                         else
-                            d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+j}=zeros(N);
+                            d_M_Sb{n_beta+n_eps+n_bp_alpha+j}=zeros(N);
                             temp=sub2ind([N,N],Id,Jd);
-                            d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+j}(temp)=elements;
+                            d_M_Sb{n_beta+n_eps+n_bp_alpha+j}(temp)=elements;
                         end
                     end
                 else
-                    d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+1}=stem_misc.D_apply(result,aj_bp,'b').*d/(par.theta_b^2);
+                    d_M_Sb{n_beta+n_eps+n_bp_alpha+1}=result.*d/(par.theta_b^2);
                 end
-            end
-            %v_bp
-            if n_bp_v>0
+                
+                %d_M_Sb with respect to v_bp
                 if par.pixel_correlated
-                    error('The variance-covariance matrix for cross-correlated pixel data is not available yet');
                     z=1;
                     for j=1:q
                         for i=j+1:q
@@ -1242,22 +1411,26 @@ classdef stem_model < handle
                             Jd=[];
                             elements=[];
                             for h=1:2
-                                idx=blocks(j+(h-1)*2)+1:blocks(j+(h-1)*2);
-                                result1=result(idx,idx);
-                                result2=stem_misc.D_apply(result1,aj_bp(idx),'b')/par.v_b(i,j); 
+                                idx1=blocks(i+(h-1)*q)+1:blocks(i+(h-1)*q+1);
+                                idx2=blocks(j+(h-1)*q)+1:blocks(j+(h-1)*q+1);
+                                result1=result(idx1,idx2);
+                                result2=result1/par.v_b(i,j);
                                 L=find(result2);
                                 [idx_I,idx_J]=ind2sub(size(result2),L);
-                                Id=[Id; idx_I+blocks(j+(h-1)*2)];
-                                Jd=[Jd; idx_J+blocks(j+(h-1)*2)];
-                                elements=[elements; result2(L)];
+                                Id=cat(1,Id,idx_I+blocks(i+(h-1)*q));
+                                Jd=cat(1,Jd,idx_J+blocks(j+(h-1)*q));
+                                elements=cat(1,elements,result2(L));
+                                Id=cat(1,Id,idx_J+blocks(i+(h-1)*q));
+                                Jd=cat(1,Jd,idx_I+blocks(j+(h-1)*q));
+                                elements=cat(1,elements,result2(L));
                             end
                             zero_density=(1-length(Id)/(N^2))*100;
                             if obj.tapering||zero_density>60
-                                d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+z}=sparse(Id,Jd,elements,N,N);
+                                d_M_Sb{n_beta+n_eps+n_bp_alpha+n_bp_theta+z}=sparse(Id,Jd,elements,N,N);
                             else
-                                d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+z}=zeros(N);
+                                d_M_Sb{n_beta+n_eps+n_bp_alpha+n_bp_theta+z}=zeros(N);
                                 temp=sub2ind([N,N],Id,Jd);
-                                d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+z}(temp)=elements;
+                                d_M_Sb{n_beta+n_eps+n_bp_alpha+n_bp_theta+z}(temp)=elements;
                             end
                             z=z+1;
                         end
@@ -1266,68 +1439,35 @@ classdef stem_model < handle
                     %nothing as the matrix V_b is not estimated
                 end
             end
-            
-            %alpha_p
-            if n_p_alpha>0
-                z=1;
-                for k=1:par.k
-                    for j=1:q
-                        Id=[];
-                        Jd=[];
-                        elements=[];
-                        for i=1:q
-                            temp=sigma_W_p{k}(blocks(i)+1:blocks(i+1),blocks(j)+1:blocks(j+1));
-                            if i==j
-                                temp2=2*par.alpha_p(i,k)*temp;
-                                L=find(temp2);
-                                [idx_I,idx_J]=ind2sub(size(temp2),L);
-                                Id=[Id; idx_I+blocks(i)];
-                                Jd=[Jd; idx_J+blocks(j)];
-                                elements=[elements; temp2(L)];
-                            else
-                                temp2=par.alpha_p(i,k)*temp;
-                                L=find(temp2);
-                                [idx_I,idx_J]=ind2sub(size(temp2),L);
-                                Id=[Id; idx_I+blocks(i)];
-                                Jd=[Jd; idx_J+blocks(j)];
-                                elements=[elements; temp2(L)];
-                                Id=[Id; idx_J+blocks(j)];
-                                Jd=[Jd; idx_I+blocks(i)];
-                                elements=[elements; temp2(L)];
-                            end
-                        end
-                        zero_density=(1-length(Id)/(N^2))*100;
-                        if obj.tapering||zero_density>60
-                            d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}=sparse(Id,Jd,elements,Np,Np); %note that N,N is not used
-                        else
-                            d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}=zeros(Np);
-                            temp=sub2ind([Np,Np],Id,Jd);
-                            d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}(temp)=elements;
-                        end
-                        z=z+1;
+
+            if not(isempty(data.X_p))
+                %d_alpha_p
+                counter=1;
+                for z=1:k
+                    for i=1:q
+                        [~,j_p] = obj.get_jp(i,z);
+                        d_alpha_p{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+counter,i,z}=j_p;
+                        counter=counter+1;
                     end
                 end
-            end
-            
-            %theta_p
-            if n_p_theta>0
-                for k=1:par.k
+                   
+                %d_Sp with respect to theta_p
+                for z=1:k
                     if strcmp(par.correlation_type,'exponential')
-                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(sigma_W_p{k}.*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                        d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+z,z}=sigma_W_p{z}.*obj.stem_data.DistMat_p/(par.theta_p(z)^2);
                     elseif strcmp(par.correlation_type,'matern32')
-                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(-sqrt(3)*obj.stem_data.DistMat_p/(par.theta_p(k)^2).*exp(-sqrt(3)*obj.stem_data.DistMat_p/par.theta_p(k))+sigma_W_p{k}.*sqrt(3).*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                        d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+z,z}=-sqrt(3)*obj.stem_data.DistMat_p/(par.theta_p(z)^2).*exp(-sqrt(3)*obj.stem_data.DistMat_p/par.theta_p(z))+sigma_W_p{z}.*sqrt(3).*obj.stem_data.DistMat_p/(par.theta_p(z)^2);
                     else
-                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply((-sqrt(5)*obj.stem_data.DistMat_p/par.theta_p(k)^2-10/3.*obj.stem_data.DistMat_p.^2/par.theta_p(k)^3).*exp(-sqrt(5)*obj.stem_data.DistMat_p/par.theta_p(k))+sigma_W_p{k}.*sqrt(5).*obj.stem_data.DistMat_p/(par.theta_p(k)^2),aj_p(:,k),'b');
+                        d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+z,z}=(-sqrt(5)*obj.stem_data.DistMat_p/par.theta_p(z)^2-10/3.*obj.stem_data.DistMat_p.^2/par.theta_p(z)^3).*exp(-sqrt(5)*obj.stem_data.DistMat_p/par.theta_p(k))+sigma_W_p{z}.*sqrt(5).*obj.stem_data.DistMat_p/(par.theta_p(z)^2);
                     end
-                    if stem_misc.zero_density(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k})>60
-                        d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=sparse(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k});
+                    if stem_misc.zero_density(d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k,k})>60
+                        d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+z,z}=sparse(d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+z,z});
                     end
                 end
-            end
-            %v_p
-            if n_p_v>0
-                z=1;
-                for k=1:par.k
+                
+                %d_Sp with respect to v_p
+                counter=1;
+                for z=1:k
                     for j=1:q
                         for i=j+1:q
                             Id=[];
@@ -1335,24 +1475,127 @@ classdef stem_model < handle
                             elements=[];
                             %since the block is extra-diagonal it has two separated D_apply!
                             result1=sigma_W_p{k}(blocks(j)+1:blocks(j+1),blocks(i)+1:blocks(i+1));
-                            result2=stem_misc.D_apply(result1,aj_p(blocks(j)+1:blocks(j+1),k),'l');
-                            result2=stem_misc.D_apply(result2,aj_p(blocks(i)+1:blocks(i+1),k),'r');
-                            result2=result2/par.v_p(i,j,k);
+                            result2=result1/par.v_p(i,j,z);
                             L=find(result2);
                             [idx_I,idx_J]=ind2sub(size(result2),L);
-                            Id=[Id; idx_I+blocks(j)];
-                            Jd=[Jd; idx_J+blocks(i)];
-                            elements=[elements; result2(L)];
-                            Id=[Id; idx_J+blocks(i)];
-                            Jd=[Jd; idx_I+blocks(j)];
-                            elements=[elements; result2(L)];
+                            Id=cat(1,Id,idx_I+blocks(j));
+                            Jd=cat(1,Jd,idx_J+blocks(i));
+                            elements=cat(1,elements,result2(L));
+                            Id=cat(1,Id,idx_J+blocks(i));
+                            Jd=cat(1,Jd,idx_I+blocks(j));
+                            elements=cat(1,elements,result2(L));
                             zero_density=(1-length(Id)/(N^2))*100;
                             if obj.tapering||zero_density>60
-                                d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}=sparse(Id,Jd,elements,Np,Np);
+                                d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+counter,z}=sparse(Id,Jd,elements,Np,Np);
                             else
-                                d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}=zeros(Np);
+                                d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+counter,z}=zeros(Np);
                                 temp=sub2ind([Np,Np],Id,Jd);
-                                d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}(temp)=elements;
+                                d_Sp{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+counter,z}(temp)=elements;
+                            end
+                            counter=counter+1;
+                        end
+                    end
+                end                
+            end
+            
+            if not(isempty(data.X_z))
+                if not(obj.stem_data.model_type==1)
+                    %d_G
+                    if par.time_diagonal
+                        for i=1:rr
+                            d_G{n_psi-n_time+i}(i,i)=1;
+                        end
+                    else
+                        for i=1:rr^2
+                            [a,b]=ind2sub([rr rr],i);
+                            d_G{n_psi-n_time+i}(a,b)=1;
+                        end
+                    end
+                    %d_s2e
+                    if par.time_diagonal
+                        for i=1:p
+                            d_s2e{n_psi-n_time_s2e+i}(i,i)=1;
+                        end
+                    else
+                        j=1;
+                        for i=1:(rr*(rr+1))/2
+                            temp=zeros(rr);
+                            l=1;
+                            for h=1:rr
+                                for z=h:rr
+                                    if i==l
+                                        temp(h,z)=1;
+                                        temp(z,h)=1;
+                                    end
+                                    l=l+1;
+                                end
+                            end
+                            d_s2e{n_psi-n_time_s2e+i}=sparse(temp);
+                            j=j+1;
+                        end
+                    end
+                else
+                    %d_G
+                    dim=obj.stem_data.dim;
+                    blocks=[0 cumsum(dim(1:p))];
+                    for i=1:p
+                        j_z=zeros(rr,1);
+                        j_z(blocks(i)+1:blocks(i+1))=1;
+                        d_G{n_psi-n_time+i}=sparse(1:rr,1:rr,j_z,rr,rr);
+                    end
+                    
+                    %d_alpha_z
+                    for i=1:n_z_alpha
+                        [~,j_z] = obj.get_jz(i);
+                        d_alpha_z{n_psi-n_time+n_time_G+n_time_s2e+i,i}=j_z;
+                    end
+                    
+                    %d_s2e
+                    if obj.stem_data.model_subtype==0
+                        if strcmp(par.correlation_type,'exponential')
+                            d_s2e{n_psi-n_time+p+p+1}=stem_misc.D_apply(sigma_eta.*obj.stem_data.DistMat_p/(par.theta_z^2),aj_z,'b');
+                        elseif strcmp(par.correlation_type,'matern32')
+                            d_s2e{n_psi-n_time+p+p+1}=stem_misc.D_apply(-sqrt(3)*obj.stem_data.DistMat_p/(par.theta_z^2).*exp(-sqrt(3)*obj.stem_data.DistMat_p/par.theta_z)+sigma_eta.*sqrt(3).*obj.stem_data.DistMat_p/(par.theta_z^2),aj_z,'b');
+                        else
+                            d_s2e{n_psi-n_time+p+p+1}=stem_misc.D_apply((-sqrt(5)*obj.stem_data.DistMat_p/par.theta_z^2-10/3.*obj.stem_data.DistMat_p.^2/par.theta_z^3).*exp(-sqrt(5)*obj.stem_data.DistMat_p/par.theta_z)+sigma_eta.*sqrt(5).*obj.stem_data.DistMat_z/(par.theta_z^2),aj_z,'b');
+                        end
+                    else
+                        if strcmp(par.correlation_type,'exponential')
+                            d_s2e{n_psi-n_time+p+p+1}=stem_misc.D_apply(sigma_eta.*obj.stem_data.DistMat_z/(par.theta_z^2),aj_z,'b');
+                        elseif strcmp(par.correlation_type,'matern32')
+                            d_s2e{n_psi-n_time+p+p+1}=stem_misc.D_apply(-sqrt(3)*obj.stem_data.DistMat_z/(par.theta_z^2).*exp(-sqrt(3)*obj.stem_data.DistMat_z/par.theta_z)+sigma_eta.*sqrt(3).*obj.stem_data.DistMat_z/(par.theta_z^2),aj_z,'b');
+                        else
+                            d_s2e{n_psi-n_time+p+p+1}=stem_misc.D_apply((-sqrt(5)*obj.stem_data.DistMat_z/par.theta_z^2-10/3.*obj.stem_data.DistMat_z.^2/par.theta_z^3).*exp(-sqrt(5)*obj.stem_data.DistMat_z/par.theta_z)+sigma_eta.*sqrt(5).*obj.stem_data.DistMat_z/(par.theta_z^2),aj_z,'b');
+                        end
+                    end
+                    
+                    %v_z
+                    z=1;
+                    for j=1:p
+                        for i=j+1:p
+                            Id=[];
+                            Jd=[];
+                            elements=[];
+                            %since the block is extra-diagonal it has two separated D_apply!
+                            result1=sigma_eta(blocks(j)+1:blocks(j+1),blocks(i)+1:blocks(i+1));
+                            result2=stem_misc.D_apply(result1,aj_z(blocks(j)+1:blocks(j+1)),'l');
+                            result2=stem_misc.D_apply(result2,aj_z(blocks(i)+1:blocks(i+1)),'r');
+                            result2=result2/par.v_z(i,j);
+                            L=find(result2);
+                            [idx_I,idx_J]=ind2sub(size(result2),L);
+                            Id=cat(1,Id,idx_I+blocks(j));
+                            Jd=cat(1,Jd,idx_J+blocks(i));
+                            elements=cat(1,elements,result2(L));
+                            Id=cat(1,Id,idx_J+blocks(i));
+                            Jd=cat(1,Jd,idx_I+blocks(j));
+                            elements=cat(1,elements,result2(L));
+                            zero_density=(1-length(Id)/(N^2))*100;
+                            if obj.tapering||zero_density>60
+                                d_s2e{n_psi-n_time+p+p+1+z}=sparse(Id,Jd,elements,Np,Np);
+                            else
+                                d_s2e{n_psi-n_time+p+p+1+z}=zeros(Np);
+                                temp=sub2ind([Np,Np],Id,Jd);
+                                d_s2e{n_psi-n_time+p+p+1+z}(temp)=elements;
                             end
                             z=z+1;
                         end
@@ -1360,65 +1603,71 @@ classdef stem_model < handle
                 end
             end
             
-            %G and s2e
-            for i=n_psi-n_time+1:n_psi
-                d_Sgeo_prel{i}=sparse(N,N);
-            end
-                
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %  preliminary computations for time-invariant case  %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(data.X_tv) 
-                %compute d_Sgeo in the time-invariant case
-                for i=1:n_beta+n_eps
-                    d_Sgeo{i}=d_Sgeo_prel{i};
+                for i=1:n_psi
+                    d_Sgeo{i}=sparse(N,N);
                 end
-                if n_bp_alpha>0
-                    for j=1:n_bp_alpha
-                        d_Sgeo{n_beta+n_eps+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+j},obj.stem_data.X_bp(:,1,1),'b');
+                if not(isempty(data.X_bp))
+                    a_bp_X=stem_misc.D_apply(data.X_bp(:,:,1),aj_bp,'l');
+                    for i=1:n_psi
+                        temp=zeros(N,1);
+                        for j=1:n_bp_alpha
+                            temp=temp+stem_misc.D_apply(data.X_bp(:,:,1),d_alpha_bp{i,j},'l');
+                        end
+                        d_a_bp_X=sparse(temp);
+                        temp=stem_misc.M_apply(sigma_W_b,M,'b');
+                        temp=stem_misc.D_apply(temp,d_a_bp_X,'l');
+                        temp=stem_misc.D_apply(temp,a_bp_X,'r');
+                        d_Sgeo{i}=d_Sgeo{i}+temp;
+                        
+                        temp=stem_misc.D_apply(d_M_Sb{i},a_bp_X,'b');
+                        d_Sgeo{i}=d_Sgeo{i}+temp;
+                        
+                        temp=stem_misc.M_apply(sigma_W_b,M,'b');
+                        temp=stem_misc.D_apply(temp,d_a_bp_X,'r');
+                        temp=stem_misc.D_apply(temp,a_bp_X,'l');                        
+                        d_Sgeo{i}=d_Sgeo{i}+temp;
                     end
                 end
-                if n_bp_theta>0
-                    for j=1:n_bp_theta
-                        d_Sgeo{n_beta+n_eps+n_bp_alpha+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+j},obj.stem_data.X_bp(:,1,1),'b');   
-                    end
-                end
-                if n_bp_v>0
-                    for j=1:n_bp_v
-                        d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+j},obj.stem_data.X_bp(:,1,1),'b');                           
-                    end
-                end
-                if n_p_alpha>0
-                    z=1;
-                    for k=1:par.k
-                        for j=1:q
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z},obj.stem_data.X_p(:,1,1,k),'b');
-                            L=find(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z});
-                            [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}),L);
-                            elements=d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}(L);
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}=sparse(Id,Jd,elements,N,N);
-                            z=z+1;
+                if not(isempty(data.X_p))
+                    for z=1:k
+                        a_p_X=stem_misc.D_apply(data.X_p(:,:,1,z),aj_p(:,z),'l');
+                        for i=1:n_psi
+                            temp=zeros(N,1);
+                            for j=1:q
+                                temp=temp+stem_misc.D_apply(data.X_p(:,:,1,z),d_alpha_p{i,j,z},'l');
+                            end
+                            d_a_p_X=sparse(temp);
+                            
+                            temp=stem_misc.D_apply(sigma_W_p{z},d_a_p_X,'l');
+                            temp=stem_misc.D_apply(temp,a_p_X,'r');
+                            d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                            
+                            temp=stem_misc.D_apply(d_Sp{i,z},a_p_X,'b');
+                            d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                            
+                            temp=stem_misc.D_apply(sigma_W_p{z},d_a_p_X,'r');
+                            temp=stem_misc.D_apply(temp,a_p_X,'l');
+                            d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
                         end
                     end
                 end
-                if n_p_theta>0
-                    for k=1:par.k
-                        X_p_orlated=[obj.stem_data.X_p(:,1,1,k);zeros(N-size(obj.stem_data.X_p(:,1,1,k),1),1)];
-                        d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k},X_p_orlated,'b');
-                    end
+                for i=1:n_psi
+                    d_Sgeo{i}=d_Sgeo{i}+d_Seps{i};
                 end
-                if n_p_v>0
-                    z=1;
-                    for k=1:par.k
-                        for j=1:q*(q-1)/2
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z},obj.stem_data.X_p(:,1,1,k),'b');
-                            L=find(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z});
-                            [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}),L);
-                            elements=d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}(L);
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}=sparse(Id,Jd,elements,N,N);
-                            z=z+1;
-                        end
+                
+                if not(isempty(data.X_z))
+                    if (obj.stem_data.model_type==1)&&(obj.stem_data.model_subtype==0)
+                        temp=data.X_z(:,:,1);
+                        temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                        X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+                    else
+                        X_z_orlated=[data.X_z(:,:,1);zeros(N-size(data.X_z(:,:,1),1),size(data.X_z(:,:,1),2))];
                     end
-                end
-                for i=n_psi-n_time+1:n_psi
-                    d_Sgeo{i}=d_Sgeo_prel{i};   
+                    a_z_X=stem_misc.D_apply(X_z_orlated,aj_z,'l'); 
                 end
             end
                 
@@ -1432,24 +1681,24 @@ classdef stem_model < handle
             tot=n_psi*(n_psi+1)/2*T;
             counter=1;
             
-            for t=1:T
+            for t=2:T
                 if data.X_bp_tv
-                    tBP=t;
+                    tBP=t-1;
                 else
                     tBP=1;
                 end
                 if data.X_z_tv
-                    tT=t;
+                    tT=t-1;
                 else
                     tT=1;
                 end
                 if data.X_beta_tv
-                    tbeta=t;
+                    tbeta=t-1;
                 else
                     tbeta=1;
                 end      
                 if data.X_p_tv
-                    tP=t;
+                    tP=t-1;
                 else
                     tP=1;
                 end                  
@@ -1467,8 +1716,8 @@ classdef stem_model < handle
                                 sigma_geo=zeros(N);
                             end
                         end
-                        for k=1:size(data.X_p,4)
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p(:,1,tP,k),'b'),aj_p(:,k),'b');
+                        for z=1:k
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{z},data.X_p(:,1,tP,z),'b'),aj_p(:,z),'b');
                         end
                     end
                     if isempty(data.X_p)&&isempty(data.X_bp)
@@ -1477,268 +1726,222 @@ classdef stem_model < handle
                         sigma_geo=sigma_geo+sigma_eps;
                     end
                     
-                    %compute d_Sgeo in the time-variant case
-                    for i=1:n_beta+n_eps
-                        d_Sgeo{i}=d_Sgeo_prel{i};
+                    if not(isempty(data.X_bp))
+                        sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),data.X_bp(:,1,tBP),'b'),aj_bp,'b');
                     end
-                    if n_bp_alpha>0
-                        for j=1:n_bp_alpha
-                            d_Sgeo{n_beta+n_eps+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+j},obj.stem_data.X_bp(:,1,tBP),'b');
-                        end
-                    end
-                    if n_bp_theta>0
-                        for j=1:n_bp_theta
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+j},obj.stem_data.X_bp(:,1,tBP),'b');
-                        end
-                    end
-                    if n_bp_v>0
-                        for j=1:n_bp_v
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+j}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+j},obj.stem_data.X_bp(:,1,tBP),'b');
-                        end
-                    end
-                    if n_p_alpha>0
-                        z=1;
-                        for k=1:par.k
-                            for j=1:q
-                                d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z},obj.stem_data.X_p(:,1,tP,k),'b');
-                                L=find(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z});
-                                [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}),L);
-                                elements=d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}(L);
-                                d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+z}=sparse(Id,Jd,elements,N,N);
-                                z=z+1;
-                            end
-                        end
-                    end
-                    if n_p_theta>0
-                        for k=1:par.k
-                            X_p_orlated=[obj.stem_data.X_p(:,1,tP,k);zeros(N-size(obj.stem_data.X_p(:,1,tP,k),1),1)];
-                            d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+k},X_p_orlated,'b');
-                        end
-                    end
-                    if n_p_v>0
-                        z=1;
-                        for k=1:par.k
-                            for j=1:q*(q-1)/2
-                                d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}=stem_misc.D_apply(d_Sgeo_prel{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z},obj.stem_data.X_p(:,1,tP,k),'b');
-                                L=find(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z});
-                                [Id,Jd]=ind2sub(size(d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}),L);
-                                elements=d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}(L);
-                                d_Sgeo{n_beta+n_eps+n_bp_alpha+n_bp_theta+n_bp_v+n_p_alpha+n_p_theta+z}=sparse(Id,Jd,elements,N,N);
-                                z=z+1;
-                            end
-                        end
-                    end
-                    for i=n_psi-n_time+1:n_psi
-                        d_Sgeo{i}=d_Sgeo_prel{i};
-                    end
-                end
-                
-                Lt=not(isnan(data.Y(:,t)));
-                if n_time>0
-                    X_z_orlated=data.X_z(:,:,tT);
-                    X_z_orlated=[X_z_orlated;zeros(N-size(X_z_orlated,1),size(X_z_orlated,2))];
-                    sigma_t_Lt=X_z_orlated(Lt,:)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)'+sigma_geo(Lt,Lt);
-                else
-                    sigma_t_Lt=sigma_geo(Lt,Lt);
-                end
-                
-                et=zeros(N,1);
-                if n_time>0
-                    if n_beta>0
-                        X_beta_orlated=data.X_beta(:,:,tbeta);
-                        X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
-                        et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta-X_z_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
-                    else
-                        et(Lt)=data.Y(Lt,t)-X_z_orlated(Lt,:)*st_kalmanfilter_result.zk_f(:,t);
-                    end
-                else
-                    if n_beta>0
-                        X_beta_orlated=data.X_beta(:,:,tbeta);
-                        X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
-                        et(Lt)=data.Y(Lt,t)-X_beta_orlated(Lt,:)*par.beta;
-                    else
-                        et(Lt)=data.Y(Lt,t);
-                    end
-                end
-                
-                clear sigma_eps
-                clear sigma_W_b
-                clear sigma_W_p
-                clear result
-                clear result1
-                clear result2
-                clear result3
-                clear temp
-                clear temp2
-                clear Id
-                clear Jd
-                clear L
-                clear X_p_orlated
-                clear aj_p
-                clear aj_bp
-                clear d
-                clear elements
-                clear idx
-                clear idx_I
-                clear idx_J
-                
-                if t==1
-                    %d_P
-                    for i=n_psi-n_time_s2e+1:n_psi
-                        d_P(:,:,i)=d_s2e(:,:,i);
-                    end
-                    
-                    %d_Z is zero for each parameter at t=1
-                    
-                    %d_St
-                    for i=1:n_psi-n_time
-                        %with respect to sigma_eps
-                        d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
-                    end
-                    
-                    %with respect to G are zero
-                    for i=n_psi-n_time+1:n_psi-n_time_s2e
-                        d_St_Lt{i}=sparse(sum(Lt),sum(Lt));
-                    end
-                    
-                    for i=n_psi-n_time_s2e+1:n_psi
-                        %with respect to sigma_eta
-                        d_St_Lt{i}=X_z_orlated(Lt,:)*d_s2e(:,:,i)*X_z_orlated(Lt,:)';
-                        if stem_misc.zero_density(d_St_Lt{i})>60
-                            d_St_Lt{i}=sparse(d_St_Lt{i});
-                        end
-                    end
-                    
-                    %d_J
-                    if n_time>0
-                        for i=1:n_beta
-                            d_J_Lt{i}=sparse(p,sum(Lt));
-                        end
-                        for i=n_beta+1:n_psi-n_time
-                            d_J_Lt{i}=(-st_kalmanfilter_result.J(:,Lt,t)*d_Sgeo{i}(Lt,Lt))/sigma_t_Lt;
-                        end
-                        
-                        for i=n_psi-n_time+1:+n_psi-n_time+n_time_G
-                            %with respect to G
-                            d_J_Lt{i}=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)')/sigma_t_Lt;
-                        end
-                        
-                        for i=n_psi-n_time_s2e+1:n_psi
-                            %with respect to sigma_eta
-                            d_J_Lt{i}=(par.G*d_P(:,:,i)*X_z_orlated(Lt,:)')/sigma_t_Lt;
-                        end
-                    end
-                    
-                    %d_e
-                    for i=1:n_beta
-                        d_e(:,i)=-X_beta_orlated*d_beta(:,1,i);
-                    end
-                else
-                    Lt1=not(isnan(data.Y(:,t-1)));
-                    %d_e
-                    for i=1:n_psi
-                        if (i<=n_beta)
-                            if n_time>0
-                                d_e(:,i)=-X_beta_orlated*d_beta(:,1,i)-X_z_orlated*d_Z_lag(:,i);
+                    if not(isempty(data.X_p))
+                        if not(exist('sigma_geo','var'))
+                            if obj.stem_model.tapering
+                                sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
-                                d_e(:,i)=-X_beta_orlated*d_beta(:,1,i);
-                            end
-                        else
-                            if n_time>0
-                                d_e(:,i)=-X_z_orlated*d_Z_lag(:,i);
+                                sigma_geo=zeros(N);
                             end
                         end
-                    end
-                    
-                    %d_Z
-                    if n_time>0
-                        for i=1:n_beta
-                            d_Z(:,i)=par.G*d_Z_lag(:,i)+J(:,Lt1,t-1)*d_e_lag(Lt1,i);
-                        end
-                        for i=n_beta+1:n_psi-n_time
-                            d_Z(:,i)=par.G*d_Z_lag(:,i)+d_J_lag_Lt1{i}*et_lag(Lt1)+J(:,Lt1,t-1)*d_e_lag(Lt1,i);
-                        end
-                        for i=n_psi-n_time+1:n_psi-n_time+n_time_G
-                            d_Z(:,i)=d_G(:,:,i)*st_kalmanfilter_result.zk_f(:,t-1)+par.G*d_Z_lag(:,i)+d_J_lag_Lt1{i}*et_lag(Lt1)+J(:,Lt1,t-1)*d_e_lag(Lt1,i);
-                        end
-                        for i=n_psi-n_time_s2e+1:n_psi
-                            d_Z(:,i)=par.G*d_Z_lag(:,i)+d_J_lag_Lt1{i}*et_lag(Lt1)+J(:,Lt1,t-1)*d_e_lag(Lt1,i);
-                        end
-                        
-                        %d_P
-                        for i=1:n_psi
-                            d_P(:,:,i)=d_G(:,:,i)*(eye(p)-J(:,Lt1,t-1)*X_z_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'-...
-                                par.G*d_J_lag_Lt1{i}*X_z_orlated(Lt1,:)*st_kalmanfilter_result.Pk_f(:,:,t-1)*par.G'+...
-                                par.G*(eye(p)-J(:,Lt1,t-1)*X_z_orlated(Lt1,:))*d_P_lag(:,:,i)*par.G'+...
-                                par.G*(eye(p)-J(:,Lt1,t-1)*X_z_orlated(Lt1,:))*st_kalmanfilter_result.Pk_f(:,:,t-1)*d_G(:,:,i)'+d_s2e(:,:,i);
+                        for z=1:k
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{z},data.X_p(:,1,tP,z),'b'),aj_p(:,z),'b');
                         end
                     end
+                    if not(exist('sigma_geo','var'))
+                        sigma_geo=sigma_eps;
+                    else
+                        sigma_geo=sigma_geo+sigma_eps;
+                    end
                     
-                    %d_St
+                    %compute d_Sgeo in the time-variant case
                     for i=1:n_psi
-                        if n_time>0
-                            d_St_Lt{i}=X_z_orlated(Lt,:)*d_P(:,:,i)*X_z_orlated(Lt,:)'+d_Sgeo{i}(Lt,Lt);
-                        else
-                            d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
+                        d_Sgeo{i}=sparse(N,N);
+                    end
+                    if not(isempty(data.X_bp))
+                        a_bp_X=stem_misc.D_apply(data.X_bp(:,:,tBP),aj_bp,'l');
+                        for i=1:n_psi
+                            temp=zeros(N,1);
+                            for j=1:n_bp_alpha
+                                temp=temp+stem_misc.D_apply(data.X_bp(:,:,tBP),d_alpha_bp{i,j});
+                            end
+                            d_a_bp_X=sparse(temp);
+                            temp=stem_misc.M_apply(sigma_W_b,M,'b');
+                            temp=stem_misc.D_apply(temp,d_a_bp_X,'l');
+                            temp=stem_misc.D_apply(temp,a_bp_X,'r');
+                            d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                            
+                            temp=stem_misc.D_apply(d_M_Sb{i},a_bp_X,'b');
+                            d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                            
+                            temp=stem_misc.M_apply(sigma_W_b,M,'b');
+                            temp=stem_misc.D_apply(temp,d_a_bp_X,'r');
+                            temp=stem_misc.D_apply(temp,a_bp_X,'l');
+                            d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
                         end
+                    end
+                    if not(isempty(data.X_p))
+                        for z=1:k
+                            a_p_X=stem_misc.D_apply(data.X_p(:,:,tP,z),aj_p(:,z),'l');
+                            for i=1:n_psi
+                                temp=zeros(N,1);
+                                for j=1:q
+                                    temp=temp+stem_misc.D_apply(data.X_p(:,:,tP,z),d_alpha_p{i,j,z});
+                                end
+                                d_a_p_X=sparse(temp);
+                                
+                                temp=stem_misc.D_apply(sigma_W_p{z},d_a_p_X,'l');
+                                temp=stem_misc.D_apply(temp,a_p_X,'r');
+                                d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                                
+                                temp=stem_misc.D_apply(d_Sp{i,z},a_p_X,'b');
+                                d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                                
+                                temp=stem_misc.D_apply(sigma_W_p{z},d_a_p_X,'r');
+                                temp=stem_misc.D_apply(temp,a_p_X,'l');
+                                d_Sgeo{i}=d_Sgeo{i}+stem_misc.sparseif(temp,60);
+                            end
+                        end
+                    end
+                    for i=1:n_psi
+                        d_Sgeo{i}=d_Sgeo{i}+d_Seps{i};
                     end
                     
-                    %d_J
-                    if n_time>0
-                        for i=1:n_psi
-                            d_J_Lt{i}=(d_G(:,:,i)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)'+par.G*d_P(:,:,i)*X_z_orlated(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
+                    if not(isempty(data.X_z))
+                        if (obj.stem_data.model_type==1)&&(obj.stem_data.model_subtype==0)
+                            temp=data.X_z(:,:,tT);
+                            temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                            X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+                        else
+                            X_z_orlated=[data.X_z(:,:,1);zeros(N-size(data.X_z(:,:,tT),1),size(data.X_z(:,:,tT),2))];
                         end
+                        a_z_X=stem_misc.D_apply(X_z_orlated,aj_z,'l');
                     end
                 end
                 
-                if n_time>0
-                    temp1=X_z_orlated(Lt,:)*st_kalmanfilter_result.Pk_f(:,:,t)*X_z_orlated(Lt,:)';
-                    sigma_t_Lt=temp1+sigma_geo(Lt,Lt);
-                else
-                    sigma_t_Lt=sigma_geo(Lt,Lt);
+                Lt=not(isnan(data.Y(:,t-1)));
+                if t>2
+                    Lt_lag=not(isnan(data.Y(:,t-2)));
                 end
-                
-                clear temp0
-                clear temp1
-                clear temp2
-                d_e_Lt=d_e(Lt,:);
-                if issparse(sigma_t_Lt)
-                    r = symamd(sigma_t_Lt);
-                    c=chol(sigma_t_Lt(r,r));
-                    temp0(r,:)=stem_misc.chol_solve(c,d_e_Lt(r,:));
+                if not(isempty(data.X_z))
+                    if (obj.stem_data.model_type==1)&&(obj.stem_data.model_subtype==0)
+                        temp=data.X_z(:,:,tT);
+                        temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                        X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+                    else
+                        X_z_orlated=[data.X_z(:,:,tT);zeros(N-size(data.X_z(:,:,tT),1),size(data.X_z(:,:,tT),2))];
+                    end
+                    X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');                    
+                    
+                    if n_beta>0
+                        X_beta_orlated=data.X_beta(:,:,tbeta);
+                        X_beta_orlated=cat(1,X_beta_orlated,zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2)));
+                        e_t_Lt=data.Y(Lt,t-1)-X_beta_orlated(Lt,:)*par.beta-X_z_orlated(Lt,:)*zk_f(:,t);
+                    else
+                        e_t_Lt=data.Y(Lt,t-1)-X_z_orlated(Lt,:)*zk_f(:,t);
+                    end                    
+                    
+                    sigma_t_Lt=X_z_orlated(Lt,:)*Pk_f(:,:,t)*X_z_orlated(Lt,:)'+sigma_geo(Lt,Lt);
+                    
+                    d_Sz=cell(n_psi,1);
+                    for i=1:n_psi
+                        temp=zeros(N,size(X_z_orlated,2));
+                        for j=1:n_z_alpha
+                            temp=temp+stem_misc.D_apply(X_z_orlated,d_alpha_z{i,j},'l');
+                        end
+                        d_a_z_X{i}=sparse(temp);
+                        
+                        d_Sz{i}=sparse(N,N);
+                    end
                 else
-                    c=chol(sigma_t_Lt);
-                    temp0=stem_misc.chol_solve(c,d_e_Lt);
+                    if n_beta>0
+                        X_beta_orlated=data.X_beta(:,:,tbeta);
+                        X_beta_orlated=cat(1,X_beta_orlated,zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2)));
+                        e_t_Lt=data.Y(Lt-1,t)-X_beta_orlated(Lt,:)*par.beta;
+                    else
+                        e_t_Lt=data.Y(Lt-1,t);
+                    end                    
+                    sigma_t_Lt=sigma_geo(Lt,Lt);
                 end
                 
                 for i=1:n_psi
-                    temp1{i}=d_e_Lt(:,i)'*temp0;
+                    if t==2
+                        if not(isempty(data.X_z))
+                            d_P{i}=d_s2e{i};
+
+                            temp=d_a_z_X{i}*Pk_f(:,:,t)*a_z_X';
+                            d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
+                            temp=a_z_X*d_P{i}*a_z_X';
+                            d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
+                            temp=a_z_X*Pk_f(:,:,t)*d_a_z_X{i}';
+                            d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
+
+                            d_St_Lt{i}=d_Sz{i}(Lt,Lt)+d_Sgeo{i}(Lt,Lt);
+                            %verificare sistema lineare nel caso di matrici sparse!
+                            d_J_Lt{i}=(d_G{i}*Pk_f(:,:,t)*a_z_X(Lt,:)'+G*d_P{i}*a_z_X(Lt,:)'+G*Pk_f(:,:,t)*d_a_z_X{i}(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
+                            d_Z{i}=d_G{i}*zk_f(:,t-1);
+                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                        else
+                            d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
+                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                        end
+                    else
+                        if not(isempty(data.X_z))
+                            d_P{i}=d_G{i}*Pk_f(:,:,t-1)*G+G*d_P_lag{i}*G'+G*Pk_f(:,:,t-1)*d_G{i}'+d_s2e{i}-d_J_Lt_lag{i}*sigma_t_Lt_lag*J(:,Lt_lag,t-1)'-J(:,Lt_lag,t-1)*d_St_Lt_lag{i}*J(:,Lt_lag,t-1)'-J(:,Lt_lag,t-1)*sigma_t_Lt_lag*d_J_Lt_lag{i}';
+
+                            temp=d_a_z_X{i}*Pk_f(:,:,t)*a_z_X';
+                            d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
+                            temp=a_z_X*d_P{i}*a_z_X';
+                            d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
+                            temp=a_z_X*Pk_f(:,:,t)*d_a_z_X{i}';
+                            d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
+                         
+                            d_St_Lt{i}=d_Sz{i}(Lt,Lt)+d_Sgeo{i}(Lt,Lt);
+                            %verificare sistema lineare nel caso di matrici sparse!
+                            d_J_Lt{i}=(d_G{i}*Pk_f(:,:,t)*a_z_X(Lt,:)'+G*d_P{i}*a_z_X(Lt,:)'+G*Pk_f(:,:,t)*d_a_z_X{i}(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
+                            d_Z{i}=d_G{i}*zk_f(:,t-1)+G*d_Z_lag{i}+d_J_Lt_lag{i}*e_t_Lt_lag+J(:,Lt_lag,t-1)*d_e_Lt_lag{i};
+                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i}-d_a_z_X{i}(Lt,:)*zk_f(:,t)-a_z_X(Lt,:)*d_Z{i};
+                        else
+                            d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
+                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                        end
+                    end
+                end
+                    
+                temp0=cell(n_psi,1);
+                temp1=cell(n_psi,1);
+                
+                for i=1:n_psi
+                    if issparse(sigma_t_Lt)
+                        r = symamd(sigma_t_Lt);
+                        c=chol(sigma_t_Lt(r,r));
+                        temp0{i}(r,:)=stem_misc.chol_solve(c,d_e_Lt{i}(r,:));
+                    else
+                        c=chol(sigma_t_Lt);
+                        temp0{i}=stem_misc.chol_solve(c,d_e_Lt{i});
+                    end
+                    
                     d_St_i_Lt=d_St_Lt{i};
                     if nnz(d_St_i_Lt)>0
                         if issparse(sigma_t_Lt)
-                            temp2{i}(r,:)=full(stem_misc.chol_solve(c,d_St_i_Lt(r,:)));
+                            temp1{i}(r,:)=full(stem_misc.chol_solve(c,d_St_i_Lt(r,:)));
                         else
-                            temp2{i}=full(stem_misc.chol_solve(c,d_St_i_Lt));
+                            temp1{i}=full(stem_misc.chol_solve(c,d_St_i_Lt));
                         end
                     else
-                        temp2{i}=spalloc(size(sigma_t_Lt,1),size(sigma_t_Lt,2),0);
+                        temp1{i}=spalloc(size(sigma_t_Lt,1),size(sigma_t_Lt,2),0);
                     end
                 end
+                 
                 for i=1:n_psi
-                    blocks=0:50:size(temp2{i},1);
-                    if not(blocks(end)==size(temp2{i},1))
-                        blocks=[blocks size(temp2{i},1)];
+                    blocks=0:50:size(temp1{i},1);
+                    if not(blocks(end)==size(temp1{i},1))
+                        blocks=cat(2,blocks,size(temp1{i},1));
                     end
-                    nnz_temp2_i=nnz(temp2{i});
+                    nnz_temp1_i=nnz(temp1{i});
+                    
                     for j=i:n_psi
-                        IM(i,j)=IM(i,j)+temp1{i}(j);
-                        if (nnz_temp2_i>0)&&(nnz(temp2{j})>0)
+                        IM(i,j)=IM(i,j)+d_e_Lt{i}'*temp0{j};
+                        if (nnz_temp1_i>0)&&(nnz(temp1{j})>0)
                             sumtrace=0;
                             for z=1:length(blocks)-1
                                 idx=blocks(z)+1:blocks(z+1);
-                                sumtrace=sumtrace+trace(temp2{i}(idx,:)*temp2{j}(:,idx));
+                                sumtrace=sumtrace+trace(temp1{i}(idx,:)*temp1{j}(:,idx));
                             end
-                            IM(i,j)=IM(i,j)+0.5*sumtrace+0.25*trace(temp2{i})*trace(temp2{j});
+                            IM(i,j)=IM(i,j)+0.5*sumtrace+0.25*trace(temp1{i})*trace(temp1{j});
                         end
                         counter=counter+1;
                         if (mod(counter,100)==0)||(counter==tot)
@@ -1749,11 +1952,14 @@ classdef stem_model < handle
                         end
                     end
                 end
+
                 d_P_lag=d_P;
-                d_J_lag_Lt1=d_J_Lt;
+                d_J_Lt_lag=d_J_Lt;
                 d_Z_lag=d_Z;
-                d_e_lag=d_e;
-                et_lag=et;
+                d_e_Lt_lag=d_e_Lt;
+                e_t_Lt_lag=e_t_Lt;
+                d_St_Lt_lag=d_St_Lt;
+                sigma_t_Lt_lag=sigma_t_Lt;
             end
             IM=IM+triu(IM,1)';
             obj.stem_EM_result.varcov=inv(IM);
@@ -1773,6 +1979,10 @@ classdef stem_model < handle
                 error('The input argument must be of class stem_par');
             end
             obj.stem_par_initial=stem_par;
+            if obj.stem_par.time_diagonal&&not(obj.stem_data.model_type==1)
+                obj.stem_par_initial.G=diag(diag(obj.stem_par_initial.G));
+                obj.stem_par_initial.sigma_eta=diag(diag(obj.stem_par_initial.sigma_eta));
+            end
         end
         
         %Export functions. Useful to avoid access to the properties of nested objects
@@ -1828,7 +2038,7 @@ classdef stem_model < handle
       
         %Class set functions 
         function set.stem_data(obj,stem_data)
-            if strcmp(class(stem_data),'stem_data')
+            if isa(stem_data,'stem_data')
                 obj.stem_data=stem_data;
             else
                 error('The argument must be of class stem_data');
@@ -1840,21 +2050,13 @@ classdef stem_model < handle
                 error('stem_par_initial must be of class stem_par');
             end
             obj.stem_par=stem_par;
-            if not(length(stem_par.beta)==size(obj.stem_data.X_beta,2))
-                error(['The length of beta in stem_par must be equal to ',num2str(size(obj.stem_data.X_beta,2))]);
-            end
         end        
        
         function set.stem_par_initial(obj,stem_par_initial)
             if not(isa(stem_par_initial,'stem_par'))
                 error('stem_par_initial must be of class stem_par');
-            else
-                if obj.stem_par.time_diagonal
-                    stem_par_initial.G=diag(diag(stem_par_initial.G));
-                    stem_par_initial.sigma_eta=diag(diag(stem_par_initial.sigma_eta));
-                end
-                obj.stem_par_initial=stem_par_initial;
             end
+            obj.stem_par_initial=stem_par_initial;
         end
     end
 

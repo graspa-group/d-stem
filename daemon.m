@@ -45,7 +45,7 @@ while(1)
     disp([datestr(now),' - Waiting request from master...']);
     while not(exit)
         exit=exist([path_distributed_computing,'whoishere.mat'],'file');
-        pause(4);
+        pause(0.1);
     end
     read=0;
     while not(read)

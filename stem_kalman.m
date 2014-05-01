@@ -48,23 +48,23 @@ classdef stem_kalman < handle
             %
             %OUTPUT
             %obj             - [stem_kalman object]   (1x1) stem_kalman object            
-            if strcmp(class(stem_model),'stem_model')
+            if isa(stem_model,'stem_model')
                 obj.stem_model=stem_model;
             else
                 error('The input argument must be of class stem_model');
             end
         end
         
-        function [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,aj_bp,aj_p,M,sigma_geo] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+        function [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_eta,G_tilde_diag,sigma_geo,aj_bp,aj_p,aj_z,M] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
             %DESCRIPTION: Kalman filter front-end method
             %
             %INPUT
             %
-            %obj                            - [stem_kalman object]    (1x1)  stem_kalman object
-            %<compute_logL>                 - [boolean]               (1x1)  (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
-            %<enable_varcov_computation>    - [boolean]               (1x1)  (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
-            %<time_steps>                   - [integer >0]            (dTx1) (default: []) the subset of time steps with respect to which compute the Kalman filter
-            %<pathparallel>                 - [string]                (1x1)  (defalut: []) full or relative path of the folder to use for distributed computation
+            %obj                            - [stem_kalman object]              (1x1)  stem_kalman object
+            %<compute_logL>                 - [boolean]                         (1x1)  (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %<enable_varcov_computation>    - [boolean]                         (1x1)  (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %<time_steps>                   - [integer >0]                      (dTx1) (default: []) the subset of time steps with respect to which compute the Kalman filter
+            %<pathparallel>                 - [string]                          (1x1)  (defalut: []) full or relative path of the folder to use for distributed computation
             %    
             %OUTPUT
             %st_kalmanfilter_result         - [stem_kalmanfilter_result object] (1x1)     
@@ -72,11 +72,14 @@ classdef stem_kalman < handle
             %sigma_W_b                      - [double]                          (N_bxN_b) sigma_W_b matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_W_p                      - [double]                          {k}(N_px_Ng) the sigma_W_p matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_Z                        - [double]                          (pxp) the sigma_Z matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_eta                      - [double]                          (r x r) variance-covariance matrix of eta when model_type=1
+            %G_tilde_diag                   - [double]                          (r x 1) diagonal of the G_tilde matrix when model_type=1
+            %sigma_geo                      - [double]                          (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %aj_bp                          - [double]                          (Nx1) the aj_bp vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %aj_p                           - [double]                          (Nx1) the aj_p vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_z                           - [double]                          (Nx1) the aj_z vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)     
             %M                              - [integer >0]                      (N_px1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %sigma_geo                      - [double]                          (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            
+                
             if nargin<2
                 compute_logL=0;
             end
@@ -92,21 +95,31 @@ classdef stem_kalman < handle
             end
             disp('    Kalman filter started...');
             ct1=clock;
-            
-            z0=zeros(obj.stem_model.stem_par.p,1);
-            P0=eye(obj.stem_model.stem_par.p);
-            time_diagonal=obj.stem_model.stem_par.time_diagonal;
-            
+           
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;            
             
-            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,aj_bp,aj_p,M] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,sigma_eta,G_tilde_diag,aj_bp,aj_p,aj_z,M] = obj.stem_model.get_sigma();
             
-            tapering=obj.stem_model.tapering;            
-            if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,par.beta,par.G,par.sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
+            time_diagonal=obj.stem_model.stem_par.time_diagonal;
+            tapering=obj.stem_model.tapering;  
+            
+            if obj.stem_model.stem_data.model_type==1
+                s_eta=sigma_eta;
+                r=length(G_tilde_diag);
+                G=sparse(1:r,1:r,G_tilde_diag,r,r);
+                z0=zeros(r,1);
+                P0=eye(r);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,par.beta,par.G,par.sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
+                s_eta=par.sigma_eta;
+                G=par.G;
+                z0=zeros(obj.stem_model.stem_par.p,1);
+                P0=eye(obj.stem_model.stem_par.p);
+            end
+            if isempty(pathparallel)
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,par.beta,G,s_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,obj.stem_model.stem_data.model_type,obj.stem_model.stem_data.model_subtype);
+            else
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter_parallel(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,par.beta,G,s_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,obj.stem_model.stem_data.model_type,obj.stem_model.stem_data.model_subtype);
             end
             st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL);
             
@@ -114,7 +127,7 @@ classdef stem_kalman < handle
             disp(['    Kalman filter ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
-        function [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,aj_bp,aj_p,M,sigma_geo] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+        function [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,aj_p,aj_z,M] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
             %DESCRIPTION: Kalman smoother front-end method
             %
             %INPUT
@@ -131,11 +144,12 @@ classdef stem_kalman < handle
             %sigma_W_b                      - [double]                            (N_bxN_b) sigma_W_b matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_W_p                      - [double]                            {K}(N_pxN_p) the sigma_W_p matrices (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %sigma_Z                        - [double]                            (pxp) the sigma_Z matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %sigma_geo                      - [double]                            (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %aj_bp                          - [double]                            (Nx1) the aj_bp vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
             %aj_p                           - [double]                            (Nx1) the aj_p vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
+            %aj_z                           - [double]                          (Nx1) the aj_z vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details) 
             %M                              - [integer >0]                        (N_px1) the M vector (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-            %sigma_geo                      - [double]                            (NxN) the sigma_geo matrix (passed as output to avoid recomputation. See the get_sigma method of the class stem_model for more details)
-              
+            
             if nargin<2
               compute_logL=0;
             end
@@ -151,20 +165,33 @@ classdef stem_kalman < handle
             end
             disp('    Kalman smoother started...');
             ct1=clock;
-            z0=zeros(obj.stem_model.stem_par.p,1);
-            P0=eye(obj.stem_model.stem_par.p);
-            time_diagonal=obj.stem_model.stem_par.time_diagonal;
-            
+
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
-            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,aj_bp,aj_p,M] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,sigma_eta,G_tilde_diag,aj_bp,aj_p,aj_z,M] = obj.stem_model.get_sigma();
             
             tapering=obj.stem_model.tapering;
+
+            time_diagonal=obj.stem_model.stem_par.time_diagonal;
+            
+            if obj.stem_model.stem_data.model_type==1
+                s_eta=sigma_eta;
+                r=length(G_tilde_diag);
+                G=sparse(1:r,1:r,G_tilde_diag,r,r);
+                z0=zeros(r,1);
+                P0=eye(r);
+            else
+                s_eta=par.sigma_eta;
+                G=par.G;
+                z0=zeros(obj.stem_model.stem_par.p,1);
+                P0=eye(obj.stem_model.stem_par.p);
+            end
+            
             [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_bp,data.X_beta,data.X_z,...
-                data.X_p,par.beta,par.G,par.sigma_eta,sigma_W_b,...
-                sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,...
-                time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
+                data.X_p,par.beta,G,s_eta,sigma_W_b,...
+                sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,...
+                time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,obj.stem_model.stem_data.model_type,obj.stem_model.stem_data.model_subtype);
             st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
             ct2=clock;
             disp(['    Kalman smoother ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
@@ -173,43 +200,46 @@ classdef stem_kalman < handle
     
     methods (Static)
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,model_type,model_subtype)
             %DESCRIPTION: Kalman filter implementation
             %
             %INPUT
             %
-            %Y                              - [double]     (NxT)      the full observation matrix
-            %X_bp                           - [double]     (Nx1xTT)   the full X_bp matrix
-            %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
-            %X_z                            - [double]     (NxpxTT)   the full X_z matrix
-            %X_p                            - [double]     (Nx1xTTxK) the full X_p matrix
-            %beta                           - [double]     (N_bx1)    the beta model parameter
-            %G                              - [double]     (pxp)      the G model parameter
-            %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
-            %sigma_W_b                      - [double]     (N_bxN_b)  variance-covariance matrix of W_b
-            %sigma_W_p                      - [double]     {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
-            %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
-            %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
-            %aj_bp                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %aj_p                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %M                              - [integer >0] (N_px1)    see the details of the method update_M of the class stem_data            
-            %z0                             - [double]     (px1)      the value of z at time t=0
-            %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
-            %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
-            %tapering                       - [boolean]    (1x1)      1: tapering is enabled; 0: tapering is not enabled
-            %compute_logL                   - [boolean]    (1x1)      1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
-            %enable_varcov_computation      - [boolean]    (1x1)      1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %Y                              - [double]     (NxT)       the full observation matrix
+            %X_bp                           - [double]     (Nx1xTT)    the full X_bp matrix
+            %X_beta                         - [double]     (NxN_bxTT)  the full X_beta matrix
+            %X_z                            - [double]     (NxpxTT)    the full X_z matrix
+            %X_p                            - [double]     (Nx1xTTxK)  the full X_p matrix
+            %beta                           - [double]     (N_bx1)     the beta model parameter
+            %G                              - [double]     (pxp)|(rxr) the G model parameter or the G_tilde matrix when model_type=1
+            %sigma_eta                      - [double]     (pxp)|(rxr) the sigma_eta model parameter or the sigma_eta matrix when model_type=1
+            %sigma_W_b                      - [double]     (N_bxN_b)   variance-covariance matrix of W_b
+            %sigma_W_p                      - [double]     {K}(N_pxN_p)variance-covariance matrices of the K W_p_i
+            %sigma_eps                      - [double]     (NxN)       variance-covariance matrix of epsilon
+            %sigma_geo                      - [double]     (NxN)       variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
+            %aj_bp                          - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %aj_p                           - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %aj_z                           - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_px1)     see the details of the method update_M of the class stem_data            
+            %z0                             - [double]     (px1)       the value of z at time t=0
+            %P0                             - [double]     (pxp)       the variance-covariance matrix of z at time t=0
+            %time_diagonal                  - [boolean]    (1x1)       1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %tapering                       - [boolean]    (1x1)       1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)       1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]    (1x1)       1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %model_type                     - [integer >0] (1x1)       0: type 1 model, 1: type 2 model, 2: clustering model
+            %model_subtype                  - [integer >0] (1x1)       currently used when model_type=1. 0: X_z{i} has only one column; 1: X_z{i} has more than one column
             % 
             %OUTPUT 
-            %zk_f                           - [double]     (pxT+1)    the filtered state
-            %zk_u                           - [double]     (pxT+1)    the updated state
-            %Pk_f                           - [double]     (pxpxT+1)  variance-covariance matrix of the filtered state
-            %Pk_u                           - [double]     (pxpxT+1)  variance-covariance matrix of the updated state
-            %J_last                         - [double]     (pxN)      innovation vector at time t=T
-            %J                              - [double]     (pxNxT+1)  innovation vector from time t=0 to time t=T
-            %logL                           - [double]     (1x1)      observed-data log-likelihood
+            %zk_f                           - [double]     (pxT+1)     the filtered state
+            %zk_u                           - [double]     (pxT+1)     the updated state
+            %Pk_f                           - [double]     (pxpxT+1)   variance-covariance matrix of the filtered state
+            %Pk_u                           - [double]     (pxpxT+1)   variance-covariance matrix of the updated state
+            %J_last                         - [double]     (pxN)       innovation vector at time t=T
+            %J                              - [double]     (pxNxT+1)   innovation vector from time t=0 to time t=T
+            %logL                           - [double]     (1x1)       observed-data log-likelihood
             
-            if nargin<20
+            if nargin<22
                 error('You have to provide all the input arguments');
             end
                         
@@ -315,15 +345,22 @@ classdef stem_kalman < handle
                 end
                 Lt=not(isnan(Y(:,t-1))); %note the t-1
                 
-                X_z_orlated=X_z(:,:,tK-1);
-                X_z_orlated=[X_z_orlated;zeros(N-size(X_z_orlated,1),size(X_z_orlated,2))];
+                if (model_type==1)&&(model_subtype==0)
+                    temp=X_z(:,:,tK-1);
+                    temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                    X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+                else
+                    X_z_orlated=[X_z(:,:,tK-1);zeros(N-size(X_z(:,:,tK-1),1),size(X_z(:,:,tK-1),2))];
+                end
+                X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
+                
                 X_z_orlated=X_z_orlated(Lt,:);
                 if stem_misc.zero_density(X_z_orlated)>90
                     X_z_orlated=sparse(X_z_orlated);
                 end
                 
                 X_beta_orlated=X_beta(:,:,tX-1);
-                X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
+                X_beta_orlated=cat(1,X_beta_orlated,zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2)));
                 X_beta_orlated=X_beta_orlated(Lt,:);
                 if stem_misc.zero_density(X_beta_orlated)>90
                     X_beta_orlated=sparse(X_beta_orlated);
@@ -433,7 +470,7 @@ classdef stem_kalman < handle
                     else
                         c=chol(sigma_t_inv);
                     end
-                    logL=logL+1/(2*sum(log(diag(c))));
+                    logL=logL+(-(2*sum(log(diag(c))))); %the negative sign is due to the fact that is the log of sigma_t that must be computed
                     logL=logL+innovation(Lt,1)'*sigma_t_inv*innovation(Lt,1);
                 end
                 clear temp
@@ -452,45 +489,48 @@ classdef stem_kalman < handle
             end
         end
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,model_type,model_subtype)
             %DESCRIPTION: distributed Kalman filter implementation
             %
             %INPUT
             %
-            %Y                              - [double]     (NxT)      the full observation matrix
-            %X_bp                           - [double]     (Nx1xTT)   the full X_bp matrix
-            %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
-            %X_z                            - [double]     (NxpxTT)   the full X_z matrix
-            %X_p                            - [double]     (Nx1xTTxK) the full X_p matrix
-            %beta                           - [double]     (N_bx1)    the beta model parameter
-            %G                              - [double]     (pxp)      the G model parameter
-            %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
-            %sigma_W_b                      - [double]     (N_bxN_b)  variance-covariance matrix of W_b
-            %sigma_W_p                      - [double]     {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
-            %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
-            %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
-            %aj_bp                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %aj_p                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %M                              - [integer >0] (N_px1)    see the details of the method update_M of the class stem_data            
-            %z0                             - [double]     (px1)      the value of z at time t=0
-            %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
-            %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
-            %time_steps                     - [integer >0] (dTx1)     time steps with respect to which compute the Kalman filter
-            %pathparallel                   - [string]     (1x1)      full or relative path of the folder to use for distributed computation
-            %tapering                       - [boolean]    (1x1)      1: tapering is enabled; 0: tapering is not enabled
-            %compute_logL                   - [boolean]    (1x1)      1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
-            %enable_varcov_computation      - [boolean]    (1x1)      1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
-            % 
+            %Y                              - [double]     (NxT)       the full observation matrix
+            %X_bp                           - [double]     (Nx1xTT)    the full X_bp matrix
+            %X_beta                         - [double]     (NxN_bxTT)  the full X_beta matrix
+            %X_z                            - [double]     (NxpxTT)    the full X_z matrix
+            %X_p                            - [double]     (Nx1xTTxK)  the full X_p matrix
+            %beta                           - [double]     (N_bx1)     the beta model parameter
+            %G                              - [double]     (pxp)|(rxr) the G model parameter or the G_tilde matrix when model_type=1
+            %sigma_eta                      - [double]     (pxp)|(rxr) the sigma_eta model parameter or the sigma_eta matrix when model_type=1
+            %sigma_W_b                      - [double]     (N_bxN_b)   variance-covariance matrix of W_b
+            %sigma_W_p                      - [double]     {K}(N_pxN_p)variance-covariance matrices of the K W_p_i
+            %sigma_eps                      - [double]     (NxN)       variance-covariance matrix of epsilon
+            %sigma_geo                      - [double]     (NxN)       variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
+            %aj_bp                          - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %aj_p                           - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %aj_z                           - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_px1)     see the details of the method update_M of the class stem_data            
+            %z0                             - [double]     (px1)       the value of z at time t=0
+            %P0                             - [double]     (pxp)       the variance-covariance matrix of z at time t=0
+            %time_diagonal                  - [boolean]    (1x1)       1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %time_steps                     - [integer >0] (dTx1)      time steps with respect to which compute the Kalman filter
+            %pathparallel                   - [string]     (1x1)       full or relative path of the folder to use for distributed computation
+            %tapering                       - [boolean]    (1x1)       1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)       1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]    (1x1)       1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %model_type                     - [integer >0] (1x1)       0: type 1 model, 1: type 2 model, 2: clustering model
+            %model_subtype                  - [integer >0] (1x1)       currently used when model_type=1. 0: X_z{i} has only one column; 1: X_z{i} has more than one column
+            %  
             %OUTPUT 
-            %zk_f                           - [double]     (pxT+1)    the filtered state
-            %zk_u                           - [double]     (pxT+1)    the updated state
-            %Pk_f                           - [double]     (pxpxT+1)  variance-covariance matrix of the filtered state
-            %Pk_u                           - [double]     (pxpxT+1)  variance-covariance matrix of the updated state
-            %J_last                         - [double]     (pxN)      innovation vector at time t=T
-            %J                              - [double]     (pxNxT+1)  innovation vector from time t=0 to time t=T
-            %logL                           - [double]     (1x1)      observed-data log-likelihood
+            %zk_f                           - [double]     (pxT+1)     the filtered state
+            %zk_u                           - [double]     (pxT+1)     the updated state
+            %Pk_f                           - [double]     (pxpxT+1)   variance-covariance matrix of the filtered state
+            %Pk_u                           - [double]     (pxpxT+1)   variance-covariance matrix of the updated state
+            %J_last                         - [double]     (pxN)       innovation vector at time t=T
+            %J                              - [double]     (pxNxT+1)   innovation vector from time t=0 to time t=T
+            %logL                           - [double]     (1x1)       observed-data log-likelihood
             
-            if nargin<20
+            if nargin<22
                 error('You have to provide all the input arguments');
             end
                         
@@ -607,16 +647,23 @@ classdef stem_kalman < handle
                         tX=t; %time variant
                     end
                     Lt=not(isnan(Y(:,t-1))); %note the t-1
+                           
+                    if (model_type==1)&&(model_subtype==0)
+                        temp=X_z(:,:,tK-1);
+                        temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                        X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+                    else
+                        X_z_orlated=[X_z(:,:,tK-1);zeros(N-size(X_z(:,:,tK-1),1),size(X_z(:,:,tK-1),2))];
+                    end
+                    X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
                     
-                    X_z_orlated=X_z(:,:,tK-1);
-                    X_z_orlated=[X_z_orlated;zeros(N-size(X_z_orlated,1),size(X_z_orlated,2))];
                     X_z_orlated=X_z_orlated(Lt,:);
                     if stem_misc.zero_density(X_z_orlated)>90
                         X_z_orlated=sparse(X_z_orlated);
                     end
                     
                     X_beta_orlated=X_beta(:,:,tX-1);
-                    X_beta_orlated=[X_beta_orlated;zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2))];
+                    X_beta_orlated=cat(1,X_beta_orlated,zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2)));
                     X_beta_orlated=X_beta_orlated(Lt,:);
                     if stem_misc.zero_density(X_beta_orlated)>90
                         X_beta_orlated=sparse(X_beta_orlated);
@@ -906,8 +953,15 @@ classdef stem_kalman < handle
 
                     Lt=not(isnan(Y(:,t-1))); %note the t-1
                     
-                    X_z_orlated=X_z(:,:,tK-1);
-                    X_z_orlated=[X_z_orlated;zeros(N-size(X_z_orlated,1),size(X_z_orlated,2))];
+                    if (obj.stem_model.stem_data.model_type==1)&&(obj.stem_model.stem_data.model_subtype==0)
+                        temp=X_z(:,:,tK-1);
+                        temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                        X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+                    else
+                        X_z_orlated=[X_z(:,:,tK-1);zeros(N-size(X_z(:,:,tK-1),1),size(X_z(:,:,tK-1),2))];
+                    end
+                    X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
+
                     X_z_orlated=X_z_orlated(Lt,:);
                     if stem_misc.zero_density(X_z_orlated)>90
                         X_z_orlated=sparse(X_z_orlated);
@@ -935,7 +989,6 @@ classdef stem_kalman < handle
                         end
                     end
                     temp2=temp*X_z_orlated;           
-                    
                     save([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],'temp','temp2');
                     movefile([pathparallel,'temp/kalman_ouput_',num2str(t),'.mat'],[pathparallel,'kalman_ouput_',num2str(t),'.mat']);
                 end
@@ -944,45 +997,48 @@ classdef stem_kalman < handle
             end
         end
         
-        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation)
+        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,model_type,model_subtype)
             %DESCRIPTION: distributed Kalman filter implementation
             %
             %INPUT
             %
-            %Y                              - [double]     (NxT)      the full observation matrix
-            %X_bp                           - [double]     (Nx1xTT)   the full X_bp matrix
-            %X_beta                         - [double]     (NxN_bxTT) the full X_beta matrix
-            %X_z                            - [double]     (NxpxTT)   the full X_z matrix
-            %X_p                            - [double]     (Nx1xTTxK) the full X_p matrix
-            %beta                           - [double]     (N_bx1)    the beta model parameter
-            %G                              - [double]     (pxp)      the G model parameter
-            %sigma_eta                      - [double]     (pxp)      the sigma_eta model parameter
-            %sigma_W_b                      - [double]     (N_bxN_b)  variance-covariance matrix of W_b
-            %sigma_W_p                      - [double]     {K}(N_pxN_p) variance-covariance matrices of the K W_p_i
-            %sigma_eps                      - [double]     (NxN)      variance-covariance matrix of epsilon
-            %sigma_geo                      - [double]     (NxN)      variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
-            %aj_bp                          - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %aj_p                           - [double]     (Nx1)      see the details of the method get_aj of the class stem_model;
-            %M                              - [integer >0] (N_px1)    see the details of the method update_M of the class stem_data            
-            %z0                             - [double]     (px1)      the value of z at time t=0
-            %P0                             - [double]     (pxp)      the variance-covariance matrix of z at time t=0
-            %time_diagonal                  - [boolean]    (1x1)      1: G and sigma_eta are diagonal matrice; 0:otherwise
-            %time_steps                     - [integer >0] (dTx1)     time steps with respect to which compute the Kalman filter
-            %pathparallel                   - [string]     (1x1)      full or relative path of the folder to use for distributed computation
-            %tapering                       - [boolean]    (1x1)      1: tapering is enabled; 0: tapering is not enabled
-            %compute_logL                   - [boolean]    (1x1)      1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
-            %enable_varcov_computation      - [boolean]    (1x1)      1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %Y                              - [double]     (NxT)       the full observation matrix
+            %X_bp                           - [double]     (Nx1xTT)    the full X_bp matrix
+            %X_beta                         - [double]     (NxN_bxTT)  the full X_beta matrix
+            %X_z                            - [double]     (NxpxTT)    the full X_z matrix
+            %X_p                            - [double]     (Nx1xTTxK)  the full X_p matrix
+            %beta                           - [double]     (N_bx1)     the beta model parameter
+            %G                              - [double]     (pxp)|(rxr) the G model parameter or the G_tilde matrix when model_type=1
+            %sigma_eta                      - [double]     (pxp)|(rxr) the sigma_eta model parameter or the sigma_eta matrix when model_type=1
+            %sigma_W_b                      - [double]     (N_bxN_b)   variance-covariance matrix of W_b
+            %sigma_W_p                      - [double]     {K}(N_pxN_p)variance-covariance matrices of the K W_p_i
+            %sigma_eps                      - [double]     (NxN)       variance-covariance matrix of epsilon
+            %sigma_geo                      - [double]     (NxN)       variance-covariance matrix of the sum of all the geostatistical components (Z excluded and epsilon included)
+            %aj_bp                          - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %aj_p                           - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %aj_z                           - [double]     (Nx1)       see the details of the method get_aj of the class stem_model;
+            %M                              - [integer >0] (N_px1)     see the details of the method update_M of the class stem_data            
+            %z0                             - [double]     (px1)       the value of z at time t=0
+            %P0                             - [double]     (pxp)       the variance-covariance matrix of z at time t=0
+            %time_diagonal                  - [boolean]    (1x1)       1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %time_steps                     - [integer >0] (dTx1)      time steps with respect to which compute the Kalman filter
+            %pathparallel                   - [string]     (1x1)       full or relative path of the folder to use for distributed computation
+            %tapering                       - [boolean]    (1x1)       1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)       1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]    (1x1)       1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %model_type                     - [integer >0] (1x1)       0: type 1 model, 1: type 2 model, 2: clustering model
+            %model_subtype                  - [integer >0] (1x1)       currently used when model_type=1. 0: X_z{i} has only one column; 1: X_z{i} has more than one column
             % 
             %OUTPUT 
-            %zk_s                           - [double]     (pxT+1)    the smoothed state
-            %Pk_s                           - [double]     (pxpxT+1)  variance-covariance matrix of the smoothed state
-            %PPk_s                          - [double]     (pxpxT+1)  lag-one variance-covariance matrix of the smoothed state
-            %logL                           - [double]     (1x1)      observed-data log-likelihood
+            %zk_s                           - [double]     (pxT+1)     the smoothed state
+            %Pk_s                           - [double]     (pxpxT+1)   variance-covariance matrix of the smoothed state
+            %PPk_s                          - [double]     (pxpxT+1)   lag-one variance-covariance matrix of the smoothed state
+            %logL                           - [double]     (1x1)       observed-data log-likelihood
         
             if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,model_type,model_subtype);
             else
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation);
+                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,model_type,model_subtype);
             end
             
             p=size(G,1);
@@ -1004,9 +1060,19 @@ classdef stem_kalman < handle
             
             Lt=not(isnan(Y(:,end)));
             
-            X_z_orlated=X_z(:,:,end);
-            X_z_orlated=[X_z_orlated;zeros(N-size(X_z_orlated,1),size(X_z_orlated,2))];
+            if (model_type==1)&&(model_subtype==0)
+                temp=X_z(:,:,end);
+                temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
+                X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
+            else
+                X_z_orlated=[X_z(:,:,end);zeros(N-size(X_z(:,:,end),1),size(X_z(:,:,end),2))];
+            end
+            X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
+            
             X_z_orlated=X_z_orlated(Lt,:);
+            if stem_misc.zero_density(X_z_orlated)>90
+                X_z_orlated=sparse(X_z_orlated);
+            end
             
             PPk_s(:,:,end)=(eye(p)-J_last(:,Lt)*X_z_orlated)*G*Pk_u(:,:,end-1); %(6.55) Stoffer
             for t=T+1:-1:3

@@ -60,36 +60,50 @@ classdef stem_gridlist < handle
             %coordinates    - [double]                  (N_r|N_gx2)              
             coordinates=[];
             for i=1:length(obj.grid)
-                coordinates=[coordinates;obj.grid{i}.coordinate];
+                coordinates=cat(1,coordinates,obj.grid{i}.coordinate);
             end
             if isempty(coordinates)
                 warning('The stem_gridlist object does not contain any stem_grid');
             end
         end        
         
-        function DistMat = get_distance_matrix(obj,type)
+        function DistMat = get_distance_matrix(obj,type,idx_var)
             %DESCRIPTION: get the distance matrix of all the variables
             %
             %INPUT
             %obj        - [stem_gridlist object]    (1x1)
             %<type>     - [boolean]                 (1x1) 1: also the cross-distances are evaluated (distances between different variables); 0: the distance matrix is block-diagonal with respect to the variables
+            %<idx_var>  - [integer>0]               (1x1) the index of the variable in order to get the distance matrix of that variable only
             %
             %OUTPUT
             %DistMat    - [double]                  (N_rxN_r|N_gxN_g)  The distance matrix
             if nargin<2
                 type=1;
             end
-            
-            if isempty(obj.tap)
+            if nargin<3
+                idx_var=[];
+            end
+            if nargin>=3
+                if not(isempty(idx_var))
+                    if idx_var<1||idx_var>length(obj.grid)
+                        error(['idx_var must be between 1 and ',num2str(length(obj.grid))]);
+                    end
+                end
+            end
+
+            if isempty(idx_var)
                 d = obj.get_jointcoordinates();
+            else
+                d = obj.grid{idx_var}.coordinate;
+            end
+            if isempty(obj.tap)
                 DistMat=zeros(size(d,1));
                 for z=1:length(d)
                     DistMat(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
                 end
                 DistMat=DistMat+DistMat';
             else
-                if (type==1||length(obj.grid)==1)
-                    d = obj.get_jointcoordinates();
+                if (type==1||length(obj.grid)==1||not(isempty(idx_var)))
                     idx_r=[];
                     idx_c=[];
                     elements=[];
@@ -103,16 +117,17 @@ classdef stem_gridlist < handle
                         dist_vec(dist_vec==0)=eps;
                         
                         L=dist_vec<=obj.tap;
-                        idx_r=[idx_r;ones(sum(L),1)*z];
-                        idx_c=[idx_c;find(L)+z-1];
-                        elements=[elements;dist_vec(L)];
+                        idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                        idx_c=cat(1,idx_c,find(L)+z-1);
+                        elements=cat(1,elements,dist_vec(L));
                         %traspose
-                        idx_c=[idx_c;ones(sum(L),1)*z];
-                        idx_r=[idx_r;find(L)+z-1];
-                        elements=[elements;dist_vec(L)];
+                        idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                        idx_r=cat(1,idx_r,find(L)+z-1);
+                        elements=cat(1,elements,dist_vec(L));
                     end
                     DistMat=sparse(idx_r,idx_c,elements);
                 else
+                    Dist=cell(length(obj.grid),1);
                     for i=1:length(obj.grid)
                         d = obj.grid{i}.coordinate;
                         evaluate=1;
@@ -144,13 +159,13 @@ classdef stem_gridlist < handle
                                 dist_vec(dist_vec==0)=eps;
                                 
                                 L=dist_vec<=obj.tap;
-                                idx_r=[idx_r;ones(sum(L),1)*z];
-                                idx_c=[idx_c;find(L)+z-1];
-                                elements=[elements;dist_vec(L)];
+                                idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                                idx_c=cat(1,idx_c,find(L)+z-1);
+                                elements=cat(1,elements,dist_vec(L));
                                 %traspose
-                                idx_c=[idx_c;ones(sum(L),1)*z];
-                                idx_r=[idx_r;find(L)+z-1];
-                                elements=[elements;dist_vec(L)];
+                                idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                                idx_r=cat(1,idx_r,find(L)+z-1);
+                                elements=cat(1,elements,dist_vec(L));
                             end
                             Dist{i}=sparse(idx_r,idx_c,elements);
                         else
@@ -231,22 +246,22 @@ classdef stem_gridlist < handle
             %none: the box property is updated            
             temp=[];
             for i=1:length(obj.grid)
-                temp=[temp obj.grid{i}.box(1)];
+                temp=cat(2,temp,obj.grid{i}.box(1));
             end
             obj.box(1)=min(temp);
             temp=[];
             for i=1:length(obj.grid)
-                temp=[temp obj.grid{i}.box(2)];
+                temp=cat(2,temp,obj.grid{i}.box(2));
             end
             obj.box(2)=max(temp);
             temp=[];
             for i=1:length(obj.grid)
-                temp=[temp obj.grid{i}.box(3)];
+                temp=cat(2,temp,obj.grid{i}.box(3));
             end
             obj.box(3)=min(temp);
             temp=[];
             for i=1:length(obj.grid)
-                temp=[temp obj.grid{i}.box(4)];
+                temp=cat(2,temp,obj.grid{i}.box(4));
             end
             obj.box(4)=max(temp);
         end

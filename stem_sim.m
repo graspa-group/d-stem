@@ -43,7 +43,7 @@ classdef stem_sim < handle
             %obj         - [stem_sim object]   (1x1)
             
             if nargin>=1
-                if strcmp(class(stem_model),'stem_model')
+                if isa(stem_model,'stem_model')
                     obj.stem_model=stem_model;
                 else
                     error('The input argument must be of class stem_model');
@@ -103,12 +103,23 @@ classdef stem_sim < handle
                 end
             end            
             
-            [sigma_eps,sigma_W_b,sigma_W_p,~,~,j_bp,j_p] = obj.stem_model.get_sigma();
-
-            if obj.stem_model.stem_par.p>0
+            [sigma_eps,sigma_W_b,sigma_W_p,~,~,sigma_eta,G_tilde_diag,j_bp,j_p,j_z] = obj.stem_model.get_sigma();
+            if obj.stem_model.stem_data.model_type==1
+                s_eta=sigma_eta;
+                r=length(G_tilde_diag);
+                G=sparse(1:r,1:r,G_tilde_diag,r,r);
+                mu0=zeros(r,1);
+                sigma0=eye(r);
+            else
+                s_eta=par.sigma_eta;
+                G=par.G;
                 mu0=zeros(obj.stem_model.stem_par.p,1);
-                sigma_0=0.01*eye(obj.stem_model.stem_par.p);
-                Z=stem_sim.ar1_sim(obj.stem_model.stem_par.G,obj.stem_model.stem_par.sigma_eta,T,mu0,sigma_0);
+                sigma0=eye(obj.stem_model.stem_par.p);
+            end
+            
+            
+            if obj.stem_model.stem_par.p>0
+                Z=stem_sim.ar1_sim(G,s_eta,T,mu0,sigma0);
             end
             
             Y=zeros(N,T);
@@ -141,10 +152,18 @@ classdef stem_sim < handle
                     end
                 end
                 if not(isempty(obj.stem_model.stem_data.X_z))
-                    if obj.stem_model.stem_data.X_z_tv
-                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z(:,:,t)*Z(:,t);
+                    if obj.stem_model.stem_data.model_type==1
+                        if obj.stem_model.stem_data.X_z_tv
+                            Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,t),j_z,'l'))*Z(:,t);
+                        else
+                            Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,1),j_z,'l'))*Z(:,t);
+                        end
                     else
-                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z(:,:,1)*Z(:,t);
+                        if obj.stem_model.stem_data.X_z_tv
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,t),j_z,'l')*Z(:,t);
+                        else
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,1),j_z,'l')*Z(:,t);
+                        end
                     end
                 end      
                 if not(isempty(obj.stem_model.stem_data.X_p))
@@ -177,7 +196,7 @@ classdef stem_sim < handle
             end
 
             blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_p.dim)];
-            Y_temp=[];
+            Y_temp=cell(obj.stem_model.stem_data.stem_varset_p.nvar,1);
             for i=1:obj.stem_model.stem_data.stem_varset_p.nvar
                 Y_temp{i}=Y(blocks(i)+1:blocks(i+1),:);
             end
@@ -185,7 +204,7 @@ classdef stem_sim < handle
             if not(isempty(obj.stem_model.stem_data.stem_varset_b))
                 temp=max(blocks);
                 blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_b.dim)]+temp;
-                Y_temp=[];
+                Y_temp=cell(obj.stem_model.stem_data.stem_varset_b.nvar,1);
                 for i=1:obj.stem_model.stem_data.stem_varset_b.nvar
                     Y_temp{i}=Y(blocks(i)+1:blocks(i+1),:);
                 end

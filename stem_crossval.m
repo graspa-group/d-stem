@@ -48,7 +48,9 @@ classdef stem_crossval < handle
         res_back=[];                %[double]                  (dNxT) back-transformed cross-validation residuals (if the original data are log-transformed and/or standardized)
      
         mse=[];                     %[double >=0]              (dNx1) mean squared error for each cross-validation site
+        mse_time=[];                %[double >=0]              (dNx1) mean squared error for each time step
         relative_mse=[];            %[double >=0]              (dNx1) relative mean squared error for each cross-validation site
+        relative_mse_time=[];       %[double >=0]              (dNx1) relative mean squared error for each time step
         min_distance=[];            %[double >=0]              (dNx1) the distance from each cross-validation site to the nearest non cross-validation site
     end
 

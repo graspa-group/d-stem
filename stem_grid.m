@@ -43,8 +43,8 @@ classdef stem_grid
         duplicated_sites=[];        %[integer]   (hx1)          indices of the duplicated spatial locations in the coordinate property 
     end
     
-    properties (SetAccess = private)
-        box=[];                     %[double]    (4x1) the bounding box of the geographic area covered by the grid [lat_min,lat_max,lon_min,lon_max]
+    properties (Dependent, SetAccess = private)
+       box=[];                      %[double]    (4x1) the bounding box of the geographic area covered by the grid [lat_min,lat_max,lon_min,lon_max] 
     end
     
     methods
@@ -99,6 +99,17 @@ classdef stem_grid
         end
         
         % Class set methods
+        function box = get.box(obj)
+            if not(isempty(obj.coordinate))
+                box(1)=min(obj.coordinate(:,1));
+                box(2)=max(obj.coordinate(:,1));
+                box(3)=min(obj.coordinate(:,2));
+                box(4)=max(obj.coordinate(:,2));
+            else
+                box=0;
+            end
+        end
+        
         function obj = set.coordinate(obj,coordinate)
             if not(size(coordinate,2)==2)
                 error('coordinate must be a Nx2 matrix');
@@ -126,10 +137,6 @@ classdef stem_grid
             end
 
             obj.coordinate=coordinate;
-            obj.box(1)=min(coordinate(:,1));
-            obj.box(2)=max(coordinate(:,1));
-            obj.box(3)=min(coordinate(:,2));
-            obj.box(4)=max(coordinate(:,2));
         end
         
         function obj = set.unit(obj,unit)

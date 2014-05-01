@@ -28,17 +28,14 @@ classdef stem_par
    
     properties
         %flags
-        pixel_correlated=0;                 %[boolean]    (1x1) 1 if pixel sensing variables are correlated 0 otherwise        
         time_diagonal=0;                    %[boolean]    (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
-        clustering=0;                       %[boolean]    (1x1) 1: the property X_z of stem_data is estimated for clustering; 0: X_z is fixed and not estimated
-        
+       
         %fixed parameters
-        q=[];                               %[integer]    (1x1) number of point level variables
-        p=[];                               %[integer]    (1x1) dimension of the latent temporal state
-        k=[];                               %[integer]    (1x1) number of coregionalization components for the point level variables
-        n_beta=[];                          %[integer]    (1x1)
+        p=[];                               %[integer>0]  (1x1) dimension of the latent temporal variable z
+        q=[];                               %[integer>0]  (1x1) number of point level variables
+        k=[];                               %[integer>0]  (1x1) number of coregionalization components for the point level variables
+        n_beta=[];                          %[integer>0]  (1x1) total number of loading coefficients in X_beta
         correlation_type='exponential';     %[string]     (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2  
-        theta_clustering=0;                 %[double >=0] (1x1) parameter of the spatial correlation fo clustering
         
         %estimated parameters
         beta=[];                            %[double]     (N_bx1) beta parameters
@@ -51,20 +48,27 @@ classdef stem_par
         G=[];                               %[double]     (pxp) transition matrix of the temporal component
         sigma_eta=[];                       %[double]     (pxp) error variance-covariance matrix of the temporal component
         sigma_eps=[];                       %[double]     (qxq|2qx2q) measurement-error variance-covariance matrix
+        alpha_z=[];                         %[double]     (px1) alpha parameters related to the z latent variable when model_type=1
+        theta_z=[];                         %[double]     (1x1) coregionalization theta parameter related to the z latent variable when model_type=1
+        v_z=[];                             %[double]     (pxp) coregionalization matrix related to the z latent variable when model_type=1
+    end
+    
+    properties (SetAccess=private)
+        model_type=[];                      %[integer>=0] (1x1) 0: type 1 model, 1: type 2 model, 2: clustering model
+        pixel_correlated=[];                %[boolean]    (1x1) 1 if pixel sensing variables are correlated 0 otherwise      
     end
     
     methods
         
-        function obj = stem_par(stem_data,correlation_type,pixel_correlated,time_diagonal,clustering,theta_clustering)
+        function obj = stem_par(stem_data,correlation_type,time_diagonal)
             %DESCRIPTION: object constructor
             %
             %INPUT
             %[stem_data]                 - [stem_data object] (1x1)
-            %<correlation_type>          - [string] (default:'exponential') (1x1) spatial correlation function type 
-            %<pixel_correlated>          - [boolean] (default: 0) (1x1) 1: pixel variables are correlated; 0: otherwise 
-            %<time_diagonal>             - [boolean] (default: 0) (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
-            %<clustering>                - [boolean] (dafault: 0) (1x1) 1: the property X_z of stem_data is estimated for clustering; 0: X_z is fixed and not estimated 
-            %<theta_clustering>          - [double>=0] parameter of the spatial correlation for clustering
+            %<correlation_type>          - [string]           (default:'exponential') (1x1) spatial correlation function type 
+            %<pixel_correlated>          - [boolean]          (default: 0) (1x1) 1: pixel variables are correlated; 0: otherwise 
+            %<time_diagonal>             - [boolean]          (default: 0) (1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
+            %<model_type>                - [integer>=0]       (dafault: 0) (1x1) 0: type 1 model, 1: type 2 model, 2: clustering model 
             %
             %OUTPUT
             %obj - [stem_par object] (1x1)
@@ -76,26 +80,37 @@ classdef stem_par
                 error('The first argument must be of class stem_data');
             end
             
+            obj.model_type=stem_data.model_type;
+            obj.pixel_correlated=stem_data.pixel_correlated;
+            
             %q
             obj.q=length(stem_data.stem_varset_p.dim);
             
             %p
-            tot=0;
-            if not(isempty(stem_data.stem_varset_p.X_z))
-                for i=1:length(stem_data.stem_varset_p.dim)
-                    tot=tot+size(stem_data.stem_varset_p.X_z{i},2);
-                end
-            end
-            if not(isempty(stem_data.stem_varset_b))
-                if not(isempty(stem_data.stem_varset_b.X_z))
-                    for i=1:length(stem_data.stem_varset_b.dim)
-                        tot=tot+size(stem_data.stem_varset_b.X_z{i},2);
+            if not(obj.model_type==1)
+                tot=0;
+                if not(isempty(stem_data.stem_varset_p.X_z))
+                    for i=1:length(stem_data.stem_varset_p.dim)
+                        tot=tot+size(stem_data.stem_varset_p.X_z{i},2);
                     end
                 end
-            end
-            obj.p=tot;
-            if obj.p==0
-                disp('No temporal component considered');
+                if not(isempty(stem_data.stem_varset_b))
+                    if not(isempty(stem_data.stem_varset_b.X_z))
+                        for i=1:length(stem_data.stem_varset_b.dim)
+                            tot=tot+size(stem_data.stem_varset_b.X_z{i},2);
+                        end
+                    end
+                end
+                obj.p=tot;
+            else
+                if not(isempty(stem_data.stem_varset_p.X_z))
+                    if size(stem_data.stem_varset_p.X_z{1},2)>1
+                        obj.p=size(stem_data.stem_varset_p.X_z{1},2);
+                    else
+                        %r is the same as the total number of sites for all the point variables
+                        obj.p=obj.q;
+                    end
+                end
             end
             
             %n_beta
@@ -127,7 +142,7 @@ classdef stem_par
             
             %correlation type
             if nargin<2
-                disp('WARNING: Exponential correlation function is considered');
+                disp('WARNING: the exponential correlation function is considered');
             else
                 if not(isempty(correlation_type))
                     if sum(strcmp(correlation_type,{'exponential','matern32','matern52'}))==0
@@ -140,53 +155,20 @@ classdef stem_par
             end
             
             if nargin>=3
-                if not(isempty(pixel_correlated))
-                    if isempty(stem_data.stem_varset_b)
-                        disp('WARNING: Pixel data are not provided. The pixel_correlated input argument is ignored');
-                    else
-                        obj.pixel_correlated=pixel_correlated;
-                    end
-                end
-            end
-            
-            if nargin>=4
                 if not(isempty(time_diagonal))
-                    if obj.p==0
-                        disp('WARNING: p=0, the time_diagonal input argument is ignored');
+                    if not(obj.model_type==1)
+                        if obj.p==0
+                            disp('WARNING: p=0, the time_diagonal input argument is ignored');
+                        else
+                            obj.time_diagonal=time_diagonal;
+                        end
                     else
-                        obj.time_diagonal=time_diagonal;
+                        disp('WARNING: model_type=1, the time_diagonal input argument is ignored as not used');    
                     end
                 end
             end
             
-            if nargin>=5
-                if not(isempty(clustering))
-                    if clustering==1
-                        if obj.q>1
-                            error('The clustering option is only available in the univariate case (q=1)');
-                        end
-                        if not(isempty(stem_data.stem_varset_b))
-                            error('The clustering option is only available for point level data');
-                        end
-                        if isempty(stem_data.stem_varset_p.X_z)
-                            error('X_z must be provided when the clustering option is enabled');
-                        end
-                    end
-                    obj.clustering=clustering;
-                end
-            end
-            
-            if nargin>=6
-                if not(isempty(theta_clustering))
-                    if obj.clustering==0
-                        disp('WARNING: the theta_clustering parameter is ignored');
-                    else
-                        obj.theta_clustering=theta_clustering;
-                    end
-                end
-            end
-            
-            %matrix building
+            %parameter vector and matrix building
             
             if obj.n_beta>0
                 obj.beta=zeros(obj.n_beta,1);
@@ -207,6 +189,7 @@ classdef stem_par
             if obj.k>0
                 obj.alpha_p=zeros(obj.q,obj.k);
                 obj.theta_p=zeros(obj.k,1);
+                v_p=zeros(obj.q,obj.q,obj.k);
                 for i=1:obj.k
                     v_p(:,:,i)=eye(obj.q);
                 end
@@ -214,7 +197,13 @@ classdef stem_par
             end
             if obj.p>0
                 obj.G=zeros(obj.p);
-                obj.sigma_eta=zeros(obj.p);
+                if not(obj.model_type==1)
+                    obj.sigma_eta=zeros(obj.p);
+                else 
+                    obj.alpha_z=zeros(obj.p,1);
+                    obj.theta_z=0;
+                    obj.v_z=eye(obj.p);
+                end
             end
         end
         
@@ -241,17 +230,27 @@ classdef stem_par
             all_par=[all_par; obj.alpha_p(:)];
             all_par=[all_par;obj.theta_p(:)];
             for i=1:obj.k
-                all_par=[all_par; stem_misc.from_upper_triangular_to_vector(obj.v_p(:,:,i))];
+                all_par=cat(1,all_par,stem_misc.from_upper_triangular_to_vector(obj.v_p(:,:,i)));
             end
             
             if obj.p>0
-                if not(obj.time_diagonal)
-                    all_par=[all_par; obj.G(:)];
-                    all_par=[all_par; stem_misc.triuv(obj.sigma_eta)];
+                if not(obj.model_type==1)
+                    if not(obj.time_diagonal)
+                        all_par=[all_par; obj.G(:)];
+                        all_par=[all_par; stem_misc.triuv(obj.sigma_eta)];
+                    else
+                        all_par=[all_par; diag(obj.G)];
+                        all_par=[all_par; diag(obj.sigma_eta)];
+                    end
                 else
                     all_par=[all_par; diag(obj.G)];
-                    all_par=[all_par; diag(obj.sigma_eta)];
                 end
+            end
+            
+            if obj.model_type==1
+                all_par=[all_par;obj.alpha_z(:)];
+                all_par=[all_par;obj.theta_z];
+                all_par=[all_par;stem_misc.from_upper_triangular_to_vector(obj.v_z)];
             end
         end
         
@@ -270,17 +269,17 @@ classdef stem_par
                 disp(['alpha_bp: ',num2str(obj.alpha_bp')]);
             end
             if not(isempty(obj.alpha_p))
-            disp(['alpha_p: ',num2str(obj.alpha_p(:)')]);
+                disp(['alpha_p: ',num2str(obj.alpha_p(:)')]);
             end
             if not(isempty(obj.theta_b))
-            disp(['theta_b: ',num2str(obj.theta_b(:)')]);
+                disp(['theta_b: ',num2str(obj.theta_b(:)')]);
             end
             if not(isempty(obj.theta_p))
                 disp(['theta_p: ',num2str(obj.theta_p(:)')]);
             end
             if not(isempty(obj.v_b))
                 if (obj.pixel_correlated)&&(obj.q>1)
-                    disp(['v_b: ']);
+                    disp('v_b: ');
                     disp(obj.v_b);
                 end
             end
@@ -295,14 +294,22 @@ classdef stem_par
             end
             disp(['sigma eps: ',num2str(diag(obj.sigma_eps)')]);
             if obj.p>0
-                if obj.time_diagonal
-                    disp(['diag_G: ',num2str(diag(obj.G)')]);
-                    disp(['sigma_eta: ',num2str(diag(obj.sigma_eta)')]);
+                if not(obj.model_type==1)
+                    if obj.time_diagonal
+                        disp(['diag_G: ',num2str(diag(obj.G)')]);
+                        disp(['sigma_eta: ',num2str(diag(obj.sigma_eta)')]);
+                    else
+                        disp('G: ');
+                        disp(obj.G);
+                        disp('sigma_eta: ');
+                        disp(obj.sigma_eta);
+                    end
                 else
-                    disp(['G: ']);
-                    disp(obj.G);
-                    disp(['sigma_eta: ']);
-                    disp(obj.sigma_eta);
+                    disp(['diag_G: ',num2str(diag(obj.G)')]);
+                    disp(['alpha_z: ',num2str(obj.alpha_z(:)')]);
+                    disp(['theta_z: ',num2str(obj.theta_z)]);
+                    disp('v_z: ');
+                    disp(obj.v_z);
                 end
             end
         end
@@ -359,9 +366,19 @@ classdef stem_par
             end
             obj.theta_p=theta_p;
         end
+        
+        function obj = set.theta_z(obj,theta_z)
+            if not(length(theta_z)==1)
+                error('theta_z must be 1x1');
+            end
+            if theta_z<0
+                error('theta_z cannot be negative');
+            end
+            obj.theta_z=theta_z;
+        end        
 
         function obj = set.v_b(obj,v_b)
-            if not(size(v_b,1)==obj.q)||(size(v_b,2)~=obj.q)
+            if not(size(v_b,1)==obj.q)||not((size(v_b,2)==obj.q))
                 error('v_b must be qxq');
             end
             if not(obj.pixel_correlated)
@@ -393,6 +410,19 @@ classdef stem_par
                 end
             end
             obj.v_p=v_p;
+        end   
+        
+        function obj = set.v_z(obj,v_z)
+            if not(size(v_z,1)==obj.p)||not((size(v_z,2)==obj.p))
+                error('v_z must be pxp');
+            end
+            if not(sum(diag(v_z-eye(size(v_z,1))))==0)
+                error('The diagonal elements of v_z must be 1');
+            end
+            if min(eig(v_z))<0
+                error('v_z must be positive definited');
+            end
+            obj.v_z=v_z;
         end        
         
         function obj = set.G(obj,G)
@@ -403,6 +433,9 @@ classdef stem_par
         end
         
         function obj = set.sigma_eta(obj,sigma_eta)
+            if obj.model_type==1
+                error('sigma_eta is not used when model_type=1');
+            end
             if not(size(sigma_eta,1)==obj.p) || not(size(sigma_eta,2)==obj.p)
                 error(['sigma_eta must be a ',num2str(obj.p),'x',num2str(obj.p),' matrix']);
             end
@@ -415,13 +448,5 @@ classdef stem_par
             end        
             obj.sigma_eps=sigma_eps;
         end
-        
-        function obj = set.theta_clustering(obj,theta_clustering)
-            if theta_clustering<0
-                error('theta_clustering must be >= 0')
-            end
-            obj.theta_clustering=theta_clustering;
-        end        
-        
     end
 end
