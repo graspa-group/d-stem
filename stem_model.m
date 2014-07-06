@@ -509,6 +509,7 @@ classdef stem_model < handle
                 end
             else
                 sigma_Z=[];
+                G_tilde_diag=[];
             end
             ct2=clock;
             disp(['    Marginal variance-covariance matrices evaluation ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
@@ -1756,7 +1757,7 @@ classdef stem_model < handle
                         for i=1:n_psi
                             temp=zeros(N,1);
                             for j=1:n_bp_alpha
-                                temp=temp+stem_misc.D_apply(data.X_bp(:,:,tBP),d_alpha_bp{i,j});
+                                temp=temp+stem_misc.D_apply(data.X_bp(:,:,tBP),d_alpha_bp{i,j},'l');
                             end
                             d_a_bp_X=sparse(temp);
                             temp=stem_misc.M_apply(sigma_W_b,M,'b');
@@ -1779,7 +1780,7 @@ classdef stem_model < handle
                             for i=1:n_psi
                                 temp=zeros(N,1);
                                 for j=1:q
-                                    temp=temp+stem_misc.D_apply(data.X_p(:,:,tP,z),d_alpha_p{i,j,z});
+                                    temp=temp+stem_misc.D_apply(data.X_p(:,:,tP,z),d_alpha_p{i,j,z},'l');
                                 end
                                 d_a_p_X=sparse(temp);
                                 
@@ -1850,10 +1851,10 @@ classdef stem_model < handle
                     if n_beta>0
                         X_beta_orlated=data.X_beta(:,:,tbeta);
                         X_beta_orlated=cat(1,X_beta_orlated,zeros(N-size(X_beta_orlated,1),size(X_beta_orlated,2)));
-                        e_t_Lt=data.Y(Lt-1,t)-X_beta_orlated(Lt,:)*par.beta;
+                        e_t_Lt=data.Y(Lt,t-1)-X_beta_orlated(Lt,:)*par.beta;
                     else
-                        e_t_Lt=data.Y(Lt-1,t);
-                    end                    
+                        e_t_Lt=data.Y(Lt,t-1);
+                    end
                     sigma_t_Lt=sigma_geo(Lt,Lt);
                 end
                 
@@ -1861,46 +1862,62 @@ classdef stem_model < handle
                     if t==2
                         if not(isempty(data.X_z))
                             d_P{i}=d_s2e{i};
-
+                            
                             temp=d_a_z_X{i}*Pk_f(:,:,t)*a_z_X';
                             d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
                             temp=a_z_X*d_P{i}*a_z_X';
                             d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
                             temp=a_z_X*Pk_f(:,:,t)*d_a_z_X{i}';
                             d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
-
+                            
                             d_St_Lt{i}=d_Sz{i}(Lt,Lt)+d_Sgeo{i}(Lt,Lt);
                             %verificare sistema lineare nel caso di matrici sparse!
                             d_J_Lt{i}=(d_G{i}*Pk_f(:,:,t)*a_z_X(Lt,:)'+G*d_P{i}*a_z_X(Lt,:)'+G*Pk_f(:,:,t)*d_a_z_X{i}(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
                             d_Z{i}=d_G{i}*zk_f(:,t-1);
-                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                            if n_beta>0
+                                d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                            else
+                                d_e_Lt{i}=zeros(sum(Lt),1);
+                            end
                         else
                             d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
-                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                            if n_beta>0
+                                d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                            else
+                                d_e_Lt{i}=zeros(sum(Lt),1);
+                            end
                         end
                     else
                         if not(isempty(data.X_z))
                             d_P{i}=d_G{i}*Pk_f(:,:,t-1)*G+G*d_P_lag{i}*G'+G*Pk_f(:,:,t-1)*d_G{i}'+d_s2e{i}-d_J_Lt_lag{i}*sigma_t_Lt_lag*J(:,Lt_lag,t-1)'-J(:,Lt_lag,t-1)*d_St_Lt_lag{i}*J(:,Lt_lag,t-1)'-J(:,Lt_lag,t-1)*sigma_t_Lt_lag*d_J_Lt_lag{i}';
-
+                            
                             temp=d_a_z_X{i}*Pk_f(:,:,t)*a_z_X';
                             d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
                             temp=a_z_X*d_P{i}*a_z_X';
                             d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
                             temp=a_z_X*Pk_f(:,:,t)*d_a_z_X{i}';
                             d_Sz{i}=d_Sz{i}+stem_misc.sparseif(temp,60);
-                         
+                            
                             d_St_Lt{i}=d_Sz{i}(Lt,Lt)+d_Sgeo{i}(Lt,Lt);
                             %verificare sistema lineare nel caso di matrici sparse!
                             d_J_Lt{i}=(d_G{i}*Pk_f(:,:,t)*a_z_X(Lt,:)'+G*d_P{i}*a_z_X(Lt,:)'+G*Pk_f(:,:,t)*d_a_z_X{i}(Lt,:)'-J(:,Lt,t)*d_St_Lt{i})/sigma_t_Lt;
                             d_Z{i}=d_G{i}*zk_f(:,t-1)+G*d_Z_lag{i}+d_J_Lt_lag{i}*e_t_Lt_lag+J(:,Lt_lag,t-1)*d_e_Lt_lag{i};
-                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i}-d_a_z_X{i}(Lt,:)*zk_f(:,t)-a_z_X(Lt,:)*d_Z{i};
+                            if n_beta>0
+                                d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i}-d_a_z_X{i}(Lt,:)*zk_f(:,t)-a_z_X(Lt,:)*d_Z{i};
+                            else
+                                d_e_Lt{i}=-d_a_z_X{i}(Lt,:)*zk_f(:,t)-a_z_X(Lt,:)*d_Z{i};
+                            end
                         else
                             d_St_Lt{i}=d_Sgeo{i}(Lt,Lt);
-                            d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                            if n_beta>0
+                                d_e_Lt{i}=-X_beta_orlated(Lt,:)*d_beta{i};
+                            else
+                                d_e_Lt{i}=zeros(sum(Lt),1);
+                            end
                         end
                     end
                 end
-                    
+                
                 temp0=cell(n_psi,1);
                 temp1=cell(n_psi,1);
                 
@@ -1953,9 +1970,12 @@ classdef stem_model < handle
                     end
                 end
 
-                d_P_lag=d_P;
-                d_J_Lt_lag=d_J_Lt;
-                d_Z_lag=d_Z;
+                if not(isempty(data.X_z))
+                    d_P_lag=d_P;
+                    d_J_Lt_lag=d_J_Lt;
+                    d_Z_lag=d_Z;
+                end
+
                 d_e_Lt_lag=d_e_Lt;
                 e_t_Lt_lag=e_t_Lt;
                 d_St_Lt_lag=d_St_Lt;

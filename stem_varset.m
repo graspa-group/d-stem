@@ -152,17 +152,28 @@ classdef stem_varset < handle
                         error('The number of cells of X_beta must be equal to the number of cells of Y');
                     end
                     for i=1:length(obj.X_beta)
-                        if not(size(obj.X_beta{i},1)==size(obj.Y{i},1))
-                            error('X_beta{i} must have the same number of rows of Y{i}');
+                        T_max=[];
+                        if not(isempty(obj.X_beta{i}))
+                            T_max=size(obj.X_beta{i},3);
                         end
-                        if not(size(obj.X_beta{i},3)==obj.T || size(obj.X_beta{i},3)==1)
-                            error('Each X_beta{i} must have either 1 or T time steps');
-                        end
-                        if not(size(obj.X_beta{1},3)==size(obj.X_beta{i},3))
-                            error('All the X_beta{i} must have the same temporal dimension');
-                        end
-                        if sum(isnan(obj.X_beta{i}(:)))>0
-                            error('X_beta cannot contain NaN');
+                    end
+                    
+                    for i=1:length(obj.X_beta)
+                        if not(isempty(obj.X_beta{i}))
+                            if not(size(obj.X_beta{i},1)==size(obj.Y{i},1))
+                                error('X_beta{i} must have the same number of rows of Y{i}');
+                            end
+                            if not(size(obj.X_beta{i},3)==obj.T || size(obj.X_beta{i},3)==1)
+                                error('Each X_beta{i} must have either 1 or T time steps');
+                            end
+                            if not(size(obj.X_beta{i},3)==T_max)
+                                error('All the X_beta{i} must have the same temporal dimension');
+                            end
+                            if sum(isnan(obj.X_beta{i}(:)))>0
+                                error('X_beta cannot contain NaN');
+                            end
+                        else
+                            obj.X_beta{i}=zeros(size(obj.Y{i},1),1,T_max);
                         end
                     end
                     
@@ -171,8 +182,10 @@ classdef stem_varset < handle
                         error('The length of X_beta_name must be equal to length of X_beta');
                     end
                     for i=1:length(obj.X_beta_name)
-                        if not(length(obj.X_beta_name{i})==size(obj.X_beta{i},2))
-                            error('The length of X_beta_name{i} must be equal to the number of covariates of X_beta{i}');
+                        if not(isempty(obj.X_beta_name{i}))
+                            if not(length(obj.X_beta_name{i})==size(obj.X_beta{i},2))
+                                error('The length of X_beta_name{i} must be equal to the number of covariates of X_beta{i}');
+                            end
                         end
                     end
                 end
@@ -185,17 +198,27 @@ classdef stem_varset < handle
                         error('The number of cells of X_z must be equal to the number of cells of Y');
                     end
                     for i=1:length(obj.X_z)
-                        if not(size(obj.X_z{i},1)==size(obj.Y{i},1))
-                            error('X_z{i} must have the same number of rows of Y{i}');
+                        T_max=[];
+                        if not(isempty(obj.X_z{i}))
+                            T_max=size(obj.X_z{i},3);
                         end
-                        if not(size(obj.X_z{i},3)==obj.T || size(obj.X_z{i},3)==1)
-                            error('Each X_z{i} must have either 1 or T time steps');
-                        end
-                        if not(size(obj.X_z{i},3)==size(obj.X_z{1},3))
-                            error('All the X_z{i} must have the same temporal dimension');
-                        end
-                        if sum(isnan(obj.X_z{i}(:)))>0
-                            error('X_z cannot contain NaN');
+                    end
+                    for i=1:length(obj.X_z)
+                        if not(isempty(obj.X_z{i}))
+                            if not(size(obj.X_z{i},1)==size(obj.Y{i},1))
+                                error('X_z{i} must have the same number of rows of Y{i}');
+                            end
+                            if not(size(obj.X_z{i},3)==obj.T || size(obj.X_z{i},3)==1)
+                                error('Each X_z{i} must have either 1 or T time steps');
+                            end
+                            if not(size(obj.X_z{i},3)==size(obj.X_z{1},3))
+                                error('All the X_z{i} must have the same temporal dimension');
+                            end
+                            if sum(isnan(obj.X_z{i}(:)))>0
+                                error('X_z cannot contain NaN');
+                            end
+                        else
+                            obj.X_z{i}=zeros(size(obj.Y{i},1),1,T_max);
                         end
                     end
                     
@@ -204,8 +227,10 @@ classdef stem_varset < handle
                         error('The length of X_z_name must be equal to length of X_z');
                     end
                     for i=1:length(obj.X_z_name)
-                        if not(length(obj.X_z_name{i})==size(obj.X_z{i},2))
-                            error('The length of X_z_name{i} must be equal to the number of covariates of X_z{i}');
+                        if not(isempty(obj.X_z_name{i}))
+                            if not(length(obj.X_z_name{i})==size(obj.X_z{i},2))
+                                error('The length of X_z_name{i} must be equal to the number of covariates of X_z{i}');
+                            end
                         end
                     end
                 end
@@ -271,8 +296,11 @@ classdef stem_varset < handle
                 end
                 num2=sum(temp(:)==0);
                 if num2>0
-                    disp([num2str(num2),' value(s) equal to zero are transformed to 0.05']);
-                    temp(temp(:)==0)=0.05;
+                    temp2=temp(:);
+                    L=temp2>0;
+                    min_notzero=nanmin(temp2(L));
+                    disp([num2str(num2),' value(s) equal to zero are transformed to ',num2str(min_notzero)]);
+                    temp(temp(:)==0)=min_notzero;
                 end
                 temp=log(temp);
                 obj.Y{i}=temp;

@@ -859,7 +859,9 @@ classdef stem_EM < EM
                 %Kalman smoother
                 st_kalman=stem_kalman(obj.stem_model);
                 [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,aj_p,aj_z,M] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0);
-
+                
+                rr=size(sigma_Z,1);
+                
                 if not(obj.stem_model.stem_data.X_z_tv)
                     if (obj.stem_model.stem_data.model_type==1)&&(obj.stem_model.stem_data.model_subtype==0)
                         temp=obj.stem_model.stem_data.X_z(:,:,1);
@@ -869,8 +871,6 @@ classdef stem_EM < EM
                         X_z_orlated=[obj.stem_model.stem_data.X_z(:,:,1);zeros(N-size(obj.stem_model.stem_data.X_z(:,:,1),1),size(obj.stem_model.stem_data.X_z(:,:,1),2))];
                     end
                     X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
-                    
-                    rr=size(sigma_Z,1);
                     
                     if not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p))
                         if obj.stem_model.tapering
@@ -888,11 +888,12 @@ classdef stem_EM < EM
                 end
             else
                 [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,~,~,~,aj_bp,aj_p,~,M] = obj.stem_model.get_sigma();
+
                 st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[],[]);
                 var_Zt=[];
                 rr=0;
                 
-                if not(obj.stem_model.stem_data.X_tv)
+                if not(isempty(sigma_geo))
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps
                 end
             end
@@ -1023,7 +1024,7 @@ classdef stem_EM < EM
                         sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),obj.stem_model.stem_data.X_bp(:,1,tBP),'b'),aj_bp,'b');
                     end
                     if not(isempty(obj.stem_model.stem_data.X_p))
-                        if not(exist('sigma_geo','var'))
+                        if isempty(sigma_geo)
                             if obj.stem_model.tapering
                                 sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
@@ -1034,7 +1035,7 @@ classdef stem_EM < EM
                             sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_model.stem_data.X_p(:,1,tP,k),'b'),aj_p(:,k),'b');
                         end
                     end
-                    if not(exist('sigma_geo','var'))
+                    if isempty(sigma_geo)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
@@ -1834,6 +1835,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(obj.stem_model.stem_data.X_p))
                 disp('    alpha_p update started...');
+                ct1=clock;
                 alpha_p=zeros(size(st_par_em_step.alpha_p));
                 for s=1:K
                     for r=1:obj.stem_model.stem_data.stem_varset_p.nvar
@@ -2122,7 +2124,9 @@ classdef stem_EM < EM
             ct1_estep=clock;
             
             [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,~,~,aj_bp,aj_p,aj_z,M] = obj.stem_model.get_sigma();
+
             if p>0
+                rr=size(sigma_Z,1);
                 if not(obj.stem_model.stem_data.X_z_tv)
                     if (obj.stem_model.stem_data.model_type==1)&&(obj.stem_model.stem_data.model_subtype==0)
                         temp=obj.stem_model.stem_data.X_z(:,:,1);
@@ -2132,8 +2136,6 @@ classdef stem_EM < EM
                         X_z_orlated=[obj.stem_model.stem_data.X_z(:,:,1);zeros(N-size(obj.stem_model.stem_data.X_z(:,:,1),1),size(obj.stem_model.stem_data.X_z(:,:,1),2))];
                     end
                     X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
-                    
-                    rr=size(sigma_Z,1);
                     
                     if not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p))
                         if obj.stem_model.tapering
@@ -2283,7 +2285,7 @@ classdef stem_EM < EM
                         sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),obj.stem_model.stem_data.X_bp(:,1,tBP),'b'),aj_bp,'b');
                     end
                     if not(isempty(obj.stem_model.stem_data.X_p))
-                        if not(exist('sigma_geo','var'))
+                        if isempty(sigma_geo)
                             if obj.stem_model.tapering
                                 sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
@@ -2294,7 +2296,7 @@ classdef stem_EM < EM
                             sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_model.stem_data.X_p(:,1,tP,k),'b'),aj_p(:,k),'b');
                         end
                     end
-                    if not(exist('sigma_geo','var'))
+                    if isempty(sigma_geo)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
@@ -3080,6 +3082,7 @@ classdef stem_EM < EM
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(obj.stem_model.stem_data.X_p))
                 disp('    alpha_p update started...');
+                ct1=clock;
                 alpha_p=zeros(size(st_par_em_step.alpha_p));
                 for s=1:K
                     for r=1:obj.stem_model.stem_data.stem_varset_p.nvar

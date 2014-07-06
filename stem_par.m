@@ -91,13 +91,17 @@ classdef stem_par
                 tot=0;
                 if not(isempty(stem_data.stem_varset_p.X_z))
                     for i=1:length(stem_data.stem_varset_p.dim)
-                        tot=tot+size(stem_data.stem_varset_p.X_z{i},2);
+                        if sum(abs(stem_data.stem_varset_p.X_z{i}(:)))>0
+                            tot=tot+size(stem_data.stem_varset_p.X_z{i},2);
+                        end
                     end
                 end
                 if not(isempty(stem_data.stem_varset_b))
                     if not(isempty(stem_data.stem_varset_b.X_z))
                         for i=1:length(stem_data.stem_varset_b.dim)
-                            tot=tot+size(stem_data.stem_varset_b.X_z{i},2);
+                            if sum(abs(stem_data.stem_varset_b.X_z{i}(:)))>0
+                                tot=tot+size(stem_data.stem_varset_b.X_z{i},2);
+                            end
                         end
                     end
                 end
@@ -117,13 +121,17 @@ classdef stem_par
             tot=0;
             if not(isempty(stem_data.stem_varset_p.X_beta))
                 for i=1:length(stem_data.stem_varset_p.dim)
-                    tot=tot+size(stem_data.stem_varset_p.X_beta{i},2);
+                    if sum(abs(stem_data.stem_varset_p.X_beta{i}(:)))>0
+                        tot=tot+size(stem_data.stem_varset_p.X_beta{i},2);
+                    end
                 end
             end
             if not(isempty(stem_data.stem_varset_b))
                 if not(isempty(stem_data.stem_varset_b.X_beta))
                     for i=1:length(stem_data.stem_varset_b.dim)
-                        tot=tot+size(stem_data.stem_varset_b.X_beta{i},2);
+                        if sum(abs(stem_data.stem_varset_b.X_beta{i}(:)))>0
+                            tot=tot+size(stem_data.stem_varset_b.X_beta{i},2);
+                        end
                     end
                 end
             end

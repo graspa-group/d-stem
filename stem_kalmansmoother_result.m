@@ -87,10 +87,10 @@ classdef stem_kalmansmoother_result < handle
             figure
             for i=1:size(obj.zk_s,1)
                 subplot(rows,cols,i);
-                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end),'r','LineWidth',2);
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end),'b','LineWidth',1);
                 hold on
-                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)+2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','b:','LineWidth',2);
-                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)-2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','b:','LineWidth',2);
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)+2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','r:','LineWidth',1);
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)-2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','r:','LineWidth',1);
                 xlim([obj.stem_datestamp.stamp(1),obj.stem_datestamp.stamp(end)]);
                 step=round(obj.stem_datestamp.T/4);
                 tick=obj.stem_datestamp.stamp(1):step:obj.stem_datestamp.stamp(end);
@@ -98,16 +98,15 @@ classdef stem_kalmansmoother_result < handle
                     tick=[tick obj.stem_datestamp.stamp(end)];
                 end
                 set(gca,'XTick',tick);
-                set(gca,'FontSize',16);
                 if not(min(tick)==1)
                     formatOut = 'dd/mm/yyyy HH:MM';
                     ticklabel=datestr(tick,formatOut);
                     set(gca,'XTickLabel',ticklabel);
-                    xlabel('Date','fontsize',16);
+                    xlabel('Date');
                 else
-                    xlabel('Time','fontsize',16);
+                    xlabel('Time');
                 end
-                ylabel(['z_',num2str(i),'(t)'],'fontsize',16);
+                ylabel(['z_{',num2str(i),'}(t)']);
                 grid on
             end
             if (flag_max)

@@ -124,11 +124,29 @@ classdef stem_krig < handle
             end
             
             if nargin>5
-                if ischar(X)
-                    last_char=X(length(X));
-                    if not(strcmp(last_char,'/'))
-                        X=[X,'/'];
+                if not(isempty(X))
+                    if not(ischar(X)||isstruct(X))
+                        error('The input argument X must be either a structure or a string. See note 2 of the class constructor');
                     end
+                    if ischar(X)
+                        last_char=X(length(X));
+                        if not(strcmp(last_char,'/'))
+                            X=[X,'/'];
+                        end
+                    end
+                    if isstruct(X)
+                        if not(isfield(X,'X_all'))
+                            error('The field X_all of struct X is missing');
+                        end
+                        if not(isfield(X,'name'))
+                            error('The field name of struct X is missing');
+                        end
+                        if not(isfield(X,'date_stamp'))
+                            error('The field date_stamp of struct X is missing');
+                        end
+                    end
+                else
+                    error('The input argument X must be provided');
                 end
             end
             
@@ -511,6 +529,9 @@ classdef stem_krig < handle
                             end
                             obj.stem_model.stem_data.stem_varset_p.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_z{index_var},X_krig_block);
                         end
+                    else
+                        block.lat=grid.coordinate(obj.idx_notnan(block_krig),1);
+                        block.lon=grid.coordinate(obj.idx_notnan(block_krig),2);
                     end
                 else
                     %cross-validation data
@@ -702,7 +723,7 @@ classdef stem_krig < handle
                 end
             else
                 [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,sigma_eta,G_tilde_diag,aj_bp,aj_p,aj_z,M] = obj.stem_model.get_sigma();
-                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[]);
+                st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[],[]);
                 var_Zt=[];
                 if not(obj.stem_model.stem_data.X_tv)
                     var_Yt=sigma_geo; %sigma_geo includes sigma_eps

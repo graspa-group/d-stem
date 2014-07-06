@@ -328,60 +328,94 @@ classdef stem_data < handle
 
             %X_beta
             if not(isempty(obj.stem_varset_p.X_beta))
-                if size(obj.stem_varset_p.X_beta{1},3)==obj.T
+                T_max=[];
+                for i=1:length(obj.stem_varset_p.X_beta)
+                    if not(isempty(obj.stem_varset_p.X_beta{i}))
+                        T_max=size(obj.stem_varset_p.X_beta{i},3);
+                    end
+                end
+                if T_max>1
                     n1=0;
                     n2=0;
                     for i=1:length(obj.stem_varset_p.X_beta)
                         n1=n1+size(obj.stem_varset_p.X_beta{i},1);
-                        n2=n2+size(obj.stem_varset_p.X_beta{i},2);
+                        if sum(abs(obj.stem_varset_p.X_beta{i}(:)))>0
+                            n2=n2+size(obj.stem_varset_p.X_beta{i},2);
+                        end
                     end
                     X_beta=zeros(n1,n2,obj.T);
                     for t=1:size(obj.stem_varset_p.X_beta{1},3)
                         X_temp=[];
                         for i=1:length(obj.stem_varset_p.X_beta)
-                            X_temp=blkdiag(X_temp,obj.stem_varset_p.X_beta{i}(:,:,t));
+                            if sum(abs(obj.stem_varset_p.X_beta{i}(:)))>0
+                                X_temp=blkdiag(X_temp,obj.stem_varset_p.X_beta{i}(:,:,t));
+                            else
+                                X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_beta{i}(:,:,t),1),size(X_temp,2)));
+                            end
                         end
                         X_beta(:,:,t)=X_temp;
                     end
                 else
                     X_temp=[];
                     for i=1:length(obj.stem_varset_p.X_beta)
-                        X_temp=blkdiag(X_temp,obj.stem_varset_p.X_beta{i});
+                        if sum(abs(obj.stem_varset_p.X_beta{i}(:)))>0
+                            X_temp=blkdiag(X_temp,obj.stem_varset_p.X_beta{i});
+                        else
+                            X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_beta{i},1),size(X_temp,2)));
+                        end
                     end
                     X_beta=X_temp;
                 end
                 X_beta_p=X_beta;
                 clear X_beta;
+                clear X_temp;
             else
                 X_beta_p=[];
             end
             
             if not(isempty(obj.stem_varset_b))
                 if not(isempty(obj.stem_varset_b.X_beta))
-                    if size(obj.stem_varset_b.X_beta{1},3)==obj.T
+                    T_max=[];
+                    for i=1:length(obj.stem_varset_b.X_beta)
+                        if not(isempty(obj.stem_varset_b.X_beta{i}))
+                            T_max=size(obj.stem_varset_b.X_beta{i},3);
+                        end
+                    end
+                    if T_max>1
                         n1=0;
                         n2=0;
                         for i=1:length(obj.stem_varset_b.X_beta)
                             n1=n1+size(obj.stem_varset_b.X_beta{i},1);
-                            n2=n2+size(obj.stem_varset_b.X_beta{i},2);
+                            if sum(abs(obj.stem_varset_b.X_beta{i}(:)))>0
+                                n2=n2+size(obj.stem_varset_b.X_beta{i},2);
+                            end
                         end
                         X_beta=zeros(n1,n2,obj.T);
                         for t=1:size(obj.stem_varset_b.X_beta{1},3)
                             X_temp=[];
                             for i=1:length(obj.stem_varset_b.X_beta)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_b.X_beta{i}(:,:,t));
+                                if sum(abs(obj.stem_varset_b.X_beta{i}(:)))>0
+                                    X_temp=blkdiag(X_temp,obj.stem_varset_b.X_beta{i}(:,:,t));
+                                else
+                                    X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_beta{i}(:,:,t),1),size(X_temp,2)));
+                                end
                             end
                             X_beta(:,:,t)=X_temp;
                         end
                     else
                         X_temp=[];
                         for i=1:length(obj.stem_varset_b.X_beta)
-                            X_temp=blkdiag(X_temp,obj.stem_varset_b.X_beta{i});
+                            if sum(abs(obj.stem_varset_b.X_beta{i}(:)))>0
+                                X_temp=blkdiag(X_temp,obj.stem_varset_b.X_beta{i});
+                            else
+                                X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_beta{i},1),size(X_temp,2)));
+                            end
                         end
                         X_beta=X_temp;
                     end
                     X_beta_b=X_beta;
                     clear X_beta;
+                    clear X_temp;
                 else
                     X_beta_b=[];
                 end
@@ -406,54 +440,88 @@ classdef stem_data < handle
             %X_z
             if not(obj.model_type==1)
                 if not(isempty(obj.stem_varset_p.X_z))
-                    if size(obj.stem_varset_p.X_z{1},3)==obj.T
+                    T_max=[];
+                    for i=1:length(obj.stem_varset_p.X_z)
+                        if not(isempty(obj.stem_varset_p.X_z{i}))
+                            T_max=size(obj.stem_varset_p.X_z{i},3);
+                        end
+                    end
+                    if T_max>1
                         n1=0;
                         n2=0;
                         for i=1:length(obj.stem_varset_p.X_z)
                             n1=n1+size(obj.stem_varset_p.X_z{i},1);
-                            n2=n2+size(obj.stem_varset_p.X_z{i},2);
+                            if sum(abs(obj.stem_varset_p.X_z{i}(:)))>0
+                                n2=n2+size(obj.stem_varset_p.X_z{i},2);
+                            end
                         end
-                        X_z=zeros(n1,n2,T);
+                        X_z=zeros(n1,n2,obj.T);
                         for t=1:size(obj.stem_varset_p.X_z{1},3)
                             X_temp=[];
                             for i=1:length(obj.stem_varset_p.X_z)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_p.X_z{i}(:,:,t));
+                                if sum(abs(obj.stem_varset_p.X_z{i}(:)))>0
+                                    X_temp=blkdiag(X_temp,obj.stem_varset_p.X_z{i}(:,:,t));
+                                else
+                                    X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_z{i}(:,:,t),1),size(X_temp,2)));
+                                end
                             end
                             X_z(:,:,t)=X_temp;
                         end
                     else
                         X_temp=[];
                         for i=1:length(obj.stem_varset_p.X_z)
-                            X_temp=blkdiag(X_temp,obj.stem_varset_p.X_z{i});
+                            if sum(abs(obj.stem_varset_p.X_z{i}(:)))>0
+                                X_temp=blkdiag(X_temp,obj.stem_varset_p.X_z{i});
+                            else
+                                X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_z{i},1),size(X_temp,2)));
+                            end
                         end
                         X_z=X_temp;
                     end
                     X_z_p=X_z;
                     clear X_z;
                     clear X_temp;
+                else
+                    X_z_p=[];
                 end
                 
                 if not(isempty(obj.stem_varset_b))
                     if not(isempty(obj.stem_varset_b.X_z))
-                        if size(obj.stem_varset_b.X_z{1},3)==obj.T
+                        T_max=[];
+                        for i=1:length(obj.stem_varset_b.X_z)
+                            if not(isempty(obj.stem_varset_b.X_z{i}))
+                                T_max=size(obj.stem_varset_b.X_z{i},3);
+                            end
+                        end
+                        if T_max>1
                             n1=0;
                             n2=0;
                             for i=1:length(obj.stem_varset_b.X_z)
                                 n1=n1+size(obj.stem_varset_b.X_z{i},1);
-                                n2=n2+size(obj.stem_varset_b.X_z{i},2);
+                                if sum(abs(obj.stem_varset_b.X_z{i}(:)))>0
+                                    n2=n2+size(obj.stem_varset_b.X_z{i},2);
+                                end
                             end
-                            X_z=zeros(n1,n2,T);
+                            X_z=zeros(n1,n2,obj.T);
                             for t=1:size(obj.stem_varset_b.X_z{1},3)
                                 X_temp=[];
                                 for i=1:length(obj.stem_varset_b.X_z)
-                                    X_temp=blkdiag(X_temp,obj.stem_varset_b.X_z{i}(:,:,t));
+                                    if sum(abs(obj.stem_varset_b.X_z{i}(:)))>0
+                                        X_temp=blkdiag(X_temp,obj.stem_varset_b.X_z{i}(:,:,t));
+                                    else
+                                        X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_z{i}(:,:,t),1),size(X_temp,2)));
+                                    end
                                 end
                                 X_z(:,:,t)=X_temp;
                             end
                         else
                             X_temp=[];
                             for i=1:length(obj.stem_varset_b.X_z)
-                                X_temp=blkdiag(X_temp,obj.stem_varset_b.X_z{i});
+                                if sum(abs(obj.stem_varset_b.X_z{i}(:)))>0
+                                    X_temp=blkdiag(X_temp,obj.stem_varset_b.X_z{i});
+                                else
+                                    X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_z{i},1),size(X_temp,2)));
+                                end
                             end
                             X_z=X_temp;
                         end
