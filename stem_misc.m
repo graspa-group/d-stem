@@ -155,149 +155,165 @@ classdef stem_misc
                 error('All the input arguments must be provided');
             end
             if not(isempty(d))
-                if not(sum(d-ones(size(d)))==0)
-                    if isvector(a)
-                        if strcmp(type,'l')
-                            %a is a column vector
-                            r=length(d)-length(a);
-                            if r==0
-                                res=d.*a;
-                            else
-                                if r>0
-                                    if sum(abs(d(end-r+1:end)))==0
-                                        res=[d(1:length(a)).*a;zeros(r,1)];
-                                    else
-                                        error('The elements of d exceeding the dimension of a must be zeros');
-                                    end
-                                else
-                                    res=d.*a;
-                                    %error('The vector d cannot be smaller than the vector a');
-                                end
-                            end
-                        end
-                        if strcmp(type,'r')
-                            %a is a row vector
-                            r=length(d)-length(a);
-                            if r==0
-                                res=a.*d';
-                            else
-                                if r>0
-                                    if sum(abs(d(end-r+1:end)))==0
-                                        res=[a.*d(1:length(a))',zeros(1,r)];
-                                    else
-                                        error('The elements of d exceeding the dimension of a must be zeros');
-                                    end
-                                else
-                                    error('The vector d cannot be smaller than the vector a');
-                                end
-                            end
-                        end
-                        if strcmp(type,'b')
-                            if not(iscolumn(a))
-                                error('type ''b'' D_apply can be used only with ''a'' as a column vector')
-                            end
-                            r=length(d)-length(a);
-                            if r==0
-                                res=(d.^2).*a;
-                            else
-                                if r>0
-                                    if sum(abs(d(end-r+1:end)))==0
-                                        res=[(d(1:length(a)).^2).*a;zeros(r,1)];
-                                    else
-                                        error('The elements of d exceeding the dimension of a must be zeros');
-                                    end
-                                else
-                                    error('The vector d cannot be smaller than the vector a');
-                                end
-                            end
-                        end
-                    end
-                    if min(size(a))>1 %is a matrix
-                        if strcmp(type,'l')
-                            r=length(d)-size(a,1);
-                            if r==0
-                                res=a;
-                                for i=1:size(a,1)
-                                    res(i,:)=res(i,:)*d(i);
-                                end
-                            else
-                                if r>0
-                                    if sum(abs(d(end-r+1:end)))==0
-                                        res=a;
-                                        for i=1:size(a,1)
-                                            res(i,:)=res(i,:)*d(i);
-                                        end
-                                        res=[res;zeros(r,size(a,2))];
-                                    else
-                                        error('The element of d exceeding the dimension of a must be zeros');
-                                    end
-                                else
-                                    error('The vector d cannot be smaller than the first dimension of the matrix a');
-                                end
-                            end
-                        else
-                            if strcmp(type,'r')
-                                r=length(d)-size(a,2);
+                 if not(sum(abs(d))==0||sum(abs(a(:)))==0)
+                    if not(sum(d-ones(size(d)))==0)
+                        if isvector(a)
+                            if strcmp(type,'l')
+                                %a is a column vector
+                                r=length(d)-length(a);
                                 if r==0
-                                    res=a;
-                                    for i=1:size(a,2)
-                                        res(:,i)=res(:,i)*d(i);
-                                    end
+                                    res=d.*a;
                                 else
                                     if r>0
                                         if sum(abs(d(end-r+1:end)))==0
-                                            res=a;
-                                            for i=1:size(a,2)
-                                                res(:,i)=res(:,i)*d(i);
-                                            end
-                                            res=[res,zeros(size(a,1),r)];
+                                            res=[d(1:length(a)).*a;zeros(r,1)];
                                         else
-                                            error('The element of d exceeding the dimension of a must be zeros');
+                                            error('The elements of d exceeding the dimension of a must be zeros');
                                         end
                                     else
-                                        error('The vector d cannot be smaller than the second dimension of the matrix a');
+                                        res=d.*a;
+                                        %error('The vector d cannot be smaller than the vector a');
                                     end
-                                    
                                 end
-                            else
+                            end
+                            if strcmp(type,'r')
+                                %a is a row vector
+                                r=length(d)-length(a);
+                                if r==0
+                                    res=a.*d';
+                                else
+                                    if r>0
+                                        if sum(abs(d(end-r+1:end)))==0
+                                            res=[a.*d(1:length(a))',zeros(1,r)];
+                                        else
+                                            error('The elements of d exceeding the dimension of a must be zeros');
+                                        end
+                                    else
+                                        error('The vector d cannot be smaller than the vector a');
+                                    end
+                                end
+                            end
+                            if strcmp(type,'b')
+                                if not(iscolumn(a))
+                                    error('type ''b'' D_apply can be used only with ''a'' as a column vector')
+                                end
+                                r=length(d)-length(a);
+                                if r==0
+                                    res=(d.^2).*a;
+                                else
+                                    if r>0
+                                        if sum(abs(d(end-r+1:end)))==0
+                                            res=[(d(1:length(a)).^2).*a;zeros(r,1)];
+                                        else
+                                            error('The elements of d exceeding the dimension of a must be zeros');
+                                        end
+                                    else
+                                        error('The vector d cannot be smaller than the vector a');
+                                    end
+                                end
+                            end
+                        end
+                        if min(size(a))>1 %is a matrix
+                            if strcmp(type,'l')
                                 r=length(d)-size(a,1);
                                 if r==0
-                                    if not(issparse(a))
-                                        res=(d*d').*a;
-                                    else
-                                        I=1:length(d);
-                                        D=sparse(I,I,d);
-                                        res=D*a*D;
-                                    end
+                                    %res=a;
+                                    %for i=1:size(a,1)
+                                    %    res(i,:)=res(i,:)*d(i);
+                                    %end
+                                    res=sparse(diag(d))*a;
                                 else
                                     if r>0
                                         if sum(abs(d(end-r+1:end)))==0
-                                            if not(issparse(a))
-                                                res=[(d(1:size(a,1))*d(1:size(a,1))').*a, zeros(size(a,1),r); zeros(r,size(a,2)) zeros(r,r)];
-                                            else
-                                                I=1:length(d(1:size(a,1)));
-                                                D=sparse(I,I,d(1:size(a,1)));
-                                                res=D*a*D;
-                                                L=find(res);
-                                                [I,J] = ind2sub(size(res),L);
-                                                res=sparse(I,J,full(res(L)),size(res,1)+r,size(res,2)+r);
-                                            end
+                                            %res=a;
+                                            %for i=1:size(a,1)
+                                            %    res(i,:)=res(i,:)*d(i);
+                                            %end
+                                            res=sparse(diag(d(1:size(a,1))))*a;
+                                            res=[res;zeros(r,size(a,2))];
                                         else
                                             error('The element of d exceeding the dimension of a must be zeros');
                                         end
                                     else
-                                        error('The vector d cannot be smaller than the dimension of the matrix a');
+                                        error('The vector d cannot be smaller than the first dimension of the matrix a');
+                                    end
+                                end
+                            else
+                                if strcmp(type,'r')
+                                    r=length(d)-size(a,2);
+                                    if r==0
+                                        %res=a;
+                                        %for i=1:size(a,2)
+                                        %    res(:,i)=res(:,i)*d(i);
+                                        %end
+                                        res=a*sparse(diag(d));
+                                    else
+                                        if r>0
+                                            if sum(abs(d(end-r+1:end)))==0
+                                                %res=a;
+                                                %for i=1:size(a,2)
+                                                %    res(:,i)=res(:,i)*d(i);
+                                                %end
+                                                res=a*sparse(diag(d(1:size(a,2))));
+                                                res=[res,zeros(size(a,1),r)];
+                                            else
+                                                error('The element of d exceeding the dimension of a must be zeros');
+                                            end
+                                        else
+                                            error('The vector d cannot be smaller than the second dimension of the matrix a');
+                                        end
+                                        
+                                    end
+                                else
+                                    r=length(d)-size(a,1);
+                                    if r==0
+                                        if not(issparse(a))
+                                            res=(d*d').*a;
+                                        else
+                                            I=1:length(d);
+                                            D=sparse(I,I,d);
+                                            res=D*a*D;
+                                        end
+                                    else
+                                        if r>0
+                                            if sum(abs(d(end-r+1:end)))==0
+                                                if not(issparse(a))
+                                                    res=[(d(1:size(a,1))*d(1:size(a,1))').*a, zeros(size(a,1),r); zeros(r,size(a,2)) zeros(r,r)];
+                                                else
+                                                    I=1:length(d(1:size(a,1)));
+                                                    D=sparse(I,I,d(1:size(a,1)));
+                                                    res=D*a*D;
+                                                    L=find(res);
+                                                    [I,J] = ind2sub(size(res),L);
+                                                    res=sparse(I,J,full(res(L)),size(res,1)+r,size(res,2)+r);
+                                                end
+                                            else
+                                                error('The element of d exceeding the dimension of a must be zeros');
+                                            end
+                                        else
+                                            error('The vector d cannot be smaller than the dimension of the matrix a');
+                                        end
                                     end
                                 end
                             end
                         end
+                    else
+                        if not(length(d)==max(size(a)))
+                            error('The vector d of all ones must have the same dimension of a');
+                        end
+                        %nothing to do
+                        res=a;
                     end
                 else
+                    %return a matrix of all zeros
                     if not(length(d)==max(size(a)))
-                        error('The vector d of all ones must have the same dimension of a');
+                        error('The vector d of all zeros must have the same dimension of a');
                     end
-                    %nothing to do
-                    res=a;
+                    if issparse(a)
+                        res=sparse(size(a,1),size(a,2));
+                    else
+                        res=zeros(size(a));
+                    end
                 end
             else
                 %nothing to do
@@ -684,7 +700,7 @@ classdef stem_misc
         end
         
         function m = sparseif(m,density)
-            %DESCRIPTION: return the sparse matrix of the matrix m if the zero density is higher than density
+            %DESCRIPTION: return the sparse matrix of the matrix m if the zero density is higher than density otherwise the full matrix
             %
             %INPUT
             %
@@ -696,6 +712,8 @@ classdef stem_misc
             %m                 - [double]      (dxd) the output matrix      
             if stem_misc.zero_density(m)>density
                 m=sparse(m);
+            else
+                m=full(m);
             end
         end
         

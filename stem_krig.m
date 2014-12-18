@@ -68,7 +68,7 @@ classdef stem_krig < handle
             %<X>                - [double|string]     (NNxN_bxT | 1x1) (default: []) the loading coefficient evaluated at the kriging sites. See Note 2 below.
             %<back_transform>   - [boolean]           (1x1) (default: 1) 1: the kriged variable is back-transformed; 0: no back-transform
             %<no_varcov>        - [boolean]           (1x1) (default: 0) 1: the variance of the kriged variable is not computed; 0: the variance is computed;
-            %<crossval>         - [boolean]           (1x1) (default: 0) 1: the variable is kriged over the cross-validation sites. This flag is reserved to the EM algorithm and should not be used by the user.
+            %<crossval>         - [integer>=0]        (1x1) (default: 0) >1: kriging is performed over the cross-validation sites of the variable given by crossval index. This input is reserved to the EM algorithm and should not be used by the user.
             %
             %OUTPUT
             %st_krig_result     - [stem_krig_result object]  (1x1)              
@@ -123,6 +123,10 @@ classdef stem_krig < handle
                 block_size=0;
             end
             
+            if nargin<9
+                crossval=0;
+            end
+            
             if nargin>5
                 if not(isempty(X))
                     if not(ischar(X)||isstruct(X))
@@ -146,7 +150,9 @@ classdef stem_krig < handle
                         end
                     end
                 else
-                    error('The input argument X must be provided');
+                    if crossval==0
+                        error('The input argument X must be provided');
+                    end
                 end
             end
             
@@ -180,22 +186,20 @@ classdef stem_krig < handle
             if nargin<8
                 no_varcov=0;
             end
-            if nargin<9
-                crossval=0;
-            end
+
             
-            if (crossval)&&not(obj.stem_model.cross_validation)
+            if (crossval>0)&&not(obj.stem_model.cross_validation)
                 error('The stem_model object does not contain cross-validation information');
             end
-            if (crossval)&&(not(isempty(X)))
+            if (crossval>0)&&(not(isempty(X)))
                 disp('WARNING: the X provided is not considered as the covariates of cross validation are used');
             end
-            if (crossval)&&(not(isempty(grid)))
+            if (crossval>0)&&(not(isempty(grid)))
                 disp('WARNING: the grid provides in not considered as the grid of cross validation is used');
             end                
-            if crossval
-                grid=obj.stem_model.stem_data.stem_crossval.stem_gridlist.grid{1};
-            end
+            %             if crossval
+            %                 grid=obj.stem_model.stem_data.stem_crossval.stem_gridlist.grid{1};
+            %             end
             
             if block_size==0
                 blocks_krig=[0 size(obj.idx_notnan,1)];
@@ -208,7 +212,7 @@ classdef stem_krig < handle
             
             stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
             
-            if not(crossval)
+            if crossval==0
                 %indexes recovering and block test
                 loadfromfile=0;
                 if not(isempty(X))
@@ -457,7 +461,7 @@ classdef stem_krig < handle
                 clear Y_add
                 
                 %X manage
-                if not(crossval)
+                if crossval==0
                     if not(isempty(obj.X_all))||loadfromfile
                         if loadfromfile
                             load([folder,files(i).name]);
@@ -538,23 +542,23 @@ classdef stem_krig < handle
                     block.lat=grid.coordinate(obj.idx_notnan(block_krig),1);
                     block.lon=grid.coordinate(obj.idx_notnan(block_krig),2);
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_bp{1}(obj.idx_notnan(block_krig),:,:);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_bp))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_bp{1}(obj.idx_notnan(block_krig),:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_bp{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_bp{index_var},X_krig_block);
                     end
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_p))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_p{1}(obj.idx_notnan(block_krig),:,:,:);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_p))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_p{1}(obj.idx_notnan(block_krig),:,:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_p{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_p{index_var},X_krig_block);
                     end
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_beta{1}(obj.idx_notnan(block_krig),:,:);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_beta))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_beta{1}(obj.idx_notnan(block_krig),:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_beta{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_beta{index_var},X_krig_block);
                     end
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset.X_z))
-                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset.X_z{1}(obj.idx_notnan(block_krig),:,:);
+                    if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_z))
+                        X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{crossval}.X_z{1}(obj.idx_notnan(block_krig),:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_z{index_var}=cat(1,obj.stem_model.stem_data.stem_varset_p.X_z{index_var},X_krig_block);
                     end
                 end
@@ -617,15 +621,11 @@ classdef stem_krig < handle
                 end
                 
                 if (obj.stem_model.stem_data.stem_varset_p.standardized)&&(obj.stem_model.stem_data.stem_varset_p.log_transformed)
-                    blocks=[0 cumsum(obj.stem_model.stem_data.stem_varset_p.dim)];
                     y_hat=st_krig_result.y_hat;
-                    st=nanstd(obj.stem_model.stem_EM_result.res(blocks(index_var)+1:blocks(index_var+1),:));
-                    st=repmat(st,[size(y_hat,1),1]);
-                    st=st.^2*s^2;
-                    st_krig_result.y_hat=exp(y_hat*s+m+st/2);
-                    diag_Var_y_hat=st_krig_result.diag_Var_y_hat;
+                    var_y_hat=st_krig_result.diag_Var_y_hat;
+                    st_krig_result.y_hat=exp(y_hat*s+m+(var_y_hat*s^2)/2);
                     if not(no_varcov)
-                        st_krig_result.diag_Var_y_hat=(diag_Var_y_hat*s^2)*(exp(m)^2);
+                        st_krig_result.diag_Var_y_hat=(exp(var_y_hat*s^2)-1).*exp(2*(y_hat*s+m)+(var_y_hat*s^2));
                     end
                 end
                 disp('Back-transformation ended.');
@@ -697,6 +697,7 @@ classdef stem_krig < handle
                     [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,sigma_eta,G_tilde_diag,aj_bp,aj_p,aj_z,M] = obj.stem_model.get_sigma();
                     st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
                 end
+                rr=size(sigma_Z,1);
                 if not(obj.stem_model.stem_data.X_tv)
                     if (obj.stem_model.stem_data.model_type==1)&&(obj.stem_model.stem_data.model_subtype==0)
                         temp=obj.stem_model.stem_data.X_z(:,:,1);
@@ -706,8 +707,6 @@ classdef stem_krig < handle
                         X_z_orlated=[obj.stem_model.stem_data.X_z(:,:,1);zeros(N-size(obj.stem_model.stem_data.X_z(:,:,1),1),size(obj.stem_model.stem_data.X_z(:,:,1),2))];
                     end
                     X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
-                    
-                    rr=size(sigma_Z,1);
                     
                     if not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p))
                         if obj.stem_model.tapering
@@ -836,7 +835,7 @@ classdef stem_krig < handle
                         sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),obj.stem_model.stem_data.X_bp(:,1,tBP),'b'),aj_bp,'b');
                     end
                     if not(isempty(obj.stem_model.stem_data.X_p))
-                        if not(exist('sigma_geo','var'))
+                        if isempty(sigma_geo)
                             if obj.stem_model.tapering
                                 sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
@@ -847,7 +846,7 @@ classdef stem_krig < handle
                             sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_model.stem_data.X_p(:,1,tP,k),'b'),aj_p(:,k),'b');
                         end
                     end
-                    if not(exist('sigma_geo','var'))
+                    if isempty(sigma_geo)
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
@@ -870,7 +869,7 @@ classdef stem_krig < handle
                             else
                                 var_Zt=X_z_orlated*sigma_Z*X_z_orlated';
                             end
-                            if not(exist('sigma_geo','var'))
+                            if isempty(sigma_geo)
                                 var_Yt=var_Zt;
                             else
                                 var_Yt=sigma_geo+var_Zt;
@@ -1120,6 +1119,9 @@ classdef stem_krig < handle
                         end
                     end
                     clear temp_p
+                end
+                if data.X_tv
+                    sigma_geo=[];
                 end
             end
             diag_Var_y_hat=diag_Var_e_y1;

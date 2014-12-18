@@ -111,8 +111,8 @@ classdef stem_sim < handle
                 mu0=zeros(r,1);
                 sigma0=eye(r);
             else
-                s_eta=par.sigma_eta;
-                G=par.G;
+                s_eta=obj.stem_model.stem_par.sigma_eta;
+                G=obj.stem_model.stem_par.G;
                 mu0=zeros(obj.stem_model.stem_par.p,1);
                 sigma0=eye(obj.stem_model.stem_par.p);
             end

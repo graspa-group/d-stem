@@ -461,6 +461,7 @@ classdef stem_model < handle
             end
             
             %sigma_geo
+            sigma_geo=[];
             [aj_bp,aj_p,aj_z]=obj.get_aj;
             if not(obj.stem_data.X_tv)
                 %time invariant case
@@ -468,7 +469,7 @@ classdef stem_model < handle
                     sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),obj.stem_data.X_bp(:,1,1),'b'),aj_bp,'b');
                 end
                 if obj.stem_par.k>0
-                    if not(exist('sigma_geo','var'))
+                    if isempty(sigma_geo)
                         %se manca il remoto allora sigma_geo non � stata
                         %ancora allocata
                         if obj.tapering
@@ -481,13 +482,11 @@ classdef stem_model < handle
                         sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_data.X_p(:,1,1,k),'b'),aj_p(:,k),'b');
                     end
                 end
-                if not(exist('sigma_geo','var'))
+                if isempty(sigma_geo)
                     sigma_geo=sigma_eps;
                 else
                     sigma_geo=sigma_geo+sigma_eps;
                 end
-            else
-                sigma_geo=[]; %it means sigma_geo is time-variant and has to be evaluated at each time step
             end
             
             if obj.stem_par.p>0
@@ -555,7 +554,7 @@ classdef stem_model < handle
             
             standardized=1;
             if not(obj.stem_data.stem_varset_p.standardized)
-               standardized=0;
+                standardized=0;
             end
             if not(isempty(obj.stem_data.stem_varset_b))
                 if not(obj.stem_data.stem_varset_b.standardized)
@@ -570,62 +569,66 @@ classdef stem_model < handle
             end
             if not(isempty(obj.stem_data.stem_crossval))
                 disp('Data modification for cross-validation started...');
-                idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_crossval.variable_name);
-                if isempty(idx_var)
-                    error('Variable not found. Has it been deleted?');
+                for i=1:length(obj.stem_data.stem_crossval.variable_name)
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}=stem_crossval_result();
+                    
+                    idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_crossval.variable_name{i});
+                    if isempty(idx_var)
+                        error(['Cross-validation variable',obj.stem_data.stem_crossval.variable_name{i},'not found.']);
+                    end
+                    
+                    %recover the indices of the cross-validation sites
+                    indices=obj.stem_data.stem_crossval.indices{i};
+                    Y={obj.stem_data.stem_varset_p.Y{idx_var}(indices,:)};
+                    Y_name=obj.stem_data.stem_varset_p.Y_name(idx_var);
+                    if not(isempty(obj.stem_data.stem_varset_p.X_bp))
+                        X_bp={obj.stem_data.stem_varset_p.X_bp{idx_var}(indices,:,:)};
+                        X_bp_name=obj.stem_data.stem_varset_p.X_bp(idx_var);
+                    else
+                        X_bp={};
+                        X_bp_name={};
+                    end
+                    if not(isempty(obj.stem_data.stem_varset_p.X_beta))
+                        X_beta={obj.stem_data.stem_varset_p.X_beta{idx_var}(indices,:,:)};
+                        X_beta_name=obj.stem_data.stem_varset_p.X_beta_name(idx_var);
+                    else
+                        X_beta={};
+                        X_beta_name={};
+                    end
+                    if not(isempty(obj.stem_data.stem_varset_p.X_z))
+                        X_z={obj.stem_data.stem_varset_p.X_z{idx_var}(indices,:,:)};
+                        X_z_name=obj.stem_data.stem_varset_p.X_z_name(idx_var);
+                    else
+                        X_z={};
+                        X_z_name={};
+                    end
+                    if not(isempty(obj.stem_data.stem_varset_p.X_p))
+                        X_p={obj.stem_data.stem_varset_p.X_p{idx_var}(indices,:,:,:)};
+                        X_p_name=obj.stem_data.stem_varset_p.X_p_name(idx_var);
+                    else
+                        X_p={};
+                        X_p_name={};
+                    end
+                    
+                    %set the cross_mindistance vector
+                    if not(isempty(obj.stem_data.DistMat_p))
+                        dim=obj.stem_data.dim;
+                        blocks=[0 cumsum(dim)];
+                        temp_dist=obj.stem_data.DistMat_p(blocks(idx_var)+1:blocks(idx_var+1),blocks(idx_var)+1:blocks(idx_var+1));
+                        temp_dist=temp_dist(indices,:);
+                        temp_dist(:,indices)=[];
+                        obj.stem_data.stem_crossval.stem_crossval_result{i}.min_distance=min(temp_dist,[],2);
+                        clear temp_dist
+                    end
+                    
+                    obj.stem_data.stem_crossval.stem_varset{i}=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name);
+                    obj.stem_data.stem_crossval.stem_gridlist{i}=stem_gridlist();
+                    coordinate=obj.stem_data.stem_gridlist_p.grid{idx_var}.coordinate;
+                    st_grid=stem_grid(coordinate(indices,:),'deg','sparse','point');
+                    obj.stem_data.stem_crossval.stem_gridlist{i}.add(st_grid);
+                    %remove the cross-validation data from the estimation dataset
+                    obj.stem_data.site_crop(obj.stem_data.stem_crossval.type{i},obj.stem_data.stem_crossval.variable_name{i},indices,1);
                 end
-                
-                %recover the indices of the cross-validation sites 
-                indices=obj.stem_data.stem_crossval.indices;
-                Y={obj.stem_data.stem_varset_p.Y{idx_var}(indices,:)};
-                Y_name=obj.stem_data.stem_varset_p.Y_name(idx_var);
-                if not(isempty(obj.stem_data.stem_varset_p.X_bp))
-                    X_bp={obj.stem_data.stem_varset_p.X_bp{idx_var}(indices,:,:)};
-                    X_bp_name=obj.stem_data.stem_varset_p.X_bp(idx_var);
-                else
-                    X_bp={};
-                    X_bp_name={};
-                end
-                if not(isempty(obj.stem_data.stem_varset_p.X_beta))
-                    X_beta={obj.stem_data.stem_varset_p.X_beta{idx_var}(indices,:,:)};
-                    X_beta_name=obj.stem_data.stem_varset_p.X_beta_name(idx_var);
-                else
-                    X_beta={};
-                    X_beta_name={};
-                end 
-                if not(isempty(obj.stem_data.stem_varset_p.X_z))
-                    X_z={obj.stem_data.stem_varset_p.X_z{idx_var}(indices,:,:)};
-                    X_z_name=obj.stem_data.stem_varset_p.X_z_name(idx_var);
-                else
-                    X_z={};
-                    X_z_name={};
-                end          
-                if not(isempty(obj.stem_data.stem_varset_p.X_p))
-                    X_p={obj.stem_data.stem_varset_p.X_p{idx_var}(indices,:,:,:)};
-                    X_p_name=obj.stem_data.stem_varset_p.X_p_name(idx_var);
-                else
-                    X_p={};
-                    X_p_name={};
-                end      
-                
-                %set the cross_mindistance vector
-                if not(isempty(obj.stem_data.DistMat_p))
-                    dim=obj.stem_data.dim;
-                    blocks=[0 cumsum(dim)];
-                    temp_dist=obj.stem_data.DistMat_p(blocks(idx_var)+1:blocks(idx_var+1),blocks(idx_var)+1:blocks(idx_var+1));
-                    temp_dist=temp_dist(indices,:);
-                    temp_dist(:,indices)=[];
-                    obj.stem_data.stem_crossval.min_distance=min(temp_dist,[],2);
-                    clear temp_dist
-                end
-                
-                obj.stem_data.stem_crossval.stem_varset=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name);
-                obj.stem_data.stem_crossval.stem_gridlist=stem_gridlist();
-                coordinate=obj.stem_data.stem_gridlist_p.grid{idx_var}.coordinate;
-                st_grid=stem_grid(coordinate(indices,:),'deg','sparse','point');
-                obj.stem_data.stem_crossval.stem_gridlist.add(st_grid);
-                %remove the cross-validation data from the estimation dataset
-                obj.stem_data.site_crop(obj.stem_data.stem_crossval.type,obj.stem_data.stem_crossval.variable_name,indices);
                 obj.cross_validation=1;
                 disp('Data modification ended.');
             else
@@ -642,40 +645,53 @@ classdef stem_model < handle
             end
             obj.estimated=1;
             if obj.cross_validation
-                st_krig=stem_krig(obj);
-                block_size=1000;
-                back_transform=0;
-                no_varcov=1;
-                crossval=1;
-                obj.stem_data.stem_crossval.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name,obj.stem_data.stem_crossval.stem_gridlist.grid{1},block_size,[],[],back_transform,no_varcov,crossval);
-                obj.stem_data.stem_crossval.res=obj.stem_data.stem_crossval.stem_varset.Y{1}-obj.stem_data.stem_crossval.stem_krig_result.y_hat;
-                obj.stem_data.stem_crossval.mse=nanvar(obj.stem_data.stem_crossval.res');
-                obj.stem_data.stem_crossval.mse_time=nanvar(obj.stem_data.stem_crossval.res);
-         
-                obj.stem_data.stem_crossval.relative_mse=obj.stem_data.stem_crossval.mse./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{1}');
-                obj.stem_data.stem_crossval.relative_mse_time=obj.stem_data.stem_crossval.mse_time./nanvar(obj.stem_data.stem_crossval.stem_varset.Y{1});
                 
-                if (obj.stem_data.stem_varset_p.standardized)&&not(obj.stem_data.stem_varset_p.log_transformed)
-                    s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
-                    m=obj.stem_data.stem_varset_p.Y_means{idx_var};
-                    y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat*s+m;
-                    y=obj.stem_data.stem_crossval.stem_varset.Y{1}*s+m;
+            end
+        end
+          
+        function fill_crosval_result(obj)
+            if obj.cross_validation
+                for i=1:length(obj.stem_data.stem_crossval.variable_name)
+                    disp(['Kriging over cross-validation sites of variable ',obj.stem_data.stem_crossval.variable_name{i}]);
+                    
+                    idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_crossval.variable_name{i});
+                    if isempty(idx_var)
+                        error(['Cross-validation variable',obj.stem_data.stem_crossval.variable_name{i},'not found.']);
+                    end
+                    
+                    st_krig=stem_krig(obj);
+                    block_size=1000;
+                    back_transform=0;
+                    no_varcov=0;
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.stem_krig_result=st_krig.kriging(obj.stem_data.stem_crossval.variable_name{i},obj.stem_data.stem_crossval.stem_gridlist{i}.grid{1},block_size,[],[],back_transform,no_varcov,i);
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.res=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}-obj.stem_data.stem_crossval.stem_crossval_result{i}.stem_krig_result.y_hat;
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.mse=nanvar(obj.stem_data.stem_crossval.stem_crossval_result{i}.res');
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.mse_time=nanvar(obj.stem_data.stem_crossval.stem_crossval_result{i}.res);
+                    
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.relative_mse=obj.stem_data.stem_crossval.stem_crossval_result{i}.mse./nanvar(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}');
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.relative_mse_time=obj.stem_data.stem_crossval.stem_crossval_result{i}.mse_time./nanvar(obj.stem_data.stem_crossval.stem_varset{i}.Y{1});
+                    
+                    if (obj.stem_data.stem_varset_p.standardized)&&not(obj.stem_data.stem_varset_p.log_transformed)
+                        s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
+                        m=obj.stem_data.stem_varset_p.Y_means{idx_var};
+                        y_hat_back=obj.stem_data.stem_crossval.stem_crossval_result{i}.stem_krig_result.y_hat*s+m;
+                        y=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m;
+                    end
+                    
+                    if (obj.stem_data.stem_varset_p.standardized)&&(obj.stem_data.stem_varset_p.log_transformed)
+                        s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
+                        m=obj.stem_data.stem_varset_p.Y_means{idx_var};
+                        y_hat_back=obj.stem_data.stem_crossval.stem_crossval_result{i}.stem_krig_result.y_hat;
+                        var_y_hat=obj.stem_data.stem_crossval.stem_crossval_result{i}.stem_krig_result.diag_Var_y_hat;
+                        y_hat_back=exp(y_hat_back*s+m+(var_y_hat*s^2)/2);
+                        y=exp(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m);
+                    end
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.res_back=y-y_hat_back;
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.y_back=y;
+                    obj.stem_data.stem_crossval.stem_crossval_result{i}.y_hat_back=y_hat_back;
                 end
-                
-                if (obj.stem_data.stem_varset_p.standardized)&&(obj.stem_data.stem_varset_p.log_transformed)
-                    blocks=[0 cumsum(obj.stem_data.stem_varset_p.dim)];
-                    s=obj.stem_data.stem_varset_p.Y_stds{idx_var};
-                    m=obj.stem_data.stem_varset_p.Y_means{idx_var};
-                    y_hat_back=obj.stem_data.stem_crossval.stem_krig_result.y_hat;
-                    st=nanstd(obj.stem_EM_result.res(blocks(idx_var)+1:blocks(idx_var+1),:));
-                    st=repmat(st,[size(y_hat_back,1),1]);
-                    st=st.^2*s^2;
-                    y_hat_back=exp(y_hat_back*s+m+st/2);
-                    y=exp(obj.stem_data.stem_crossval.stem_varset.Y{1}*s+m);
-                end
-                obj.stem_data.stem_crossval.res_back=y-y_hat_back;
-                obj.stem_data.stem_crossval.y_back=y;
-                obj.stem_data.stem_crossval.y_hat_back=y_hat_back;
+            else
+                disp('The stem_model object does not include cross validation information');
             end
         end
           
@@ -1711,7 +1727,7 @@ classdef stem_model < handle
                     end
                     if not(isempty(data.X_p))
                         if isempty(data.X_bp)
-                            if (obj.tapering)&&(p==0)
+                            if (obj.tapering)
                                 sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
                                 sigma_geo=zeros(N);
@@ -1731,8 +1747,8 @@ classdef stem_model < handle
                         sigma_geo=stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),data.X_bp(:,1,tBP),'b'),aj_bp,'b');
                     end
                     if not(isempty(data.X_p))
-                        if not(exist('sigma_geo','var'))
-                            if obj.stem_model.tapering
+                        if not(isempty(sigma_geo))
+                            if obj.tapering
                                 sigma_geo=spalloc(size(sigma_W_p{1},1),size(sigma_W_p{1},1),nnz(sigma_W_p{1}));
                             else
                                 sigma_geo=zeros(N);
@@ -1742,7 +1758,7 @@ classdef stem_model < handle
                             sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{z},data.X_p(:,1,tP,z),'b'),aj_p(:,z),'b');
                         end
                     end
-                    if not(exist('sigma_geo','var'))
+                    if not(isempty(sigma_geo))
                         sigma_geo=sigma_eps;
                     else
                         sigma_geo=sigma_geo+sigma_eps;
@@ -1857,6 +1873,8 @@ classdef stem_model < handle
                     end
                     sigma_t_Lt=sigma_geo(Lt,Lt);
                 end
+                
+                sigma_t_Lt=stem_misc.sparseif(sigma_t_Lt,60);
                 
                 for i=1:n_psi
                     if t==2
@@ -1980,6 +1998,9 @@ classdef stem_model < handle
                 e_t_Lt_lag=e_t_Lt;
                 d_St_Lt_lag=d_St_Lt;
                 sigma_t_Lt_lag=sigma_t_Lt;
+                if data.X_tv
+                    sigma_geo=[];
+                end
             end
             IM=IM+triu(IM,1)';
             obj.stem_EM_result.varcov=inv(IM);
@@ -2004,7 +2025,7 @@ classdef stem_model < handle
                 obj.stem_par_initial.sigma_eta=diag(diag(obj.stem_par_initial.sigma_eta));
             end
         end
-        
+         
         %Export functions. Useful to avoid access to the properties of nested objects
         function N = N(obj)
             N=obj.stem_data.N();
@@ -2078,6 +2099,7 @@ classdef stem_model < handle
             end
             obj.stem_par_initial=stem_par_initial;
         end
+        
     end
-
+    
 end

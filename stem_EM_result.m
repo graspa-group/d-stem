@@ -42,6 +42,7 @@ classdef stem_EM_result < handle
         y_back=[];                      %[double]           (NxT) Backtransformed original variable data
         res=[];                         %[double]           (NxT) Model residuals
         res_back=[];                    %[double]           (NxT) Backtransformed model residuals
+        diag_Var_y_hat_back=[]          %[double]           (NxT)     diagonals of Var[y|Y(1)] backtrasformed
         E_wp_y1=[];                     %[double]           (N_pxTxK) E[wp|Y(1)]
         E_wb_y1=[];                     %[double]           (N_pxTxK) E[wp_k|Y(1)]
         diag_Var_wp_y1=[];              %[double]           (N_pxTxK) diagonals of Var[wp|Y(1)]

@@ -953,7 +953,7 @@ classdef stem_kalman < handle
 
                     Lt=not(isnan(Y(:,t-1))); %note the t-1
                     
-                    if (obj.stem_model.stem_data.model_type==1)&&(obj.stem_model.stem_data.model_subtype==0)
+                    if (model_type==1)&&(model_subtype==0)
                         temp=X_z(:,:,tK-1);
                         temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
                         X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));

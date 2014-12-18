@@ -30,45 +30,44 @@ classdef stem_crossval < handle
     
     %CONSTANTS
     %
-    %dN - the number of cross-validation sites
-    %T  - the number of time steps
+    %dq - number of cross-validation variables
     
     properties
-        variable_name=[];           %[string]                  (1x1) the name of the cross-validation variable
-        type=[];                    %[string]                  (1x1) 'point': cross-validation is on point-data
-        indices=[];                 %[integer >0]              (dNx1) the indices of the cross-validation sites 
+        variable_name={};           %[string]                      {dqx1} the names of the cross-validation variables
+        type={};                    %[string]                      {dqx1} 'point': cross-validation is on point-data
+        indices={};                 %[integer >0]                  {dq}x(dNx1) the indices of the cross-validation sites 
         
-        stem_varset=[];             %[stem_varset object]      (1x1)  the subset of data used for cross-validation
-        stem_gridlist=[];           %[strm_gridlist object]    (1x1)  this object is needed for storing the coordinates of the cross-validation sites
-        stem_krig_result=[];        %[strm_krig_result object] (1x1)  the prediction over the cross-validation sites is obtained through kriging
-        
-        y_back=[];                  %[double]                  (dNxT) the original data (back-transformed) of the cross-validation sites
-        y_hat_back=[];              %[double]                  (dNxT) the estimated data (back-transformed) for the cross-validation sites
-        res=[];                     %[double]                  (dNxT) cross-validation residuals        
-        res_back=[];                %[double]                  (dNxT) back-transformed cross-validation residuals (if the original data are log-transformed and/or standardized)
-     
-        mse=[];                     %[double >=0]              (dNx1) mean squared error for each cross-validation site
-        mse_time=[];                %[double >=0]              (dNx1) mean squared error for each time step
-        relative_mse=[];            %[double >=0]              (dNx1) relative mean squared error for each cross-validation site
-        relative_mse_time=[];       %[double >=0]              (dNx1) relative mean squared error for each time step
-        min_distance=[];            %[double >=0]              (dNx1) the distance from each cross-validation site to the nearest non cross-validation site
+        stem_varset={};             %[stem_varset objects]         {dqx1} the subset of data used for cross-validation
+        stem_gridlist={};           %[stem_gridlist objects]       {dqx1} this object is needed for storing the coordinates of the cross-validation sites
+        stem_crossval_result={};    %[stem_crossval_result object] {dqx1} the objects including the cross-validation results for each variable
     end
 
-    
     methods
         function obj = stem_crossval(variable_name,type,indices)
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %variable_name - [string]               (1x1) the name of the cross-validation variable
-            %type          - [string]               (1x1) 'point': cross-validation is on point-data
-            %indices       - [integer >0]           (dNx1) the indices of the cross-validation sites 
+            %variable_name - [string]               {dqx1} the names of the cross-validation variables
+            %type          - [string]               {dqx1} 'point': cross-validation is on point-data
+            %indices       - [integer >0]           {dq}x(dNx1) the indices of the cross-validation sites for each variable
             %
             %OUTPUT
             %obj           - [stem_crossval object] (1x1)    
             
             if nargin<3
                 error('Not enough input arguments');
+            end
+            if not(iscell(variable_name))
+                error('variable_name must be a cell array');
+            end
+            if not(iscell(type))
+                error('type must be a cell array');
+            end
+            if not(iscell(indices))
+                error('indices must be a cell array');
+            end
+            if not(length(variable_name)==length(type) && length(type)==length(indices))
+                error('variable name, type and indices must be cell array of the same length');
             end
             obj.variable_name=variable_name;
             obj.type=type;            
@@ -77,41 +76,21 @@ classdef stem_crossval < handle
        
         %Class set methods
         function set.type(obj,type)
-            if not(strcmp(type,'point'))
-                error('The cross-validation is available only for point variables. The type must be equal to point.');
+            for i=1:length(type)
+                if not(strcmp(type{i},'point'))
+                    error('The cross-validation is available only for point variables. The type must be equal to ''point.''');
+                end
             end
             obj.type=type;
         end
         
         function set.indices(obj,indices)
-            if min(indices)<1
-                error('The indices vector cannot contain negative values');
+            for i=1:length(indices)
+                if min(indices{i})<1
+                    error('The indices vector cannot contain negative values');
+                end
             end
             obj.indices=indices;
-        end
-        
-        function set.stem_varset(obj,stem_varset)
-           if not(isa(stem_varset,'stem_varset'))
-               error('stem_varset must be of class stem_varset');
-           end
-           obj.stem_varset=stem_varset;
-        end
-        
-        function set.stem_gridlist(obj,stem_gridlist)
-            if not(isa(stem_gridlist,'stem_gridlist'))
-                error('stem_gridlist must be of class stem_gridlist');
-            end
-            
-            for i=1:length(stem_gridlist.grid)
-                if not(size(stem_gridlist.grid{i}.coordinate,1)==size(obj.stem_varset.Y{i},1))
-                    error('The number of coordinates in the grid{i} must be equal to the number of rows of Y{i}');
-                end
-                if not(strcmp(stem_gridlist.grid{i}.site_type,'point'))
-                    error('Only point data are supported in stem_gridlist');
-                end
-            end            
-            
-            obj.stem_gridlist=stem_gridlist;
         end            
     end
     

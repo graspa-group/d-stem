@@ -353,11 +353,13 @@ classdef stem_par
         end        
         
         function obj = set.theta_b(obj,theta_b)
-            if not(obj.pixel_correlated) && not(length(theta_b)==obj.q)
-                error(['The length of theta_b must be equal to ',num2str(obj.q)]);
-            end
-            if obj.pixel_correlated && not(length(theta_b)==1)
-                error('theta_b must be a scalar');
+            if not(isempty(obj.pixel_correlated))
+                if not(obj.pixel_correlated) && not(length(theta_b)==obj.q)
+                    error(['The length of theta_b must be equal to ',num2str(obj.q)]);
+                end
+                if obj.pixel_correlated && not(length(theta_b)==1)
+                    error('theta_b must be a scalar');
+                end
             end
             if sum(theta_b<0)>0
                 error('The element of theta_b cannot be negative');

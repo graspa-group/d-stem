@@ -979,14 +979,15 @@ classdef stem_data < handle
             end
         end   
         
-        function site_crop(obj,type,var_name,indices)
+        function site_crop(obj,type,var_name,indices,crossval)
             %DESCRIPTION: remove specific sites from the dataset
             %
             %INPUT
-            %obj                 - [stem_data object]   (1x1) the stem_data object
-            %type                - [string]             (1x1) 'point': remove the sites from the point dataset; 'pixel': remove the sites from the pixel dataset
-            %var_name            - [string]             (1x1) the name of the variable from which to remove the sites
+            %obj                 - [stem_data object]   (1x1)  the stem_data object
+            %type                - [string]             (1x1)  'point': remove the sites from the point dataset; 'pixel': remove the sites from the pixel dataset
+            %var_name            - [string]             (1x1)  the name of the variable from which to remove the sites
             %indices             - [integer >0]         (dNx1) the indices of the sites to remove
+            %crossval            - [integer]            (1x1)  1:sites are cropped for cross-validation, 0: sites are cropped to be removed
             %
             %OUTPUT
             %
@@ -999,10 +1000,35 @@ classdef stem_data < handle
                 error('The minimum value of indices cannot be lower than 1');
             end
             
+            if nargin<5
+                crossval=0;
+            end
+            
             if strcmp(type,'point')
-                disp('Cropping specified sites...');
-                obj.stem_varset_p.site_crop(var_name,indices);
                 idx_var=obj.stem_varset_p.get_Y_index(var_name);
+                
+                if not(crossval)
+                    %adjusting cross-validation sites before site cropping
+                    if not(isempty(obj.stem_crossval))
+                        for j=1:length(obj.stem_crossval.variable_name)
+                            if (strcmp(obj.stem_crossval.variable_name{j},var_name))
+                                disp(['Adjusting cross-validation site indices for point variable ',var_name,' due to site cropping.']);
+                                L=false(obj.stem_varset_p.dim(idx_var),1);
+                                L(obj.stem_crossval.indices{j})=true;
+                                n_before=length(obj.stem_crossval.indices{j});
+                                L(indices)=[];
+                                obj.stem_crossval.indices{j}=find(L);
+                                n_after=length(obj.stem_crossval.indices{j});
+                                if n_after<n_before
+                                    disp(['Removed ',num2str(n_before-n_after),' cross-validation sites for point variable ',var_name,' due to site cropping.']);
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                disp('Cropping sites...');
+                obj.stem_varset_p.site_crop(var_name,indices);
                 obj.stem_gridlist_p.grid{idx_var}.coordinate(indices,:)=[];
             else
                 if isempty(obj.stem_varset_b)
