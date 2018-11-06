@@ -17,6 +17,7 @@
 % (at your option) any later version.
 % 
 % D-STEM is distributed in the hope that it will be useful,
+% D-STEM is distributed in the hope that it will be useful,
 % but WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 % GNU General Public License for more details.
@@ -26,253 +27,293 @@
 
 classdef stem_varset < handle
     
-    %CONSTANTS
-    %ni    - the number of sites for the i-th variable, i=1,...,q
-    %ni_b  - the number of loading vectors for the i-th variable related to the beta parameter
-    %ni_z  - the number of loading vectors for the i-th variable related to the latent variable z
-    %K     - the number of loading vectors related to the latent variable w_p
-    %N     - n1+...+nq total number of observation sites for all the variables
-    %T - number of temporal steps
-    %TT = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
-    %p - dimension of the latent temporal variable z    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
     
+    %CONSTANTS
+    %q     - the number of variables
+    %n_i   - the number of sites for the i-th variable, i=1,...,q
+    %nb_i  - the number of loading vectors for the i-th variable related to the beta parameter
+    %nz_i  - the number of loading vectors for the i-th variable related to the latent variable z
+    %nw    - the number of latent variables w
+    %N     - N=n_1+...+n_q total number of observation sites for all the variables
+    %T     - number of time steps
+    %TT    - TT=T if the loading coefficients are time-variant and TT=1 if they are time-invariant
+
     properties
-        Y={};               %[double]   {qx1}(ni x T)           observed data 
-        X_bp={};            %[double]   {qx1}(ni x 1 x TT)      loading vectors related to the latent variable w_b 
-        X_beta={};          %[double]   {qx1}(ni x ni_b x TT)   loading vectors related to the beta parameter
-        X_z={};             %[double]   {qx1}(ni x ni_z x TT)   loading vectors related to the latent variable z
-        X_p={};             %[double]   {qx1}(ni x 1 x TT x K)  loading vectors related to the latent variable w_p
-        Y_name={};          %[string]   {qx1}                   variable names
-        X_bp_name={};       %[string]   {qx1}                   name of the loading vectors related to the latent variable w_b
-        X_beta_name={};     %[string]   {qxni_b}                name of the loading vectors related to the beta parameter
-        X_z_name={};        %[string]   {qxni_t}                name of the loading vectors related to the latent variable z
-        X_p_name={};        %[string]   {Kx1}                   name of the loading vectors related to the latent variable w_p        
-                
-        simulated=0;        %[boolean]  (1x1)                   1: the Y data are simulated; 0: the Y data are observed data
+        Y={};               %[double]   {q}(n_i x T)           observed data 
+        X_bp={};            %[double]   {q}(n_i x TT)          loading vectors related to the latent variable w_b 
+        X_beta={};          %[double]   {q}(n_i x nb_i x TT)   loading vectors related to the beta parameter
+        X_z={};             %[double]   {q}(n_i x nz_i x TT)   loading vectors related to the latent variable z
+        X_p={};             %[double]   {q}(n_i x nw x TT)     loading vectors related to the latent variable w_p
+        X_f={};             %[double]   {q}(n_i x TT)          domain of the functional observations in Y 
+        Y_name={};          %[string]   {q}                    variable names
+        X_bp_name={};       %[string]   {q}                    name of the loading vectors related to the latent variable w_b
+        X_beta_name={};     %[string]   {q}{nb_i}              name of the loading vectors related to the beta parameter
+        X_z_name={};        %[string]   {q}{nz_i}              name of the loading vectors related to the latent variable z
+        X_p_name={};        %[string]   {q}{nw}                name of the loading vectors related to the latent variable w_p        
+        X_f_name=[];        %[string]   1x1                    name of the domain of the function observations in Y
+        
+        simulated=0;        %[boolean]  (1x1)                  1: the Y data are simulated; 0: the Y data are observed data
     end
     
     properties (SetAccess=private)
         standardized=0;         %[boolean]         (1x1) 1: Y, X_bp, X_beta, X_z and X_p has been standardized; 0: otherwise
         log_transformed=0;      %[boolean]         (1x1) 1: Y has been log-transformed using the method log_transform; 0: otherwise
-
-        Y_means={};             %[double]          {qx1} averages of the non-standardized Y
-        Y_stds={};              %[double]          {qx1} standard deviations of the non-standardized Y
-        X_bp_means={};          %[double]          {qx1} averages of the non-standardized X_bp
-        X_bp_stds={};           %[double]          {qx1} standard deviations of the non-standardized X_bp
-        X_beta_means={};        %[double]          {qx1}(ni_bx1) averages of the non-standardized X_beta
-        X_beta_stds={};         %[double]          {qx1}(ni_bx1) standard deviations of the non-standardized X_beta
-        X_z_means={};           %[double]          {qx1}(ni_tx1) averages of the non-standardized X_z
-        X_z_stds={};            %[double]          {qx1}(ni_tx1) standard deviations of the non-standardized X_z
-        X_p_means={};           %[double]          (qxK) averages of the non-standardized X_p
-        X_p_stds={};            %[double]          {qx1}(ni_tx1) standard deviations of the non-standardized X_p
+        boxcox_transformed=0;   %[boolean]         (1x1) 1: Y has been boxcox-transformed using the method boxcox_transform; 0: otherwise
+        
+        Y_means={};             %[double]          {q} averages of the non-standardized Y
+        Y_stds={};              %[double]          {q} standard deviations of the non-standardized Y
+        Y_lambda={};            %[double]          {q} the lambda parameters of the boxcox transformation
+        X_bp_means={};          %[double]          {q} averages of the non-standardized X_bp
+        X_bp_stds={};           %[double]          {q} standard deviations of the non-standardized X_bp
+        X_beta_means={};        %[double]          {q}(1 x nb_i) averages of the non-standardized X_beta
+        X_beta_stds={};         %[double]          {q}(1 x nb_i) standard deviations of the non-standardized X_beta
+        X_z_means={};           %[double]          {q}(1 x nz_i) averages of the non-standardized X_z
+        X_z_stds={};            %[double]          {q}(1 x nz_i) standard deviations of the non-standardized X_z
+        X_p_means={};           %[double]          {q}(1 x nw) averages of the non-standardized X_p
+        X_p_stds={};            %[double]          {q}(1 x nw) standard deviations of the non-standardized X_p
     end
     
     properties (Dependent, SetAccess = private)
         nvar=[];                %[integer >0]      (1x1) total number of variables (q)
-        dim=[];                 %[integer]         (qx1) number of time series for each variable
-        N=[];                   %[integer >0]      (1x1) n1+...+nq
+        dim=[];                 %[integer]         (qx1) number of spatial sites for each variable
+        N=[];                   %[integer >0]      (1x1) n_1+...+n_q
         T=[];                   %[integer >0]      (1x1) total number of time steps
         
         X_bp_tv=[];             %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_b are time variant; 0:otherwise
         X_beta_tv=[];           %[boolean]         (1x1) 1: the loading vectors related to the beta parameter are time variant; 0:otherwise
         X_z_tv=[];              %[boolean]         (1x1) 1: the loading vectors related to the latent variable z are time variant; 0:otherwise
         X_p_tv=[];              %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_p are time variant; 0:otherwise
+        X_f_tv=[];              %[boolean]         (1x1) 1: the domain of the functional observartions is time variant; 0:otherwise
     end
     
     methods
-        function obj = stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name)
+        function obj = stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_f,X_f_name)
             %DESCRIPTION: is the constructor of the class stem_varset
             %
             %INPUT
             %
-            %Y               -  [double]   {qx1}(ni x T)          observed data
-            %Y_name          -  [string]   {qx1}                  variable names
-            %X_bp            -  [double]   {qx1}(ni x 1 x TT)     loading vectors related to the latent variable w_b
-            %X_bp_name       -  [string]   {qx1}                  name of the loading vectors related to the latent variable w_b
-            %X_beta          -  [double]   {qx1}(ni x ni_b x TT)  loading vectors related to the beta parameter
-            %X_beta_name     -  [string]   {q x ni_b}             name of the loading vectors related to the beta parameter
-            %X_z             -  [double]   {qx1}(ni x ni_z x TT)  loading vectors related to the latent variable z
-            %X_z_name        -  [string]   {q x ni_z}             name of the loading vectors related to the latent variable z
-            %X_p             -  [double]   {qx1}(ni x 1 x TT x K) loading vectors related to the latent variable w_p
-            %X_p_name        -  [string]   {qxK}                  name of the loading vectors related to the latent variable w_p
+            %Y               -  [double]   {q}(n_i x T)          observed data
+            %Y_name          -  [string]   {q}                   variable names
+            %X_bp            -  [double]   {q}(n_i x TT)         loading vectors related to the latent variable w_b
+            %X_bp_name       -  [string]   {q}                   name of the loading vectors related to the latent variable w_b
+            %X_beta          -  [double]   {q}(n_i x nb_i x TT)  loading vectors related to the beta parameter
+            %X_beta_name     -  [string]   {q}{nb_i}             name of the loading vectors related to the beta parameter
+            %X_z             -  [double]   {q}(n_i x nz_i x TT)  loading vectors related to the latent variable z
+            %X_z_name        -  [string]   {q}{nz_i}             name of the loading vectors related to the latent variable z
+            %X_p             -  [double]   {q}(n_i x nw x TT)    loading vectors related to the latent variable w_p
+            %X_p_name        -  [string]   {q}{nw}               name of the loading vectors related to the latent variable w_p
+            %X_f             -  [double]   {q}(n_i x TT)     domain of the functional observations in Y 
+            %X_f_name        -  [string]   1x1                   name of the domain of the function observations in Y
             %
             %OUTPUT
-            %obj             - [stem_varset object] (1x1) the stem_varset object
+            %obj             -  [stem_varset object] (1x1) the stem_varset object
             
             if not(mod(nargin,2)==0)
                 error('Not enough input arguments');
             end
-            obj.Y=Y;
-            for i=1:length(obj.Y)
-                if not(size(obj.Y{i},2)==size(obj.Y{1},2))
+            
+            for i=1:length(Y)
+                if not(size(Y{i},2)==size(Y{1},2))
                     error('Each Y{i} must have the same number of temporal steps');
                 end
             end
+            obj.Y=Y;
             
-            obj.Y_name=Y_name;
-            if not(length(obj.Y_name)==length(obj.Y))
+            if not(length(Y_name)==length(Y))
                 error('The length of Y_name must be equal to length of Y');
             end
+            obj.Y_name=Y_name;
             
             if nargin>2
                 if not(isempty(X_bp))
-                    obj.X_bp=X_bp;
-                    if not(length(obj.X_bp)==length(obj.Y))
+                    if not(length(X_bp)==length(Y))
                         error('The number of cells of X_bp must be equal to the number of cells of Y');
                     end
-                    for i=1:length(obj.X_bp)
-                        if not(size(obj.X_bp{i},1)==size(obj.Y{i},1))
+                    for i=1:length(X_bp)
+                        if not(size(X_bp{i},1)==size(Y{i},1))
                             error('X_bp{i} must have the same number of rows of Y{i}');
                         end
-                        if not(size(obj.X_bp{i},2)==1)
-                            error('Each X_bp{i} must be a single covariate');
-                        end
-                        if not(size(obj.X_bp{i},3)==obj.T || size(obj.X_bp{i},3)==1)
+                        if not(size(X_bp{i},2)==obj.T || size(X_bp{i},2)==1)
                             error('Each X_bp{i} must have either 1 or T time steps');
                         end
-                        if not(size(obj.X_bp{1},3)==size(obj.X_bp{i},3))
-                            error('All the X_bp{i} must have the same temporal dimension');
+                        if not(size(X_bp{1},2)==size(X_bp{i},2))
+                            error('All the X_bp{i} must have the same number of columns');
                         end
-                        if sum(isnan(obj.X_bp{i}(:)))>0
+                        if sum(isnan(X_bp{i}(:)))>0
                             error('X_bp cannot contain NaN');
                         end
                     end
+                    obj.X_bp=X_bp;
                     
-                    obj.X_bp_name=X_bp_name;
-                    if not(length(obj.X_bp_name)==length(obj.X_bp))
+                    if not(length(X_bp_name)==length(X_bp))
                         error('The length of X_bp_name must be equal to length of X_bp');
                     end
+                    obj.X_bp_name=X_bp_name;
                 end
             end
             
             if nargin>4
                 if not(isempty(X_beta))
-                    obj.X_beta=X_beta;
-                    if not(length(obj.X_beta)==length(obj.Y))
+                    if not(length(X_beta)==length(Y))
                         error('The number of cells of X_beta must be equal to the number of cells of Y');
                     end
-                    for i=1:length(obj.X_beta)
+                    for i=1:length(X_beta)
                         T_max=[];
-                        if not(isempty(obj.X_beta{i}))
-                            T_max=size(obj.X_beta{i},3);
+                        if not(isempty(X_beta{i}))
+                            T_max=size(X_beta{i},3);
                         end
                     end
-                    
-                    for i=1:length(obj.X_beta)
-                        if not(isempty(obj.X_beta{i}))
-                            if not(size(obj.X_beta{i},1)==size(obj.Y{i},1))
+
+                    for i=1:length(X_beta)
+                        if not(isempty(X_beta{i}))
+                            if not(size(X_beta{i},1)==size(Y{i},1))
                                 error('X_beta{i} must have the same number of rows of Y{i}');
                             end
-                            if not(size(obj.X_beta{i},3)==obj.T || size(obj.X_beta{i},3)==1)
+                            if not(size(X_beta{i},3)==obj.T || size(X_beta{i},3)==1)
                                 error('Each X_beta{i} must have either 1 or T time steps');
                             end
-                            if not(size(obj.X_beta{i},3)==T_max)
+                            if not(size(X_beta{i},3)==T_max)
                                 error('All the X_beta{i} must have the same temporal dimension');
                             end
-                            if sum(isnan(obj.X_beta{i}(:)))>0
+                            if sum(isnan(X_beta{i}(:)))>0
                                 error('X_beta cannot contain NaN');
                             end
                         else
-                            obj.X_beta{i}=zeros(size(obj.Y{i},1),1,T_max);
+                            X_beta{i}=zeros(size(Y{i},1),1,T_max);
                         end
                     end
+                    obj.X_beta=X_beta;
                     
-                    obj.X_beta_name=X_beta_name;
-                    if not(length(obj.X_beta_name)==length(obj.X_beta))
+                    if not(length(X_beta_name)==length(X_beta))
                         error('The length of X_beta_name must be equal to length of X_beta');
                     end
-                    for i=1:length(obj.X_beta_name)
-                        if not(isempty(obj.X_beta_name{i}))
-                            if not(length(obj.X_beta_name{i})==size(obj.X_beta{i},2))
+                    for i=1:length(X_beta_name)
+                        if not(isempty(X_beta_name{i}))
+                            if not(length(X_beta_name{i})==size(X_beta{i},2))
                                 error('The length of X_beta_name{i} must be equal to the number of covariates of X_beta{i}');
                             end
                         end
                     end
+                    obj.X_beta_name=X_beta_name;
                 end
             end
             
             if nargin>6
                 if not(isempty(X_z))
-                    obj.X_z=X_z;
-                    if not(length(obj.X_z)==length(obj.Y))
+                    if not(length(X_z)==length(Y))
                         error('The number of cells of X_z must be equal to the number of cells of Y');
                     end
-                    for i=1:length(obj.X_z)
+                    for i=1:length(X_z)
                         T_max=[];
-                        if not(isempty(obj.X_z{i}))
-                            T_max=size(obj.X_z{i},3);
+                        if not(isempty(X_z{i}))
+                            T_max=size(X_z{i},3);
                         end
                     end
-                    for i=1:length(obj.X_z)
-                        if not(isempty(obj.X_z{i}))
-                            if not(size(obj.X_z{i},1)==size(obj.Y{i},1))
-                                error('X_z{i} must have the same number of rows of Y{i}');
+                    for i=1:length(X_z)
+                        if not(isempty(X_z{i}))
+                            if not(size(X_z{i},1)==size(Y{i},1))
+                               error('X_z{i} must have the same number of rows of Y{i}');
                             end
-                            if not(size(obj.X_z{i},3)==obj.T || size(obj.X_z{i},3)==1)
+                            if not(size(X_z{i},2)==size(X_z{1},2))
+                                error('Each X_z{i} must have the same number of columns');
+                            end
+                            if not(size(X_z{i},3)==obj.T || size(X_z{i},3)==1)
                                 error('Each X_z{i} must have either 1 or T time steps');
                             end
-                            if not(size(obj.X_z{i},3)==size(obj.X_z{1},3))
+                            if not(size(X_z{i},3)==size(X_z{1},3))
                                 error('All the X_z{i} must have the same temporal dimension');
                             end
-                            if sum(isnan(obj.X_z{i}(:)))>0
+                            if sum(isnan(X_z{i}(:)))>0
                                 error('X_z cannot contain NaN');
                             end
                         else
-                            obj.X_z{i}=zeros(size(obj.Y{i},1),1,T_max);
+                            X_z{i}=zeros(size(Y{i},1),1,T_max);
                         end
                     end
+                    obj.X_z=X_z;
                     
-                    obj.X_z_name=X_z_name;
-                    if not(length(obj.X_z_name)==length(obj.X_z))
+                    if not(length(X_z_name)==length(X_z))
                         error('The length of X_z_name must be equal to length of X_z');
                     end
-                    for i=1:length(obj.X_z_name)
-                        if not(isempty(obj.X_z_name{i}))
-                            if not(length(obj.X_z_name{i})==size(obj.X_z{i},2))
+                    for i=1:length(X_z_name)
+                        if not(isempty(X_z_name{i}))
+                            if not(length(X_z_name{i})==size(X_z{i},2))
                                 error('The length of X_z_name{i} must be equal to the number of covariates of X_z{i}');
                             end
                         end
                     end
+                    obj.X_z_name=X_z_name;
                 end
             end
             
             if nargin>8
                 if not(isempty(X_p))
-                    obj.X_p=X_p;
-                    
-                    if not(length(obj.X_p)==length(obj.Y))
+                    if not(length(X_p)==length(Y))
                         error('The number of cells of X_p must be equal to the number of cells of Y');
                     end
-                    for i=1:length(obj.X_p)
-                        if not(size(obj.X_p{i},1)==size(obj.Y{i},1))
+                    for i=1:length(X_p)
+                        if not(size(X_p{i},1)==size(Y{i},1))
                             error('X_p{i} must have the same number of rows of Y{i}');
                         end
-                        if not(size(obj.X_p{i},2)==size(obj.X_p{1},2))
-                            error('Each X_p{i} must have the same number of covariates');
+                        if not(size(X_p{i},2)==size(X_p{1},2))
+                            error('Each X_p{i} must have the same number of columns');
                         end
-                        if not(size(obj.X_p{i},3)==obj.T || size(obj.X_p{i},3)==1)
+                        if not(size(X_p{i},3)==obj.T || size(X_p{i},3)==1)
                             error('Each X_p{i} must have either 1 or T time steps');
                         end
-                        if not(size(obj.X_p{i},3)==size(obj.X_p{1},3))
+                        if not(size(X_p{i},3)==size(X_p{1},3))
                             error('All the X_p{i} must have the same temporal dimension');
                         end
-                        if not(size(obj.X_p{i},4)==size(obj.X_p{1},4))
-                            error('Each X_p{i} must have equal 4th dimension');
-                        end
-                        if sum(isnan(obj.X_p{i}(:)))>0
+                        if sum(isnan(X_p{i}(:)))>0
                             error('X_p cannot contain NaN');
                         end
                     end
+                    obj.X_p=X_p;
                     
-                    obj.X_p_name=X_p_name;
-                    if not(length(obj.X_p_name)==length(obj.X_p))
+                    if not(length(X_p_name)==length(X_p))
                         error('The length of X_p_name must be equal to length of X_p');
                     end
-                    for i=1:length(obj.X_p_name)
-                        if not(length(obj.X_p_name{i})==size(obj.X_p{i},4))
-                            error('The length of X_p_name{i} must be equal to k');
+                    for i=1:length(X_p_name)
+                        if not(length(X_p_name{i})==size(X_p{i},2))
+                            error(['The length of X_p_name{i} must be equal to ',num2str(size(X_p{i},2))]);
                         end
                     end
+                    obj.X_p_name=X_p_name;
+                end
+            end
+            
+            if nargin>10
+                if not(isempty(X_f))
+                    if not(length(X_f)==length(Y))
+                        error('The number of cells of X_f must be equal to the number of cells of Y');
+                    end
+                    for i=1:length(X_f)
+                        if not(size(X_f{i},1)==size(Y{i},1))
+                            error('X_f{i} must have the same number of rows of Y{i}');
+                        end
+                        if not(size(X_f{i},2)==obj.T || size(X_f{i},2)==1)
+                            error('Each X_f{i} must have either 1 or T time steps');
+                        end
+                    end
+                    obj.X_f=X_f;
+                    
+                    if not(ischar(X_f_name))
+                        error('X_f_name must be a string');
+                    end
+                    obj.X_f_name=X_f_name;
                 end
             end
         end
@@ -289,18 +330,10 @@ classdef stem_varset < handle
 
             for i=1:length(obj.Y)
                 temp=obj.Y{i};
-                num1=sum(temp(:)<0);
+                num1=sum(temp(:)<=0);
                 if num1>0
-                    disp([num2str(num1),' negative value(s) are considered as zero']);
-                    temp(temp(:)<0)=0;
-                end
-                num2=sum(temp(:)==0);
-                if num2>0
-                    temp2=temp(:);
-                    L=temp2>0;
-                    min_notzero=nanmin(temp2(L));
-                    disp([num2str(num2),' value(s) equal to zero are transformed to ',num2str(min_notzero)]);
-                    temp(temp(:)==0)=min_notzero;
+                    disp([num2str(num1),' null and negative value(s) are considered as NaN']);
+                    temp(temp(:)<=0)=NaN;
                 end
                 temp=log(temp);
                 obj.Y{i}=temp;
@@ -308,6 +341,37 @@ classdef stem_varset < handle
             obj.log_transformed=1;
         end
         
+        function boxcox_transform(obj,lambda)
+            %DESCRIPTION: boxcox-transforms the matrix Y
+            %
+            %INPUT
+            %obj    - [stem_varset object] (1x1) the stem_varset object
+            %lambda - [double]             (qx1) the vector of lambda paramters
+            %
+            %OUTPUT
+            %
+            %none: the matrix Y is updated              
+
+            for i=1:length(obj.Y)
+                if isnan(lambda(i))
+                    temp=obj.Y{i};
+                    temp(temp<=0)=NaN;
+                    temp(isnan(temp))=[];
+                    [~,lambda_estimated]=boxcox(temp(:));
+                else
+                    lambda_estimated=lambda(i);
+                end
+                obj.Y_lambda{i}=lambda_estimated;
+                
+                temp=obj.Y{i};
+                temp(temp<=0)=NaN;
+                temp=(temp.^lambda_estimated-1)./lambda_estimated;
+               
+                obj.Y{i}=temp;
+            end
+            obj.boxcox_transformed=1;
+        end
+         
         function detrend_Y(obj)
             %DESCRIPTION: remove the mean from each time series in Y
             %
@@ -377,11 +441,17 @@ classdef stem_varset < handle
             for i=1:length(obj.X_beta)
                 for j=1:size(obj.X_beta{i},2)
                     temp=squeeze(obj.X_beta{i}(:,j,:));
-                    m1=mean(temp(:));
-                    std1=std(temp(:));
-                    if std1==0
+                    if sum(not(temp==1)&not(temp==0))==0
+                        %if the matrix includes only 0 and 1 do not standardize
                         m1=0;
                         std1=1;
+                    else
+                        m1=mean(temp(:));
+                        std1=std(temp(:));
+                        if std1==0
+                            m1=0;
+                            std1=1;
+                        end
                     end
                     obj.X_beta{i}(:,j,:)=(obj.X_beta{i}(:,j,:)-m1)/std1;
                     obj.X_beta_means{i}(j)=m1;
@@ -392,11 +462,17 @@ classdef stem_varset < handle
             for i=1:length(obj.X_z)
                 for j=1:size(obj.X_z{i},2)
                     temp=squeeze(obj.X_z{i}(:,j,:));
-                    m1=mean(temp(:));
-                    std1=std(temp(:));
-                    if std1==0
+                    if sum(not(temp==1)&not(temp==0))==0
+                        %if the matrix includes only 0 and 1 do not standardize
                         m1=0;
                         std1=1;
+                    else
+                        m1=mean(temp(:));
+                        std1=std(temp(:));
+                        if std1==0
+                            m1=0;
+                            std1=1;
+                        end
                     end
                     obj.X_z{i}(:,j,:)=(obj.X_z{i}(:,j,:)-m1)/std1;
                     obj.X_z_means{i}(j)=m1;
@@ -405,15 +481,21 @@ classdef stem_varset < handle
             end      
             
             for i=1:length(obj.X_p)
-                for j=1:size(obj.X_p{i},4)
-                    temp=squeeze(obj.X_p{i}(:,:,:,j));
-                    m1=mean(temp(:));
-                    std1=std(temp(:));
-                    if std1==0
+                for j=1:size(obj.X_p{i},2)
+                    temp=squeeze(obj.X_p{i}(:,j,:));
+                    if sum(not(temp==1)&not(temp==0))==0
+                        %if the matrix includes only 0 and 1 do not standardize
                         m1=0;
                         std1=1;
+                    else
+                        m1=mean(temp(:));
+                        std1=std(temp(:));
+                        if std1==0
+                            m1=0;
+                            std1=1;
+                        end
                     end
-                    obj.X_p{i}(:,:,:,j)=(obj.X_p{i}(:,:,:,j)-m1)/std1;
+                    obj.X_p{i}(:,j,:)=(obj.X_p{i}(:,j,:)-m1)/std1;
                     obj.X_p_means{i}(j)=m1;
                     obj.X_p_stds{i}(j)=std1;
                 end
@@ -422,7 +504,7 @@ classdef stem_varset < handle
         end
         
         function time_crop(obj,indices)
-            %DESCRIPTION: crop the matrices Y, X_bp, X_beta, X_z and X_p with respect to time
+            %DESCRIPTION: crop the matrices Y, X_bp, X_beta, X_z, X_p and X_f with respect to time
             %
             %INPUT
             %obj         - [stem_varset object]       (1x1) the stem_data object
@@ -458,14 +540,21 @@ classdef stem_varset < handle
             if not(isempty(obj.X_p))
                 if obj.X_p_tv
                     for i=1:length(obj.X_p)
-                        obj.X_p{i}=obj.X_p{i}(:,:,indices,:);
+                        obj.X_p{i}=obj.X_p{i}(:,:,indices);
+                    end
+                end
+            end
+            if not(isempty(obj.X_f))
+                if obj.X_f_tv
+                    for i=1:length(obj.X_f)
+                        obj.X_f{i}=obj.X_f{i}(:,indices);
                     end
                 end
             end
         end     
         
         function time_average(obj,n_steps)
-            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_bp, X_beta, X_z and X_p
+            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_bp, X_beta, X_z, X_p and X_f
             %
             %INPUT
             %obj        - [stem_varset object] (1x1) the stem_varset object
@@ -477,65 +566,78 @@ classdef stem_varset < handle
             
             indices=0:n_steps:obj.T;
             if not(indices(end)==obj.T)
-                indices=[indices,obj.T];
+                disp(['The last ',num2str(obj.T-indices(end)),' time steps will be discarded when taking time averages']);
             end
-            
+
             disp('Time averaging started...');
+            Y_temp=cell(length(obj.Y),1);
             for i=1:length(obj.Y)
-                Y=cell(length(obj.Y),1);
                 for j=1:length(indices)-1
-                    Y{i}(:,j)=nanmean(obj.Y{i}(:,indices(j)+1:indices(j+1)),2);
+                    Y_temp{i}(:,j)=nanmean(obj.Y{i}(:,indices(j)+1:indices(j+1)),2);
                 end
-                obj.Y=Y;
             end
+            obj.Y=Y_temp;
 
             if not(isempty(obj.X_bp))
                 if obj.X_bp_tv
+                    X_bp_temp=cell(length(obj.X_bp),1);
                     for i=1:length(obj.X_bp)
-                        X_bp=cell(length(obj.X_bp),1);
                         for j=1:length(indices)-1
-                            X_bp{i}(:,:,j)=nanmean(obj.X_bp{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            X_bp_temp{i}(:,:,j)=nanmean(obj.X_bp{i}(:,:,indices(j)+1:indices(j+1)),3);
                         end
                     end
-                    obj.X_bp=X_bp;
+                    obj.X_bp=X_bp_temp;
                 end
             end
             
             if not(isempty(obj.X_beta))
                 if obj.X_beta_tv
+                    X_beta_temp=cell(length(obj.X_beta),1);
                     for i=1:length(obj.X_beta)
-                        X_beta=cell(length(obj.X_beta),1);
                         for j=1:length(indices)-1
-                            X_beta{i}(:,:,j)=nanmean(obj.X_beta{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            X_beta_temp{i}(:,:,j)=nanmean(obj.X_beta{i}(:,:,indices(j)+1:indices(j+1)),3);
                         end
                     end
-                    obj.X_beta=X_beta;
+                    obj.X_beta=X_beta_temp;
                 end
             end
             
             if not(isempty(obj.X_z))
                 if obj.X_z_tv
+                    X_z_temp=cell(length(obj.X_z),1);
                     for i=1:length(obj.X_z)
-                        X_z=cell(length(obj.X_z),1);
                         for j=1:length(indices)-1
-                            X_z{i}(:,:,j)=nanmean(obj.X_z{i}(:,:,indices(j)+1:indices(j+1)),3);
+                            X_z_temp{i}(:,:,j)=nanmean(obj.X_z{i}(:,:,indices(j)+1:indices(j+1)),3);
                         end
                     end
-                    obj.X_z=X_z;
+                    obj.X_z=X_z_temp;
                 end
             end
             
             if not(isempty(obj.X_p))
                 if obj.X_p_tv
+                    X_p_temp=cell(length(obj.X_p),1);
                     for i=1:length(obj.X_p)
-                        X_p=cell(length(obj.X_p),1);
                         for j=1:length(indices)-1
-                            X_p{i}(:,:,j,:)=nanmean(obj.X_p{i}(:,:,indices(j)+1:indices(j+1),:),3);
+                            X_p_temp{i}(:,:,j)=nanmean(obj.X_p{i}(:,:,indices(j)+1:indices(j+1)),3);
                         end
                     end
-                    obj.X_p=X_p;
+                    obj.X_p=X_p_temp;
                 end
             end
+            
+            if not(isempty(obj.X_f))
+                if obj.X_f_tv
+                    X_f_temp=cell(length(obj.X_f),1);
+                    for i=1:length(obj.X_f)
+                        for j=1:length(indices)-1
+                            X_f_temp{i}(:,j)=nanmean(obj.X_f{i}(:,indices(j)+1:indices(j+1)),3);
+                        end
+                    end
+                    obj.X_f=X_f_temp;
+                end
+            end
+            disp('Time averaging ended.');
         end        
          
         function site_crop(obj,var_name,indices)
@@ -548,15 +650,14 @@ classdef stem_varset < handle
             %
             %OUTPUT
             %
-            %none: the matrices Y, X_bp, X_beta, X_z and X_p with are updated
+            %none: the matrices Y, X_bp, X_beta, X_z, X_p and X_f are updated
             
             idx_var=obj.get_Y_index(var_name);
             if isempty(idx_var)
                 error('Variable not found');
             end
-            N=obj.N;
-            if max(indices>N)
-                error(['The maximum value of indices cannot be greater than ',num2str(N)]);
+            if max(indices>obj.N)
+                error(['The maximum value of indices cannot be greater than ',num2str(obj.N)]);
             end
             obj.Y{idx_var}(indices,:)=[];
             
@@ -570,7 +671,10 @@ classdef stem_varset < handle
                 obj.X_z{idx_var}(indices,:,:)=[];
             end
             if not(isempty(obj.X_p))
-                obj.X_p{idx_var}(indices,:,:,:)=[];
+                obj.X_p{idx_var}(indices,:,:)=[];
+            end
+            if not(isempty(obj.X_f))
+                obj.X_f{idx_var}(indices,:)=[];
             end
         end
         
@@ -590,6 +694,111 @@ classdef stem_varset < handle
                 if not(isempty(idx_vec{i}))
                     obj.site_crop(obj.Y_name{i},idx_vec{i});
                     disp(['    Removed ',num2str(length(idx_vec{i})),' of ',num2str(obj.dim(i)),' sites for the variable ',obj.Y_name{i}]);
+                end
+            end
+        end
+           
+        function permute(obj,indices)
+            %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_f with respect to indices
+            %
+            %INPUT
+            %obj         - [stem_varset object]       (1x1) the stem_data object
+            %indices     - [integer >0]               {q}(n_ix1)|(n_ix1) a cell array of indices or o vector of indices. In the latter case, the same vector is applied to all the q variables
+            %
+            %OUTPUT
+            %
+            %none: the matrices listed above are updated        
+            if iscell(indices)
+                if not(length(indices))==obj.nvar
+                    error(['The cell array indices must have ',num2str(obj.nvar),' cells']);
+                end
+                dims=obj.dim;
+                for i=1:length(indices)
+                    if not(length(indices{i})==dims(i))
+                        error('The length of each vector in the cell array indices must be equal to the number of observations for each variable');
+                    end
+                    if min(indices{i})<1
+                        error('The elements of each vector in the cell array indices must be > 0');
+                    end
+                    if max(indices{i})>dims(i)
+                        error('The elements of each vector in the cell array indices cannot exceed the number of observations for each variable');
+                    end
+                end
+            else
+                dims=obj.dim;
+                if min(indices)<1
+                    error('The elements of indices must be > 0');
+                end
+                for i=1:length(dims)
+                    if not(length(indices)==dims(i))
+                        error(['The length of indices is not comformable to the number of observations in variable number ',num2str(i)]);
+                    end
+                    if max(indices)>dims(i)
+                        error('The elements of indices cannot exceed the number of observations for each variable');
+                    end
+                end
+            end
+            
+            for i=1:length(obj.Y)
+                if iscell(indices)
+                    obj.Y{i}=obj.Y{i}(indices{i},:);
+                else
+                    obj.Y{i}=obj.Y{i}(indices,:);
+                end
+            end
+            if not(isempty(obj.X_beta))
+                if obj.X_beta_tv
+                    for i=1:length(obj.X_beta)
+                        if iscell(indices)
+                            obj.X_beta{i}=obj.X_beta{i}(indices{i},:,:);
+                        else
+                            obj.X_beta{i}=obj.X_beta{i}(indices,:,:);
+                        end
+                    end
+                end
+            end
+            if not(isempty(obj.X_bp))
+                if obj.X_bp_tv
+                    for i=1:length(obj.X_bp)
+                        if iscell(indices)
+                            obj.X_bp{i}=obj.X_bp{i}(indices{i},:,:);
+                        else
+                            obj.X_bp{i}=obj.X_bp{i}(indices,:,:);
+                        end
+                    end
+                end
+            end               
+            if not(isempty(obj.X_z))
+                if obj.X_z_tv
+                    for i=1:length(obj.X_z)
+                        if iscell(indices)
+                            obj.X_z{i}=obj.X_z{i}(indices{i},:,:);
+                        else
+                            obj.X_z{i}=obj.X_z{i}(indices,:,:);
+                        end
+                    end
+                end
+            end
+            if not(isempty(obj.X_p))
+                if obj.X_p_tv
+                    for i=1:length(obj.X_p)
+                        if iscell(indices)
+                            obj.X_p{i}=obj.X_p{i}(indices{i},:,:);
+                        else
+                            obj.X_p{i}=obj.X_p{i}(indices,:,:);
+                        end
+                    end
+                end
+            end
+            if not(isempty(obj.X_f))
+                if obj.X_f_tv
+                    for i=1:length(obj.X_f)
+                        if iscell(indices)
+                            obj.X_f{i}=obj.X_f{i}(indices{i},:);
+                        else
+                            obj.X_f{i}=obj.X_f{i}(indices,:);
+                        end
+                    end
                 end
             end
         end
@@ -752,6 +961,18 @@ classdef stem_varset < handle
             end
         end
         
+        function X_f_tv = get.X_f_tv(obj)
+            if not(isempty(obj.X_f))
+                if size(obj.X_f{1},2)==1
+                    X_f_tv=0;
+                else
+                    X_f_tv=1;
+                end
+            else
+                X_f_tv=0;
+            end
+        end
+        
         function set.Y(obj,Y)
             if not(iscell(Y))
                 error('Y must be a cell array');
@@ -820,7 +1041,21 @@ classdef stem_varset < handle
                 error('X_p_name must be a cell array');
             end
             obj.X_p_name=X_p_name;
-        end           
+        end          
+        
+        function set.X_f(obj,X_f)
+            if not(iscell(X_f))
+                error('X_f must be a cell array');
+            end
+            obj.X_f=X_f;
+        end
+        
+        function set.X_f_name(obj,X_f_name)
+            if not(ischar(X_f_name))
+                error('X_f_name must be a string');
+            end
+            obj.X_f_name=X_f_name;
+        end 
     end
     
 end

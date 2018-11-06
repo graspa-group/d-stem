@@ -87,49 +87,92 @@ classdef stem_misc
             res=c\(c'\b);
         end
         
-        function corr = correlation_function(theta,DistMat,type)
+        function corr = correlation_function(theta,DistMat,correlation_type,idx_r,idx_c)
             %DESCRIPTION: evaluation of the spatial correlation function
             %
             %INPUT
             %
-            %theta              - [double]      (1|2x1) the parameter scalar or vector of the spatial correlation function
-            %DistMat            - [double]      (NxN)   the distance matrix
-            %type               - [string]      (1x1)   'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2
+            %theta              - [double]      (1x1)|(2x1) the parameter scalar or vector of the spatial correlation function
+            %DistMat            - [double]      (NxN)|{2}(NxN) the distance matrix or matrices
+            %correlation_type   - [string]      (1x1) 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the spehere
+            %idx_r              - [integer>0]   (Nx1) the row indexes of the submatrix
+            %idx_c              - [integer>0]   (Nx1) the column indexes of the submatrix
             %
             %OUTPUT
             %
             %corr               - [double]      (NxN)   spatial correlation matrix
-            if sum(strcmp(type,{'exponential','matern32','matern52'}))==0
-                error('The correlation type must be either ''exponential'', ''matern32'' or ''matern52''');
+            if sum(strcmp(correlation_type,{'exponential','matern32','matern52','expsphere'}))==0
+                error('The correlation type must be either ''exponential'', ''matern32'' or ''matern52'' or ''expsphere''');
             end
             
-            if not(isscalar(theta))
-                error('Theta must be a scalar');
+            if strcmp(correlation_type,'expsphere')
+                if not(iscell(DistMat))
+                    error('DistMat must be a 2x1 cell array and each cell a NxN distance matrix');
+                else
+                    if not(length(DistMat)==2)
+                        error('DistMat must be a 2x1 cell array and each cell a NxN distance matrix');
+                    end
+                end
+                if not(size(theta,1)==2)
+                    error('theta must be 2x1 or 2xp when type is ''expsphere''');
+                end
+            else
+                if not(length(theta)==1)
+                    error('theta must be a scalar');
+                end
             end
-                        
+            
+            if nargin<4
+                if not(strcmp(correlation_type,'expsphere'))
+                    idx_r=1:size(DistMat,1);
+                else
+                    idx_r=1:size(DistMat{1},1);
+                end
+            end
+            if nargin<5
+                if not(strcmp(correlation_type,'expsphere'))
+                    idx_c=1:size(DistMat,2);
+                else
+                    idx_c=1:size(DistMat{1},2);
+                end
+            end
+            
+            if not(strcmp(correlation_type,'expsphere'))
+                DistMat=DistMat(idx_r,idx_c);
+            else
+                DistMat{1}=DistMat{1}(idx_r,idx_c);
+                DistMat{2}=DistMat{2}(idx_r,idx_c);
+            end
+           
             if not(issparse(DistMat))
-                if strcmp(type,'exponential')
+                if strcmp(correlation_type,'exponential')
                     corr=exp(-DistMat/theta);
                 end
-                if strcmp(type,'matern32')
+                if strcmp(correlation_type,'matern32')
                     corr=(1+sqrt(3)*DistMat/theta).*exp(-sqrt(3)*DistMat/theta);
                 end
-                if strcmp(type,'matern52')
+                if strcmp(correlation_type,'matern52')
                     corr=(1+sqrt(5)*DistMat/theta+5*DistMat.^2/(3*theta^2)).*exp(-sqrt(5)*DistMat/theta);
+                end
+                if strcmp(correlation_type,'expsphere')
+                    corr=exp(-DistMat{1}/theta(1)).*exp(-DistMat{2}/theta(2));
                 end
             else
                 %note that the diagonal of the variance-covariance matrices and
                 %possibly some elements of the cross-covariance matrices are equal
                 %to eps instead of zero. However, exp(eps)=1.
                 idx=find(DistMat);
-                if strcmp(type,'exponential')
+                if strcmp(correlation_type,'exponential')
                     correlation=exp(-DistMat(idx)/theta);
                 end
-                if strcmp(type,'matern32')
-                    correlation=(1+sqrt(3)*DistMat/theta).*exp(-sqrt(3)*DistMat/theta);
+                if strcmp(correlation_type,'matern32')
+                    correlation=(1+sqrt(3)*DistMat(idx)/theta).*exp(-sqrt(3)*DistMat(idx)/theta);
                 end
-                if strcmp(type,'matern52')
-                    correlation=(1+sqrt(5)*DistMat/theta+5*DistMat.^2/(3*theta^2)).*exp(-sqrt(5)*DistMat/theta);
+                if strcmp(correlation_type,'matern52')
+                    correlation=(1+sqrt(5)*DistMat(idx)/theta+5*DistMat(idx).^2/(3*theta^2)).*exp(-sqrt(5)*DistMat(idx)/theta);
+                end
+                if strcmp(correlation_type,'expsphere')
+                    correlation=exp(-DistMat{1}(idx)/theta(1)).*exp(-DistMat{2}(idx)/theta(2));
                 end
                 [I,J]=ind2sub(size(DistMat),idx);
                 corr.I=I;
@@ -155,138 +198,130 @@ classdef stem_misc
                 error('All the input arguments must be provided');
             end
             if not(isempty(d))
-                 if not(sum(abs(d))==0||sum(abs(a(:)))==0)
-                    if not(sum(d-ones(size(d)))==0)
-                        if isvector(a)
-                            if strcmp(type,'l')
-                                %a is a column vector
-                                r=length(d)-length(a);
-                                if r==0
+                if not(sum(abs(d))==0||sum(abs(a(:)))==0)
+                    if isvector(a)
+                        if strcmp(type,'l')
+                            %a is a column vector
+                            r=length(d)-length(a);
+                            if r==0
+                                res=d.*a;
+                            else
+                                if r>0
+                                    if sum(abs(d(end-r+1:end)))==0
+                                        res=[d(1:length(a)).*a;zeros(r,1)];
+                                    else
+                                        error('The elements of d exceeding the dimension of a must be zeros');
+                                    end
+                                else
                                     res=d.*a;
-                                else
-                                    if r>0
-                                        if sum(abs(d(end-r+1:end)))==0
-                                            res=[d(1:length(a)).*a;zeros(r,1)];
-                                        else
-                                            error('The elements of d exceeding the dimension of a must be zeros');
-                                        end
-                                    else
-                                        res=d.*a;
-                                        %error('The vector d cannot be smaller than the vector a');
-                                    end
-                                end
-                            end
-                            if strcmp(type,'r')
-                                %a is a row vector
-                                r=length(d)-length(a);
-                                if r==0
-                                    res=a.*d';
-                                else
-                                    if r>0
-                                        if sum(abs(d(end-r+1:end)))==0
-                                            res=[a.*d(1:length(a))',zeros(1,r)];
-                                        else
-                                            error('The elements of d exceeding the dimension of a must be zeros');
-                                        end
-                                    else
-                                        error('The vector d cannot be smaller than the vector a');
-                                    end
-                                end
-                            end
-                            if strcmp(type,'b')
-                                if not(iscolumn(a))
-                                    error('type ''b'' D_apply can be used only with ''a'' as a column vector')
-                                end
-                                r=length(d)-length(a);
-                                if r==0
-                                    res=(d.^2).*a;
-                                else
-                                    if r>0
-                                        if sum(abs(d(end-r+1:end)))==0
-                                            res=[(d(1:length(a)).^2).*a;zeros(r,1)];
-                                        else
-                                            error('The elements of d exceeding the dimension of a must be zeros');
-                                        end
-                                    else
-                                        error('The vector d cannot be smaller than the vector a');
-                                    end
+                                    %error('The vector d cannot be smaller than the vector a');
                                 end
                             end
                         end
-                        if min(size(a))>1 %is a matrix
-                            if strcmp(type,'l')
-                                r=length(d)-size(a,1);
+                        if strcmp(type,'r')
+                            %a is a row vector
+                            r=length(d)-length(a);
+                            if r==0
+                                res=a.*d';
+                            else
+                                if r>0
+                                    if sum(abs(d(end-r+1:end)))==0
+                                        res=[a.*d(1:length(a))',zeros(1,r)];
+                                    else
+                                        error('The elements of d exceeding the dimension of a must be zeros');
+                                    end
+                                else
+                                    error('The vector d cannot be smaller than the vector a');
+                                end
+                            end
+                        end
+                        if strcmp(type,'b')
+                            if not(iscolumn(a))
+                                error('type ''b'' D_apply can be used only with ''a'' as a column vector')
+                            end
+                            r=length(d)-length(a);
+                            if r==0
+                                res=(d.^2).*a;
+                            else
+                                if r>0
+                                    if sum(abs(d(end-r+1:end)))==0
+                                        res=[(d(1:length(a)).^2).*a;zeros(r,1)];
+                                    else
+                                        error('The elements of d exceeding the dimension of a must be zeros');
+                                    end
+                                else
+                                    error('The vector d cannot be smaller than the vector a');
+                                end
+                            end
+                        end
+                    end
+                    if min(size(a))>1 %is a matrix
+                        if strcmp(type,'l')
+                            r=length(d)-size(a,1);
+                            if r==0
+                                res=sparse(diag(d))*a;
+                            else
+                                if r>0
+                                    if sum(abs(d(end-r+1:end)))==0
+                                        res=sparse(diag(d(1:size(a,1))))*a;
+                                        %res=[res;zeros(r,size(a,2))];
+                                    else
+                                        res=a.*repmat(d',[size(a,1),1]);
+                                    end
+                                else
+                                    res=a.*repmat(d',[size(a,1),1]);
+                                end
+                            end
+                        else
+                            if strcmp(type,'r')
+                                r=length(d)-size(a,2);
                                 if r==0
-                                    res=sparse(diag(d))*a;
+                                    res=a*sparse(diag(d));
                                 else
                                     if r>0
                                         if sum(abs(d(end-r+1:end)))==0
-                                            res=sparse(diag(d(1:size(a,1))))*a;
-                                            res=[res;zeros(r,size(a,2))];
+                                            res=a*sparse(diag(d(1:size(a,2))));
+                                            %res=[res,zeros(size(a,1),r)];
                                         else
                                             error('The element of d exceeding the dimension of a must be zeros');
                                         end
                                     else
-                                        error('The vector d cannot be smaller than the first dimension of the matrix a');
+                                        error('The vector d cannot be smaller than the second dimension of the matrix a');
                                     end
+                                    
                                 end
                             else
-                                if strcmp(type,'r')
-                                    r=length(d)-size(a,2);
-                                    if r==0
-                                        res=a*sparse(diag(d));
+                                r=length(d)-size(a,1);
+                                if r==0
+                                    if not(issparse(a))
+                                        res=(d*d').*a;
                                     else
-                                        if r>0
-                                            if sum(abs(d(end-r+1:end)))==0
-                                                res=a*sparse(diag(d(1:size(a,2))));
-                                                res=[res,zeros(size(a,1),r)];
-                                            else
-                                                error('The element of d exceeding the dimension of a must be zeros');
-                                            end
-                                        else
-                                            error('The vector d cannot be smaller than the second dimension of the matrix a');
-                                        end
-                                        
+                                        I=1:length(d);
+                                        D=sparse(I,I,d);
+                                        res=D*a*D;
                                     end
                                 else
-                                    r=length(d)-size(a,1);
-                                    if r==0
-                                        if not(issparse(a))
-                                            res=(d*d').*a;
-                                        else
-                                            I=1:length(d);
-                                            D=sparse(I,I,d);
-                                            res=D*a*D;
-                                        end
-                                    else
-                                        if r>0
-                                            if sum(abs(d(end-r+1:end)))==0
-                                                if not(issparse(a))
-                                                    res=[(d(1:size(a,1))*d(1:size(a,1))').*a, zeros(size(a,1),r); zeros(r,size(a,2)) zeros(r,r)];
-                                                else
-                                                    I=1:length(d(1:size(a,1)));
-                                                    D=sparse(I,I,d(1:size(a,1)));
-                                                    res=D*a*D;
-                                                    L=find(res);
-                                                    [I,J] = ind2sub(size(res),L);
-                                                    res=sparse(I,J,full(res(L)),size(res,1)+r,size(res,2)+r);
-                                                end
+                                    if r>0
+                                        if sum(abs(d(end-r+1:end)))==0
+                                            if not(issparse(a))
+                                                res=[(d(1:size(a,1))*d(1:size(a,1))').*a, zeros(size(a,1),r); zeros(r,size(a,2)) zeros(r,r)];
                                             else
-                                                error('The element of d exceeding the dimension of a must be zeros');
+                                                I=1:length(d(1:size(a,1)));
+                                                D=sparse(I,I,d(1:size(a,1)));
+                                                res=D*a*D;
+                                                L=find(res);
+                                                [I,J] = ind2sub(size(res),L);
+                                                res=sparse(I,J,full(res(L)),size(res,1)+r,size(res,2)+r);
                                             end
                                         else
-                                            error('The vector d cannot be smaller than the dimension of the matrix a');
+                                            error('The element of d exceeding the dimension of a must be zeros');
                                         end
+                                    else
+                                        error('The vector d cannot be smaller than the dimension of the matrix a');
                                     end
                                 end
                             end
                         end
-                    else
-                        if not(length(d)==max(size(a)))
-                            error('The vector d of all ones must have the same dimension of a');
-                        end
-                        %nothing to do
-                        res=a;
                     end
                 else
                     %return a matrix of all zeros
@@ -295,7 +330,12 @@ classdef stem_misc
                             res=sparse(length(d),length(d));
                         end
                         if strcmp(type,'l')
-                            res=sparse(length(d),size(a,2));
+                            r=length(d)-size(a,1);
+                            if (r==0)
+                                res=sparse(length(d),size(a,2));
+                            else
+                                res=sparse(size(a,1),size(a,2));
+                            end
                         end
                         if strcmp(type,'r')
                             res=sparse(size(a,1),length(d));
@@ -305,13 +345,17 @@ classdef stem_misc
                             res=zeros(length(d),length(d));
                         end
                         if strcmp(type,'l')
-                            res=zeros(length(d),size(a,2));
+                            r=length(d)-size(a,1);
+                            if r==0
+                                res=zeros(length(d),size(a,2));
+                            else
+                                res=zeros(size(a,1),size(a,2));
+                            end
                         end
                         if strcmp(type,'r')
                             res=sparse(size(a,1),length(d));
                         end
                     end
-                    
                 end
             else
                 %nothing to do
@@ -412,6 +456,141 @@ classdef stem_misc
                 end
             end
         end        
+        
+        function [best_idx_group,best_group_size] = kmeans_globe(coordinates,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
+            if nargin<1
+                error('coordinates and n_groups must be provided');
+            end
+            if nargin<2
+                error('n_groups must be provide');
+            end
+            if nargin<3
+                trials=10;
+                disp(['k-means on ',num2str(trials),' trials']);
+            end
+            if nargin<4
+                force_poles=0;
+            end
+            if nargin<5
+                force_poles=0;
+            end
+            if nargin<6
+                flag_plot=0;
+            end
+            if nargin<7
+                flag_verbose=1;
+            end
+            
+            if n_groups<2
+                error('n_groups must be >=2');
+            end
+            
+            min_lat=min(coordinates(:,1));
+            max_lat=max(coordinates(:,1));
+            min_lon=min(coordinates(:,2));
+            max_lon=max(coordinates(:,2));
+            
+            best_total_distance=10^10;
+            for r=1:trials
+                if flag_verbose
+                    disp(['TRIAL: ',num2str(r)]);
+                end
+                disp('');
+                centers=zeros(n_groups,2);
+                centers(:,1)=unifrnd(min_lat,max_lat,n_groups,1);
+                centers(:,2)=unifrnd(min_lon,max_lon,n_groups,1);
+                
+                if force_poles
+                    centers(1,1)=90;
+                    centers(1,2)=0;
+                    centers(2,1)=-90;
+                    centers(2,2)=0;
+                end
+                
+                centers_last=centers;
+                
+                n_iter=0;
+                exit_toll=1;
+                distmat=zeros(n_groups,length(coordinates));
+                group_size=zeros(n_groups,1);
+                while exit_toll>0.001&&n_iter<1000
+                    for i=1:size(distmat,1)
+                        distmat(i,:)=distance(centers(i,1),centers(i,2),coordinates(:,1),coordinates(:,2));
+                    end
+                    [~,idx_group]=min(distmat,[],1);
+                    total_distance=0;
+                    for j=1:size(distmat,1)
+                        idx=find(idx_group==j);
+                        total_distance=total_distance+sum(distmat(j,idx));
+                        group_size(j)=length(idx);
+                        
+                        x = 0;
+                        y = 0;
+                        z = 0;
+                        
+                        latitude = coordinates(idx,1) * pi / 180;
+                        longitude = coordinates(idx,2) * pi / 180;
+                        
+                        x = x + sum(cos(latitude).*cos(longitude));
+                        y = y + sum(cos(latitude).*sin(longitude));
+                        z = z + sum(sin(latitude));
+                        
+                        x = x / length(idx);
+                        y = y / length(idx);
+                        z = z / length(idx);
+                        
+                        centralLongitude = atan2(y, x);
+                        centralSquareRoot = sqrt(x * x + y * y);
+                        centralLatitude = atan2(z, centralSquareRoot);
+                        
+                        centers(j,1)=centralLatitude * 180 / pi;
+                        centers(j,2)=centralLongitude * 180 / pi;
+                    end
+                    
+                    total_distance=total_distance+lambda_pen*var(group_size);
+                    
+                    exit_toll=norm(centers-centers_last);
+                    centers_last=centers;
+                    if flag_verbose
+                        disp(['k-means iter: ',num2str(n_iter),', tot. dist.: ',num2str(total_distance),', toll: ',num2str(exit_toll)]);
+                    end
+                    n_iter=n_iter+1;
+                end
+                
+                if total_distance<best_total_distance
+                    best_idx_group=idx_group;
+                    best_total_distance=total_distance;
+                    best_group_size=group_size;
+                end
+            end
+            
+            if flag_plot
+                figure;
+                hold on
+                for i=1:n_groups
+                    L=best_idx_group==i;
+                    plot(coordinates(L,2),coordinates(L,1),'*');
+                end
+                xlim([-180 180]);
+                ylim([-90 90]);
+                grid on
+                title(['Total distance: ',num2str(best_total_distance)]);
+            end
+        end
+        
+        function xls_coordinates = rc2xls(row,col)
+            if col>26*27
+                error('Not supported');
+            end
+            first_letter=floor((col-1)/26);
+            if first_letter>0
+                first_letter=char(first_letter+64);
+            else
+                first_letter='';
+            end
+            second_letter=char(mod((col-1),26)+1+64);
+            xls_coordinates=[first_letter,second_letter,num2str(row)];
+        end
         
         function [B,block_i,block_j] = get_block(dim_r,i,dim_c,j,A)
             %DESCRIPTION: returns the block of a block matrix
@@ -737,25 +916,54 @@ classdef stem_misc
             end
         end
         
-        function weights = wendland(DistMat,gamma,flag_reshape)
+        function weights = wendland(DistMat,gamma,correlation_type,flag_reshape,idx_r,idx_c)
             %DESCRIPTION: compute the tapering weights using the Wendland function
             %
             %INPUT
             %
             %DistMat           - [double]      (NxN)    the distance matrix
             %gamma             - [double >0]   (1x1)    the gamma parameter of the wendland function
+            %correlation_type  - [string]      (1x1)    'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the spehere
             %flag_reshape      - [boolean]     (1x1)    1:the weights are reshaped to have the same dimension of the distance matrix; 0: the weights are given only for the non-zero elements
+            %idx_r             - [integer>0]   (Nx1)    the row indexes of the submatrix
+            %idx_c             - [integer>0]   (Nx1)    the column indexes of the submatrix
             %
             %OUTPUT
             %
             %weights:          - [double]      (NxN | dNx1) the tapering weights. The dimension of the output depends on the flag_reshape value
             
+            
+            if nargin<3
+                error('The first 3 inputs arguments must be provided');
+            end
+            if nargin<4
+                flag_reshape=0;
+            end
             if gamma<=0
                 error('The gamma tapering parameter must be > 0');
             end
-            if nargin<3
-                flag_reshape=0;
+            
+            if nargin<5
+                if not(strcmp(correlation_type,'expsphere'))
+                    idx_r=1:size(DistMat,1);
+                else
+                    idx_r=1:size(DistMat{1},1);
+                end
             end
+            if nargin<6
+                if not(strcmp(correlation_type,'expsphere'))
+                    idx_c=1:size(DistMat,2);
+                else
+                    idx_c=1:size(DistMat{1},2);
+                end
+            end
+            
+            if not(strcmp(correlation_type,'expsphere'))
+                DistMat=DistMat(idx_r,idx_c);
+            else
+                DistMat=DistMat{1}(idx_r,idx_c); %only the geodetic distance is retained
+            end
+            
             %find the indices of the non-zero elements of DistMat;
             idx=find(DistMat);
             %evaluate the wendland function only on the non-zero elements
@@ -765,6 +973,30 @@ classdef stem_misc
                 [I,J]=ind2sub(size(DistMat),idx);
                 weights=sparse(I,J,weights,size(DistMat,1),size(DistMat,2));
             end
+        end
+        
+        function compare(ref_par,par,name)
+            if not(isempty(ref_par))
+                size_ref_par=size(ref_par);
+                size_par=size(par);
+                
+                if not(length(size_ref_par)==length(size_par))
+                    error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2))]);
+                else
+                    if sum(abs(size_ref_par-size_par))>0
+                        if length(size_ref_par)==2
+                            error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2))]);
+                        else
+                            error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2)),'x',num2str(size_ref_par(3))]);
+                        end
+                    end
+                end
+                
+            end
+        end
+        
+        function name = varname(var)
+            name = inputname(1);
         end
         
         function v = vec(mat)

@@ -78,15 +78,25 @@ classdef stem_sim < handle
             
             obj.stem_model.stem_par=obj.stem_model.stem_par_initial;
             
-            if not(isempty(obj.nan_rate))
-                soglia_nan_p=norminv(1-obj.nan_rate(1)/2,0,1);
-                nanmat_p=exp(-obj.stem_model.stem_data.DistMat_p./obj.nan_pattern_par(1));
+            obj.stem_model.set_distance_matrix();
+
+            if not(isempty(obj.stem_model.DistMat_p))
+                if not(isempty(obj.nan_rate))
+                    soglia_nan_p=norminv(1-obj.nan_rate(1)/2,0,1);
+                    nanmat_p=exp(-obj.stem_model.DistMat_p./obj.nan_pattern_par(1));
+                else
+                    nanmat_p=[];
+                end
             else
                 nanmat_p=[];
             end
-            if not(isempty(obj.stem_model.stem_data.stem_varset_b))&&(not(isempty(obj.nan_rate)))
-                soglia_nan_b=norminv(1-obj.nan_rate(2)/2,0,1);
-                nanmat_b=exp(-obj.stem_model.stem_data.DistMat_b./obj.nan_pattern_par(2));
+            if not(isempty(obj.stem_model.DistMat_b))
+                if not(isempty(obj.stem_model.stem_data.stem_varset_b))&&(not(isempty(obj.nan_rate)))
+                    soglia_nan_b=norminv(1-obj.nan_rate(2)/2,0,1);
+                    nanmat_b=exp(-obj.stem_model.DistMat_b./obj.nan_pattern_par(2));
+                else
+                    nanmat_b=[];
+                end
             else
                 nanmat_b=[];
             end
@@ -104,7 +114,7 @@ classdef stem_sim < handle
             end            
             
             [sigma_eps,sigma_W_b,sigma_W_p,~,~,sigma_eta,G_tilde_diag,j_bp,j_p,j_z] = obj.stem_model.get_sigma();
-            if obj.stem_model.stem_data.model_type==1
+            if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
                 s_eta=sigma_eta;
                 r=length(G_tilde_diag);
                 G=sparse(1:r,1:r,G_tilde_diag,r,r);
@@ -113,13 +123,18 @@ classdef stem_sim < handle
             else
                 s_eta=obj.stem_model.stem_par.sigma_eta;
                 G=obj.stem_model.stem_par.G;
+                lambda=obj.stem_model.stem_par.lambda;
                 mu0=zeros(obj.stem_model.stem_par.p,1);
                 sigma0=eye(obj.stem_model.stem_par.p);
             end
             
-            
             if obj.stem_model.stem_par.p>0
-                Z=stem_sim.ar1_sim(G,s_eta,T,mu0,sigma0);
+                if obj.stem_model.stem_data.stem_datestamp.irregular==0
+                    Z=stem_sim.ar1_sim(G,s_eta,T,mu0,sigma0);
+                else
+                    times=obj.stem_model.stem_data.stem_datestamp.stamp;
+                    Z=stem_sim.ar1_irregular_sim(G,lambda,s_eta,times,mu0,sigma0);
+                end
             end
             
             Y=zeros(N,T);
@@ -146,34 +161,38 @@ classdef stem_sim < handle
                 end
                 if not(isempty(obj.stem_model.stem_data.X_beta))
                     if obj.stem_model.stem_data.X_beta_tv
-                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_beta(:,:,t)*obj.stem_model.stem_par.beta;
+                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_beta{t}*obj.stem_model.stem_par.beta;
                     else
-                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_beta(:,:,1)*obj.stem_model.stem_par.beta;
+                        Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_beta{1}*obj.stem_model.stem_par.beta;
                     end
                 end
                 if not(isempty(obj.stem_model.stem_data.X_z))
-                    if obj.stem_model.stem_data.model_type==1
-                        if obj.stem_model.stem_data.X_z_tv
-                            Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,t),j_z,'l'))*Z(:,t);
+                    if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
+                        if obj.stem_model.stem_data.stem_modeltype.is('HDGM')
+                            if obj.stem_model.stem_data.X_z_tv
+                                Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z{t},j_z,'l'))*Z(:,t);
+                            else
+                                Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z{1},j_z,'l'))*Z(:,t);
+                            end
                         else
-                            Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,1),j_z,'l'))*Z(:,t);
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z{1},j_z,'l')*Z(:,t);
                         end
                     else
                         if obj.stem_model.stem_data.X_z_tv
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,t),j_z,'l')*Z(:,t);
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z{t},j_z,'l')*Z(:,t);
                         else
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z(:,:,1),j_z,'l')*Z(:,t);
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z{1},j_z,'l')*Z(:,t);
                         end
                     end
                 end      
                 if not(isempty(obj.stem_model.stem_data.X_p))
                     if obj.stem_model.stem_data.X_p_tv
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p(:,1,t,k),'l'),j_p(:,k),'l');
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p{t}(:,k),'l'),j_p(:,k),'l');
                         end
                     else
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p(:,1,1,k),'l'),j_p(:,k),'l');    
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p{1}(:,k),'l'),j_p(:,k),'l');    
                         end
                     end
                 end
@@ -199,6 +218,10 @@ classdef stem_sim < handle
             Y_temp=cell(obj.stem_model.stem_data.stem_varset_p.nvar,1);
             for i=1:obj.stem_model.stem_data.stem_varset_p.nvar
                 Y_temp{i}=Y(blocks(i)+1:blocks(i+1),:);
+                %mask_nan=binornd(1,0.3,size(Y_temp{i}));
+                %mask_nan(mask_nan==1)=NaN;
+                %mask_nan(mask_nan==0)=1;
+                %Y_temp{i}=Y_temp{i}.*mask_nan;
             end
             obj.stem_model.stem_data.stem_varset_p.Y=Y_temp;
             if not(isempty(obj.stem_model.stem_data.stem_varset_b))
@@ -273,6 +296,29 @@ classdef stem_sim < handle
                 Z(:,t)=G*Z(:,t-1)+mvnrnd(zeros(length(G),1),sigma_eta)';
             end
             Z=Z(:,2:T+1);
+        end
+        
+        function Z = ar1_irregular_sim(G,lambda,sigma_eta,times,mu0,sigma_0)
+            T=length(times);
+            Z=zeros(length(G),T+1);
+            Z0=mvnrnd(mu0,sigma_0)';
+            Z(:,1)=Z0;  
+            
+            %the state at t_0 is assumed to be in the past as the average
+            %of differences between all the time steps available
+            m=mean(diff(times));
+            times=[times(1)-m,times];
+            
+            for t=2:T+1
+                delta=times(t)-times(t-1);
+                G_t=G.^(delta/lambda);
+                sigma_eta_t=sigma_eta.*log(1+delta/lambda);
+                for i=1:size(sigma_eta)
+                    sigma_eta_t(i,i)=sigma_eta(i,i)*delta/lambda;
+                end
+                Z(:,t)=G_t*Z(:,t-1)+mvnrnd(zeros(length(G),1),sigma_eta_t)';
+            end
+            Z=Z(:,2:T+1);    
         end
     end
     

@@ -29,6 +29,7 @@ classdef stem_krig_result < handle
     %CONSTANTS
     %NN - number of kriging sites
     %T - number of temporal steps    
+    %C - number of basis functions (when the model is f-HDGM)
     
     properties
         variable_name=[];       %[string]                (1x1) the name of the kriged variable
@@ -41,6 +42,13 @@ classdef stem_krig_result < handle
         diag_Var_y_hat=[];      %[double]                (NNxT)   the variance of the kriging result (only the variance and no covariance)
         E_wp_y1=[];             %[double]                (NNxTxK) the estimated latent variable w_g 
         diag_Var_wp_y1=[];      %[double]                (NNxTxK) the variance of the estimated latent variable w_g 
+        zk_s=[];                %[double]                (NNxTxC) the kalman smoother output (only when model is f-HDGM)
+        diag_Pk_s=[];           %[double]                (NNxTxC) the variance of the kalman smoother output (only when model is f-HDGM)
+        
+        coord_output_block={};  %[integer>0]             {B}(NBx2) a cell array with the coordinates of the output blocks
+        coord_cond_block={}     %[integer>0]             {B}(NBx2) a cell array with the coordinates of the conditioning blocks
+    
+        isSplineCoeff=0;        %[boolean]               (1x1) 0: the stem_krig_result object includes classic kriging results; 1: the stem_krig_result object includes the kriging of the spline coefficients when model_type is f-HDGM
     end
     
     methods
@@ -107,9 +115,6 @@ classdef stem_krig_result < handle
             end
             if strcmp(type,'variable')||strcmp(type,'both')
                 hold on
-                if not(isempty(obj.shape))
-                    mapshow(obj.shape);
-                end
                 if time_step>0
                     temp=obj.y_hat(:,:,time_step);
                     title([obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(time_step))],'FontSize',16);
@@ -119,6 +124,9 @@ classdef stem_krig_result < handle
                 end
                 h = mapshow(lon,lat,temp,'DisplayType','texturemap');
                 set(h,'FaceColor','flat');
+                if not(isempty(obj.shape))
+                    mapshow(obj.shape,'FaceColor','none');
+                end
                 axis equal
                 xlim([min(lon(:)),max(lon(:))]);
                 ylim([min(lat(:)),max(lat(:))]);
@@ -129,8 +137,8 @@ classdef stem_krig_result < handle
                     xlabel(obj.stem_grid.unit);
                     ylabel(obj.stem_grid.unit);
                 end
-                mapshow(obj.stem_grid_sites.coordinate(:,2),obj.stem_grid_sites.coordinate(:,1),'DisplayType','multipoint','Marker','+','MarkerEdgeColor','k');
-                colormap summer;
+                mapshow(obj.stem_grid_sites.coordinate(:,2),obj.stem_grid_sites.coordinate(:,1),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','w');
+                colormap jet;
                 colorbar;
                 grid on;
                 box on;
@@ -143,18 +151,18 @@ classdef stem_krig_result < handle
             end
             if strcmp(type,'std')||strcmp(type,'both')
                 hold on
-                if not(isempty(obj.shape))
-                    mapshow(obj.shape);
-                end
                 if time_step>0
                     temp=sqrt(obj.diag_Var_y_hat(:,:,time_step));
                     title(['Std of ',obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(time_step))],'FontSize',16);
                 else
                     temp=mean(sqrt(obj.diag_Var_y_hat),3);
-                    title(['Average std of',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
+                    title(['Average std of ',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
                 end
                 h = mapshow(lon,lat,temp,'DisplayType','texturemap');
                 set(h,'FaceColor','flat');
+                if not(isempty(obj.shape))
+                    mapshow(obj.shape,'FaceColor','none');
+                end
                 axis equal
                 xlim([min(lon(:)),max(lon(:))]);
                 ylim([min(lat(:)),max(lat(:))]);
@@ -165,8 +173,8 @@ classdef stem_krig_result < handle
                     xlabel(obj.stem_grid.unit,'FontSize',16);
                     ylabel(obj.stem_grid.unit,'FontSize',16);
                 end    
-                mapshow(obj.stem_grid_sites.coordinate(:,2),obj.stem_grid_sites.coordinate(:,1),'DisplayType','multipoint','Marker','+','MarkerEdgeColor','k');
-                colormap summer;
+                mapshow(obj.stem_grid_sites.coordinate(:,2),obj.stem_grid_sites.coordinate(:,1),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','w');
+                colormap jet;
                 colorbar;
                 grid on;
                 box on;

@@ -24,34 +24,37 @@
 % You should have received a copy of the GNU General Public License
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
-classdef stem_kalmanfilter_result < handle
+classdef stem_par_constraints
+   
     properties
-        zk_f   = [];    %[double]     (pxT+1)    the filtered state
-        zk_u   = [];    %[double]     (pxT+1)    the updated state
-        Pk_f   = [];    %[double]     {T+1}(pxp)  variance-covariance matrix of the filtered state
-        Pk_u   = [];    %[double]     {T+1}(pxp)  variance-covariance matrix of the updated state
-        J_last = [];    %[double]     (pxN)      innovation vector at time t=T
-        J      = [];    %[double]     {T+1}(pxN)  innovation vector from time t=0 to time t=T
-        logL   = [];    %[double]     (1x1)      observed-data log-likelihood
+        time_diagonal=1;        %[boolean]	(1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
+        pixel_correlated;       %[boolean]  (1x1) 1: when model_name is 'DCM', pixel variables are cross-correlated; 0: pixel variables are NOT cross-correlated
     end
     
     methods
-        function obj = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL)
-            %DESCRIPTION: constructor of the class stem_kalmanfilter_result
+        function obj = stem_par_constraints()
+            %DESCRIPTION: object constructor
             %
-            %INPUT 
-            %See the class properties
+            %INPUT
             %
             %OUTPUT
-            %obj             - [stem_kalmanfilter_result object]   (1x1) stem_kalmanfilter_result object  
-            
-            obj.zk_f=zk_f;
-            obj.zk_u=zk_u;
-            obj.Pk_f=Pk_f;
-            obj.Pk_u=Pk_u;
-            obj.J_last=J_last;
-            obj.J=J;
-            obj.logL=logL;
+            %obj - [stem_par_constraints object] (1x1)
         end
+        
+        %Class set methods
+        function obj = set.time_diagonal(obj,time_diagonal)
+            if not(time_diagonal==0||time_diagonal==1)
+                error('time_diagonal must be either 0 or 1');
+            end        
+            obj.time_diagonal=time_diagonal;
+        end
+        
+        function obj = set.pixel_correlated(obj,pixel_correlated)
+            if (pixel_correlated<0)||(pixel_correlated>1)
+                error('The pixel_correlated input argument must be either 0 or 1');
+            end
+            obj.pixel_correlated=pixel_correlated;
+        end
+        
     end
 end

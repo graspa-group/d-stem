@@ -120,7 +120,6 @@ clear no2_remote
 
 obj_stem_datestamp = stem_datestamp('01-01-2009 00:00', '31-12-2009 00:00', T);
 
-flag_pixel_correlated = 0;
 flag_time_diagonal = 0;
 
 %stem_data object creation
@@ -129,8 +128,7 @@ if test_map
 end
 obj_stem_data = stem_data(obj_stem_varset_p, obj_stem_gridlist_p, ...
                           obj_stem_varset_b, obj_stem_gridlist_b, ...
-                          obj_stem_datestamp, shape, [], [], ...
-                          flag_pixel_correlated);
+                          obj_stem_datestamp, [], [], shape);
 %stem_par object creation
 obj_stem_par = stem_par(obj_stem_data, 'exponential', flag_time_diagonal);
 %stem_model object creation
@@ -144,7 +142,7 @@ obj_stem_model.stem_data.standardize;
 
 %Starting values
 obj_stem_par.alpha_bp = [0.4 0.4 0.8 0.8]';
-if flag_pixel_correlated
+if obj_stem_model.stem_data.stem_modeltype.pixel_correlated
     obj_stem_par.theta_b = 100;
     obj_stem_par.v_b = [1 0.6; 0.6 1];
 else
@@ -164,7 +162,7 @@ obj_stem_model.set_initial_values(obj_stem_par);
 
 %Model estimation
 exit_toll = 0.001;
-max_iterations = 1;
+max_iterations = 100;
 obj_stem_EM_options = stem_EM_options(exit_toll, max_iterations);
 obj_stem_model.EM_estimate(obj_stem_EM_options);
 obj_stem_model.set_varcov;

@@ -24,8 +24,6 @@
 % You should have received a copy of the GNU General Public License
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
-
-
 classdef stem_datestamp < handle
     
     properties
@@ -36,38 +34,73 @@ classdef stem_datestamp < handle
     
     properties (SetAccess = private)
         stamp=[];           %[integer >0] (Tx1) all the date stamps
+        irregular=[];       %[integer]    (1x1) 0: time steps are regular, 1: time steps are irregular
     end
     
     methods
-        function obj = stem_datestamp(date_start,date_end,T)
+        function obj = stem_datestamp(varargin)
             %DESCRIPTION: object constructor
             %
-            %INPUT
-            %date_start    - [string|integer>0]     (1x1) the date related to the first time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index 
-            %date_end      - [string|integer>0]     (1x1) the date related to the last  time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index
+            %INPUT - CASE 1
+            %date_start    - [string|integer>0]     (1x1) time related to the first time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index 
+            %date_end      - [string|integer>0]     (1x1) time related to the last  time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index
             %T             - [integer>0]            (1x1) the total number of time steps
+            %
+            %INPUT - CASE 2
+            %dates         - [string|double]        (Tx1) times related to the T observations. It can be a cell array of string in the format dd-mm-yyyy HH:MM or a vector of continuous times
             %
             %OUTPUT
             %obj           - [stem_datestamp object](1x1)  
             
-            if nargin<3
-                error('Not enough input arguments');
+            if not(nargin==1||nargin==3)
+                error('Input arguments must be either 1 or 3');
             end
-            if isnumeric(date_start)
-                obj.date_start=date_start;
-            else
-                obj.date_start=datenum(date_start,'dd-mm-yyyy HH:MM');
+            
+            if (nargin==1)
+                if not(isvector(varargin{1})||iscell(varargin{1}))
+                    error('The input argument must be a vector of continuous times or a cell array of dates in the format dd-mm-yyyy HH:MM');
+                end
+                if (isvector(varargin{1}))
+                   if not(isrow(varargin{1}))
+                       varargin{1}=varargin{1}';
+                   end
+                   obj.stamp=varargin{1};
+                else
+                   obj.stamp=zeros(length(varargin{1}),1);
+                   dates=varargin{1};
+                   for i=1:length(obj.stamp)
+                       obj.stamp(i)=datenum(dates{i},'dd-mm-yyyy HH:MM');
+                   end
+                end
+                if min(diff(obj.stamp))<0
+                    error('Times must be ordered ascending');
+                end
+                obj.date_start=obj.stamp(1);
+                obj.date_end=obj.stamp(end);
+                obj.T=length(varargin{1});
+                obj.irregular=1;
             end
-            if isnumeric(date_end)
-                obj.date_end=date_end;
-            else
-                obj.date_end=datenum(date_end,'dd-mm-yyyy HH:MM');
+            if (nargin==3)
+                date_start=varargin{1};
+                date_end=varargin{2};
+                T=varargin{3};
+                if isnumeric(date_start)
+                    obj.date_start=date_start;
+                else
+                    obj.date_start=datenum(date_start,'dd-mm-yyyy HH:MM');
+                end
+                if isnumeric(date_end)
+                    obj.date_end=date_end;
+                else
+                    obj.date_end=datenum(date_end,'dd-mm-yyyy HH:MM');
+                end
+                if obj.date_end<obj.date_start
+                    error('date_start cannot be higher than date_end');
+                end
+                obj.T=T;
+                obj.stamp=obj.date_start:(obj.date_end-obj.date_start)/(obj.T-1):obj.date_end;
+                obj.irregular=0;
             end
-            if obj.date_end<obj.date_start
-                error('date_start cannot be higher than date_end');
-            end
-            obj.T=T;
-            obj.stamp=obj.date_start:(obj.date_end-obj.date_start+1)/obj.T:obj.date_end;
         end
         
         function subset_stamps(obj,indices)
@@ -86,17 +119,19 @@ classdef stem_datestamp < handle
             obj.T=length(obj.stamp);
         end
         
-        function average_stamps(obj,indices)
+        function average_stamps(obj,n_steps)
             %DESCRIPTION: averages the date stamps. This method is used when the time_average method of the class stem_data is called
             %
             %INPUT
             %obj           - [stem_datestamp object]    (1x1) stem_datestamp object
-            %indices       - [integer>0]                (1x1) the indices of the reference temporal steps. The average is evaluated on date stamps between indices(i)+1 and indices(i+1) included
+            %n_steps       - [integer >0]               (1x1) the number of temporal steps to average            %
             %
             %OUTPUT
-            %none: the properties of the object are updated   
+            %none: the properties of the object are updated  
             
-            stamp_temp=[];
+            indices=0:n_steps:obj.T;
+
+            stamp_temp=zeros(length(indices)-1,1);
             for i=1:length(indices)-1
                 stamp_temp(i)=mean(obj.stamp(indices(i)+1):obj.stamp(indices(i+1)));
             end

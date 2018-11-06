@@ -89,8 +89,11 @@ classdef stem_kalmansmoother_result < handle
                 subplot(rows,cols,i);
                 plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end),'b','LineWidth',1);
                 hold on
-                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)+2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','r:','LineWidth',1);
-                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)-2*squeeze(sqrt(obj.Pk_s(i,i,2:end)))','r:','LineWidth',1);
+                for j=2:length(obj.Pk_s)
+                    temp(j-1)=obj.Pk_s{j}(i,i);
+                end
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)+2*squeeze(sqrt(temp'))','r-.','LineWidth',1);
+                plot(obj.stem_datestamp.stamp,obj.zk_s(i,2:end)-2*squeeze(sqrt(temp'))','r-.','LineWidth',1);
                 xlim([obj.stem_datestamp.stamp(1),obj.stem_datestamp.stamp(end)]);
                 step=round(obj.stem_datestamp.T/4);
                 tick=obj.stem_datestamp.stamp(1):step:obj.stem_datestamp.stamp(end);

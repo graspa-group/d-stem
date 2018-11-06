@@ -34,8 +34,6 @@ classdef stem_crossval_result < handle
     %T  - the number of time steps
     
     properties
-        stem_krig_result=[];        %[strm_krig_result object] (1x1)  the prediction over the cross-validation sites is obtained through kriging
-        
         y_back=[];                  %[double]                  (dNxT) the original data (back-transformed) of the cross-validation sites
         y_hat_back=[];              %[double]                  (dNxT) the estimated data (back-transformed) for the cross-validation sites
         res=[];                     %[double]                  (dNxT) cross-validation residuals
@@ -53,18 +51,24 @@ classdef stem_crossval_result < handle
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %no input required
+            %no inputs required
             %
             %
             %OUTPUT
             %obj           - [stem_crossval_result object] (1x1)
         end
         
-        function set.stem_krig_result(obj,stem_krig_result)
-            if not(isa(stem_krig_result,'stem_krig_result'))
-                error('stem_krig_result must be of class stem_krig_result');
-            end
-            obj.stem_krig_result=stem_krig_result;
+        function print(obj)
+            disp(' ');
+            disp(['XVAL RESULTS FOR ',obj.stem_krig_result.variable_name]);
+            disp(' ');
+            disp(['Data std: ',num2str(nanstd(obj.y_back(:)))]);
+            disp(['xval residual std: ',num2str(nanstd(obj.res_back(:)))]);
+            R2=1-nanvar(obj.res_back(:))/nanvar(obj.y_back(:));
+            disp(['xval R2: ',num2str(R2)]);
+            disp(' ');
+            disp(['Avg. spatial std : ',num2str(mean(nanstd(obj.res_back,[],1)))]);
+            disp(['Avg. temporal std: ',num2str(mean(nanstd(obj.res_back,[],2)))]);
         end
     end
 end

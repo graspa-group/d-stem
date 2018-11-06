@@ -28,15 +28,16 @@
 classdef stem_data < handle
     
     %CONSTANTS
-    %N_p = n1_p+...+nq_p - total number of point sites
-    %N_b = n1_b+...+nq_b - total number of pixel sites
-    %N   = N_p+N_b - total number of observation sites
-    %N_b = n1_b+...+nq_b+n1_b+...+nq_b - total number of covariates
-    %N_r = n1_r+...+np_r - total number of elements of the z latent variable whem model_type=1
-    %S   = 2 if both point and pixel data are considered. S = 1 if only point data are considered.
-    %T   - number of temporal steps
-    %TT  = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
+    %N_P - total number of point sites for all the q variables
+    %N_B - total number of pixel sites for all the q variables
+    %N   - N=N_P+N_B is the total number of observation sites (points and pixels)
+    %N_b - total number of loading vectors of the fixed effects
+    %N_r - total number of elements of the z latent variable when model_name is 'HDGM'
+    %S   - 2 if both point and pixel data are considered. S = 1 if only point data are considered.
+    %T   - number of time steps
+    %TT  - TT=T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
     %p   - dimension of the latent temporal variable z
+    %d   - number of dimensions of the coordinate space
     
     properties
         stem_varset_p=[];       %[stem_varset object]   (1x1) stem_varset object for the point variables
@@ -45,29 +46,24 @@ classdef stem_data < handle
         stem_gridlist_b=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the pixel variables
         stem_datestamp=[]       %[stem_datestamp object](1x1) stem_datestamp object with information on time steps
         stem_crossval=[];       %[stem_crossval object] (1x1) stem_crossval object with information on crossvalidation
-        simulated=0;            %[boolean]              (1x1) 1: the data have been simulated; 0: observed data
-        
+        stem_modeltype=[];      %[stem_modeltype object](1x1) stem_modeltype object with information on the model type
         shape=[];               %[struct]               (1x1) boundary of the geographic region loaded from a shape file
+                
+        simulated=0;            %[boolean]              (1x1) 1: the data have been simulated; 0: observed data
 
-        model_type=0;           %[integer>=0]           (1x1) 0: type 1 model, 1: type 2 model, 2: clustering model
-        pixel_correlated=0;     %[boolean]              (1x1) 1: the pixel data are cross-correlated
-        
-        X_z=[];                 %[double]               (NxpxTT) if model type=0; (N x 1 x TT) if model_type=1 and model_subtype=0; (N x N_r x TT) if model_type=1 and model_subtype=1. The full X_z matrix
+        X_beta=[];              %[double]               {TT}(N x N_b) the full X_beta matrices
+        X_z=[];                 %[double]               {TT}(N x p)   the full X_z matrices if model_name is 'DCM'
+                                %                       {TT}(N x 1)   the full X_z matrices if model_name is 'HDGM'
+                                %                       {TT}(N x N_r) the full X_z matrices if model_name is 'f-HDGM'
     end
     
     properties (SetAccess = private) 
-        Y=[];                   %[double]     (NxT) the full observation matrix
-        X_bp=[];                %[double]     (Nx1xTT) the full X_bp matrix
-        X_beta=[];              %[double]     (NxN_bxTT) the full X_beta matrix
-        X_p=[];                 %[double]     (Nx1xTTxK) the full X_p matrix
-        
-        DistMat_p=[];           %[double]     (N_pxN_p) distance matrix of the point sites
-        DistMat_b=[];           %[double]     (N_bxN_b) distance matrix of the pixel sites
-        DistMat_z=[];           %[double]     (N_rxN_r) distance matrix of the latent variable z when model_type=1. It is evaluated only if y and z are not 1:1
-        
-        M=[];                   %[integer >1] (N_px1) vector of indices of the pixel mapped on the point sites
-        
-        can_reset=0;            %[boolean]    (1x1) 1: data are saved on disk and can be reloaded; 0: data are only on RAM
+        Y=[];                   %[double]     (N x T) the full observation matrix
+        X_bp=[];                %[double]     {TT}(N x 1) the full X_bp matrices
+        X_p=[];                 %[double]     {TT}(N x K) the full X_p matrices
+        X_f=[];                 %[double]     {TT}(Nx1) the full X_f matrices
+      
+        M=[];                   %[integer >1] (N_P x 1) vector of indices of the pixel mapped on the point sites
     end
     
     properties (Dependent, SetAccess = private)
@@ -79,26 +75,24 @@ classdef stem_data < handle
         
         standardized=0;         %[boolean]    (1x1) 1: Y, X_bp, X_beta, X_z and X_p has been standardized; 0: otherwise
         log_transformed=0;      %[boolean]    (1x1) 1: Y has been log-transformed using the method log_transform; 0: otherwise
-        
-        model_subtype=[];       %[integer]    (1x1) currently used when model_type=1. 0: X_z{i} has only one column; 1: X_z{i} has more than one column
+        boxcox_transformed=0;   %[boolena]    (1x1) 1: Y has been boxcox-transformed using the method boxcox_transform; 0: otherwise
     end
     
     methods
         
-        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,shape,can_reset,stem_crossval,pixel_correlated,model_type)
+        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_crossval,st_modeltype,shape)
             %DESCRIPTION: is the constructor of the class stem_data
             %
             %INPUT
             %
             %stem_varset_p      - [stem_varset object]    (1x1) stem_varset object for the point variables
             %stem_gridlist_p    - [stem_gridlist object]  (1x1) stem_gridlist object for the point variables  
-            %<stem_varset_b>    - [stem_varset object]    (1x1) (default: []) stem_varset object for the pixel variables
-            %<stem_gridlist_b>  - [stem_gridlist object]  (1x1) (default: []) stem_gridlist object for the pixel variables
-            %<stem_datestamp>   - [stem_datestamp object] (1x1) (default: []) stem_datestamp object with information on time steps
-            %<shape>            - [struct]                      (default: world boundaries) geographic data structure loaded from a shapefile with the boundary of the geographic region
-            %<can_reset>        - [boolean]               (1x1) (default: 0) 1: the data are saved on disk and they can be reloaded using the method reset of this class after, for example, data transformation
-            %<stem_crossval>    - [stem_crossval object]  (1x1) (default: []) stem_crossval object with information on crossvalidation
-            %<model_type>       - [integer>=0]            (1x1) (default: 0) 0: type 1 model, 1: type 2 model, 2: clustering model
+            %<stem_varset_b>    - [stem_varset object]    (1x1) stem_varset object for the pixel variables
+            %<stem_gridlist_b>  - [stem_gridlist object]  (1x1) stem_gridlist object for the pixel variables
+            %<stem_datestamp>   - [stem_datestamp object] (1x1) stem_datestamp object with information on time steps
+            %<stem_crossval>    - [stem_crossval object]  (1x1) stem_crossval object with information on crossvalidation
+            %<st_modeltype>     - [stem_modeltype object] (1x1) stem_modeltype object with information on the model type
+            %<shape>            - [struct]                (1x1) structure loaded from a shapefile with the boundary of the geographic region
             %
             %OUTPUT
             %obj                - [stem_data object]      (1x1) the stem_data object
@@ -172,8 +166,20 @@ classdef stem_data < handle
                     error('The number of datestamps differs from T');
                 end
             end
-
+            
             if nargin>=6
+                if not(isempty(stem_crossval))
+                    obj.stem_crossval=stem_crossval;
+                    for i=1:length(obj.stem_crossval.variable_name)
+                        idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name{i});
+                        if isempty(idx_var)
+                            error(['Cross-validation variable ',obj.stem_crossval.variable_name{i},' not found']);
+                        end
+                    end
+                end
+            end
+
+            if nargin>=8
                 if not(isempty(shape))
                     obj.shape=shape;
                     obj.shape(1,1).Geometry='Line';
@@ -183,83 +189,76 @@ classdef stem_data < handle
             else
                 obj.shape=shaperead('landareas.shp');
             end
-            
-            if nargin>=7
-                if not(isempty(can_reset))
-                    obj.can_reset=can_reset;
-                else
-                    obj.can_reset=0;
-                end
+
+            if nargin<7
+                obj.stem_modeltype=stem_modeltype('DCM');
             else
-                obj.can_reset=0;
-            end
-            
-            if nargin>=8
-                if not(isempty(stem_crossval))
-                    obj.stem_crossval=stem_crossval;
-                    idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name);
-                    if isempty(idx_var)
-                        error('Cross-validation variable not found');
-                    end
+                if isempty(st_modeltype)
+                    obj.stem_modeltype=stem_modeltype('DCM');   
+                else
+                    obj.stem_modeltype=st_modeltype;
                 end
             end
-            
-            if nargin>=9
-                if not(isempty(pixel_correlated))
-                    if isempty(obj.stem_varset_b)
-                        disp('WARNING: Pixel data are not provided. The pixel_correlated input argument is ignored');
-                    else
-                        obj.pixel_correlated=pixel_correlated;
+       
+            if obj.stem_modeltype.is({'HDGM','f-HDGM'})
+                if not(isempty(obj.stem_varset_p.X_p))
+                    error('X_p must be empty when model_name is HDGM or f-HDGM');
+                end
+                
+                if obj.stem_modeltype.is('f-HDGM')
+                    if isempty(obj.stem_varset_p.X_f)
+                        error('X_f must be set when model_name is f-HDGM');
+                    end
+                    if not(isempty(obj.stem_varset_p.X_z))
+                        error('X_z must be empty when model_name is f-HDGM. X_z will be updated internally.');
+                    end
+                    if not(isempty(obj.stem_varset_b))
+                        error('stem_varset_b and stem_gridlist_b must be empty when model_name is f-HDGM');
                     end
                 end
-            end
-            
-            if nargin>=10
-                if not(isempty(model_type))
-                    obj.model_type=model_type;
-                    if obj.model_type==1
-                        if not(isempty(obj.stem_varset_p.X_p))
-                            error('X_p must be empty when model_type is 1');
-                        end
-                        if not(isempty(obj.stem_varset_p.X_z))
-                            r=size(obj.stem_varset_p.X_z{1},2);
-                            for i=2:length(obj.stem_varset_p.X_z)
-                                if not(size(obj.stem_varset_p.X_z{i},2)==r)
-                                    error('The number of columns of each X_z{i} must be the same when model_type=1');
-                                end
-                            end
-                            n=size(obj.stem_varset_p.X_z{1},1);
-                            if size(obj.stem_varset_p.X_z{1},2)>1
-                                for i=2:length(obj.stem_varset_p.X_z)
-                                    if not(size(obj.stem_varset_p.X_z{i},1)==n)
-                                        error('The number of sites of each variable Y{i} must be the same when model_type=1 and X_z{i} has multiple columns');
-                                    end
-                                end
-                            end
-                        else
-                            error('X_z cannot be empty when model_type=1');
+
+                if not(isempty(obj.stem_varset_p.X_z))
+                    r=size(obj.stem_varset_p.X_z{1},2);
+                    for i=2:length(obj.stem_varset_p.X_z)
+                        if not(size(obj.stem_varset_p.X_z{i},2)==r)
+                            error('The number of columns of each X_z{i} must be the same when model_name is HDGM or f-HDGM');
                         end
                     end
-                    if (obj.model_type==2||obj.model_type==3)
-                        if obj.nvar>1
-                            error('The clustering model is only available in the univariate case (q=1)');
-                        end
-                        if not(isempty(obj.stem_varset_b))
-                            error('The clustering model is only available for point level data');
-                        end
-                        if isempty(obj.stem_varset_p.X_z)
-                            error('X_z must be provided when the clustering model is enabled');
+                    
+                    if obj.stem_modeltype.is('HDGM')
+                        if r>1
+                            error('When model_name is HDGM, X_z must have only one column');
                         end
                     end
                 end
+                
+                if stem_datestamp.irregular==1
+                    error('Irregular time steps are not yer supported when model_name is HDGM or f-HDGM');
+                end
             end
             
-            %if obj.can_reset
-            % obj.set_original;
-            %end
+            if obj.stem_modeltype.is('MBC')
+                if obj.nvar>1
+                    error('The clustering model is only available in the univariate case (q=1)');
+                end
+                if not(isempty(obj.stem_varset_b))
+                    error('The clustering model is only available for point level data');
+                end
+                if isempty(obj.stem_varset_p.X_z)
+                    error('X_z must be provided when the clustering model is enabled');
+                end
+            end
             
+            if obj.stem_modeltype.is('Emulator')
+                if not(isempty(obj.stem_varset_b))
+                    error('The emulator model is only available for point level data');
+                end
+                if not(strcmpi(obj.stem_gridlist_p.grid{1}.unit,'none'))
+                    error('The grid unit must be ''none'' when the model type is ''Emulator''');
+                end
+            end
+           
             obj.update_data();
-            obj.update_distance();
             if not(isempty(stem_varset_b))
                 obj.update_M();
             end
@@ -267,7 +266,7 @@ classdef stem_data < handle
         end
         
         function update_data(obj)
-            %DESCRIPTION: generates the matrices Y, X_bp, X_beta, X_z and X_p 
+            %DESCRIPTION: generates the matrices Y, X_bp, X_beta, X_z, X_p and X_f
             %
             %INPUT
             %obj - [stem_data object] (1x1) the stem_data object
@@ -278,336 +277,309 @@ classdef stem_data < handle
             
             disp('Generating data matrices...');
             %Y
-            Y=[];
+            Y_temp=[];
             for i=1:length(obj.stem_varset_p.Y)
-                Y=cat(1,Y,obj.stem_varset_p.Y{i});
+                Y_temp=cat(1,Y_temp,obj.stem_varset_p.Y{i});
             end
             if not(isempty(obj.stem_varset_b))
                 for i=1:length(obj.stem_varset_b.Y)
-                    Y=cat(1,Y,obj.stem_varset_b.Y{i});
+                    Y_temp=cat(1,Y_temp,obj.stem_varset_b.Y{i});
                 end
             end
-            obj.Y=Y;
-            clear Y;
+            obj.Y=Y_temp;
+            clear Y_temp;
             
             %X_bp
             if not(isempty(obj.stem_varset_b))
-                X_bp=[];
                 if not(isempty(obj.stem_varset_b.X_bp))&&not(isempty(obj.stem_varset_p.X_bp))
                     done=0;
                     if size(obj.stem_varset_p.X_bp{1},3)==1 && size(obj.stem_varset_b.X_bp{1},3)==obj.T
-                        for i=1:length(obj.stem_varset_p.X_bp)
-                            X_bp=cat(1,X_bp,repmat(obj.stem_varset_p.X_bp{i},[1,1,obj.T]));
-                        end
-                        for i=1:length(obj.stem_varset_b.X_bp)
-                            X_bp=cat(1,X_bp,obj.stem_varset_b.X_bp{i});
+                        X_bp_temp=cell(obj.T,1);
+                        for t=1:obj.T
+                            for i=1:length(obj.stem_varset_p.X_bp)
+                                X_bp_temp{t}=cat(1,X_bp_temp{t},obj.stem_varset_p.X_bp{i}(:,1));
+                            end
+                            for i=1:length(obj.stem_varset_b.X_bp)
+                                X_bp_temp{t}=cat(1,X_bp_temp{t},obj.stem_varset_b.X_bp{i}(:,t));
+                            end
                         end
                         done=1;
                     end
                     if size(obj.stem_varset_p.X_bp{1},3)==obj.T && size(obj.stem_varset_b.X_bp{1},3)==1 && not(done)
-                        for i=1:length(obj.stem_varset_p.X_bp)
-                            X_bp=cat(1,X_bp,obj.stem_varset_p.X_bp{i});
-                        end
-                        for i=1:length(obj.stem_varset_b.X_bp)
-                            X_bp=cat(1,X_bp,repmat(obj.stem_varset_b.X_bp{i},[1,1,obj.T]));
+                        X_bp_temp=cell(obj.T,1);
+                        for t=1:obj.T
+                            for i=1:length(obj.stem_varset_p.X_bp)
+                                X_bp_temp{t}=cat(1,X_bp_temp{t},obj.stem_varset_p.X_bp{i}(:,t));
+                            end
+                            for i=1:length(obj.stem_varset_b.X_bp)
+                                X_bp_temp{t}=cat(1,X_bp_temp{t},obj.stem_varset_b.X_bp{i}(:,1));
+                            end
                         end
                         done=1;
                     end
-                    if size(obj.stem_varset_p.X_bp{1},3)==size(obj.stem_varset_b.X_bp{1},3) && not(done)
+                    if size(obj.stem_varset_p.X_bp{1},3)==obj.T && size(obj.stem_varset_b.X_bp{1},3)==T && not(done)
+                        X_bp_temp=cell(obj.T,1);
+                        for t=1:obj.T
+                            for i=1:length(obj.stem_varset_p.X_bp)
+                                X_bp_temp{t}=cat(1,X_bp_temp{t},obj.stem_varset_p.X_bp{i}(:,t));
+                            end
+                            for i=1:length(obj.stem_varset_b.X_bp)
+                                X_bp_temp{t}=cat(1,X_bp_temp{t},obj.stem_varset_b.X_bp{i}(:,t));
+                            end
+                        end
+                        done=1;
+                    end
+                    if size(obj.stem_varset_p.X_bp{1},3)==1 && size(obj.stem_varset_b.X_bp{1},3)==1 && not(done)
+                        X_bp_temp=cell(1,1);
                         for i=1:length(obj.stem_varset_p.X_bp)
-                            X_bp=cat(1,X_bp,obj.stem_varset_p.X_bp{i});
+                            X_bp_temp{1}=cat(1,X_bp_temp{1},obj.stem_varset_p.X_bp{i}(:,1));
                         end
                         for i=1:length(obj.stem_varset_b.X_bp)
-                            X_bp=cat(1,X_bp,obj.stem_varset_b.X_bp{i});
+                            X_bp_temp{1}=cat(1,X_bp_temp{1},obj.stem_varset_b.X_bp{i}(:,1));
                         end
                     end
                 end
-                obj.X_bp=X_bp;
+                obj.X_bp=X_bp_temp;
                 clear X_bp;
             end
 
             %X_beta
+            all_T=[];
             if not(isempty(obj.stem_varset_p.X_beta))
-                T_max=[];
                 for i=1:length(obj.stem_varset_p.X_beta)
                     if not(isempty(obj.stem_varset_p.X_beta{i}))
-                        T_max=size(obj.stem_varset_p.X_beta{i},3);
+                        all_T=[all_T size(obj.stem_varset_p.X_beta{i},3)];
                     end
                 end
-                if T_max>1
-                    n1=0;
-                    n2=0;
-                    for i=1:length(obj.stem_varset_p.X_beta)
-                        n1=n1+size(obj.stem_varset_p.X_beta{i},1);
-                        if sum(abs(obj.stem_varset_p.X_beta{i}(:)))>0
-                            n2=n2+size(obj.stem_varset_p.X_beta{i},2);
+            end
+            if not(isempty(obj.stem_varset_b))
+                if not(isempty(obj.stem_varset_b.X_beta))
+                    for i=1:length(obj.stem_varset_b.X_beta)
+                        if not(isempty(obj.stem_varset_b.X_beta{i}))
+                            all_T=[all_T size(obj.stem_varset_b.X_beta{i},3)];
                         end
                     end
-                    X_beta=zeros(n1,n2,obj.T);
-                    for t=1:size(obj.stem_varset_p.X_beta{1},3)
-                        X_temp=[];
-                        for i=1:length(obj.stem_varset_p.X_beta)
-                            if sum(abs(obj.stem_varset_p.X_beta{i}(:)))>0
-                                X_temp=blkdiag(X_temp,obj.stem_varset_p.X_beta{i}(:,:,t));
+                end
+            end
+            T_max=max(all_T);
+            
+            if not(isempty(obj.stem_varset_p.X_beta))
+                X_beta_temp=cell(T_max,1);
+                for t=1:T_max
+                    X_beta_temp{t}=[];
+                    for i=1:length(obj.stem_varset_p.X_beta)
+                        if size(obj.stem_varset_p.X_beta{i},3)>1
+                            if not(obj.stem_modeltype.is('f-HDGM'))
+                                X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
                             else
-                                X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_beta{i}(:,:,t),1),size(X_temp,2)));
+                                X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
+                            end
+                        else
+                            if not(obj.stem_modeltype.is('f-HDGM'))
+                                X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
+                            else
+                                X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
                             end
                         end
-                        X_beta(:,:,t)=X_temp;
                     end
-                else
-                    X_temp=[];
-                    for i=1:length(obj.stem_varset_p.X_beta)
-                        if sum(abs(obj.stem_varset_p.X_beta{i}(:)))>0
-                            X_temp=blkdiag(X_temp,obj.stem_varset_p.X_beta{i});
-                        else
-                            X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_beta{i},1),size(X_temp,2)));
-                        end
-                    end
-                    X_beta=X_temp;
                 end
-                X_beta_p=X_beta;
-                clear X_beta;
-                clear X_temp;
+                X_beta_p=X_beta_temp;
+                clear X_beta_temp;
             else
-                X_beta_p=[];
+                X_beta_p={};
             end
             
             if not(isempty(obj.stem_varset_b))
                 if not(isempty(obj.stem_varset_b.X_beta))
-                    T_max=[];
-                    for i=1:length(obj.stem_varset_b.X_beta)
-                        if not(isempty(obj.stem_varset_b.X_beta{i}))
-                            T_max=size(obj.stem_varset_b.X_beta{i},3);
-                        end
-                    end
-                    if T_max>1
-                        n1=0;
-                        n2=0;
+                    X_beta_temp=cell(T_max,1);
+                    for t=1:T_max
+                        X_beta_temp{t}=[];
                         for i=1:length(obj.stem_varset_b.X_beta)
-                            n1=n1+size(obj.stem_varset_b.X_beta{i},1);
-                            if sum(abs(obj.stem_varset_b.X_beta{i}(:)))>0
-                                n2=n2+size(obj.stem_varset_b.X_beta{i},2);
-                            end
-                        end
-                        X_beta=zeros(n1,n2,obj.T);
-                        for t=1:size(obj.stem_varset_b.X_beta{1},3)
-                            X_temp=[];
-                            for i=1:length(obj.stem_varset_b.X_beta)
-                                if sum(abs(obj.stem_varset_b.X_beta{i}(:)))>0
-                                    X_temp=blkdiag(X_temp,obj.stem_varset_b.X_beta{i}(:,:,t));
-                                else
-                                    X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_beta{i}(:,:,t),1),size(X_temp,2)));
-                                end
-                            end
-                            X_beta(:,:,t)=X_temp;
-                        end
-                    else
-                        X_temp=[];
-                        for i=1:length(obj.stem_varset_b.X_beta)
-                            if sum(abs(obj.stem_varset_b.X_beta{i}(:)))>0
-                                X_temp=blkdiag(X_temp,obj.stem_varset_b.X_beta{i});
+                            if size(obj.stem_varset_b.X_beta{i},3)>1
+                                X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_b.X_beta{i}(:,:,t));
                             else
-                                X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_beta{i},1),size(X_temp,2)));
+                                X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_b.X_beta{i}(:,:,1));
                             end
                         end
-                        X_beta=X_temp;
                     end
-                    X_beta_b=X_beta;
-                    clear X_beta;
-                    clear X_temp;
+                    X_beta_b=X_beta_temp;
+                    clear X_beta_temp;
                 else
-                    X_beta_b=[];
+                    X_beta_b={};
                 end
             else
-                X_beta_b=[];
+                X_beta_b={};
             end
             
             if not(isempty(X_beta_p))&&not(isempty(X_beta_b))
-                obj.X_beta=zeros(size(X_beta_p,1)+size(X_beta_b,1),size(X_beta_p,2)+size(X_beta_b,2),size(X_beta_p,3));
-                for t=1:size(X_beta_p,3)
-                    obj.X_beta(:,:,t)=blkdiag(X_beta_p(:,:,t),X_beta_b(:,:,t));
+                obj.X_beta=cell(T_max,1);
+                for t=1:T_max
+                    obj.X_beta{t}=blkdiag(X_beta_p{t},X_beta_b{t});
                 end
             else
-              if not(isempty(X_beta_p))
-                  obj.X_beta=X_beta_p;
-              end
-              if not(isempty(X_beta_b))
-                  obj.X_beta=cat(1,zeros(obj.stem_varset_p.N,size(X_beta_p,2),obj.T),X_beta_p);
-              end
+                if not(isempty(X_beta_p))
+                    obj.X_beta=X_beta_p;
+                end
+                if not(isempty(X_beta_b))
+                    obj.X_beta=cell(T_max,1);
+                    for t=1:T_max
+                        obj.X_beta{t}=cat(1,zeros(obj.stem_varset_p.N,size(X_beta_b{t},2)),X_beta_b{t});
+                    end
+                end
             end
+            clear X_beta_p
+            clear X_beta_b
             
             %X_z
-            if not(obj.model_type==1)
+            if not(obj.stem_modeltype.is({'HDGM','f-HDGM'}))
+                all_T=[];
                 if not(isempty(obj.stem_varset_p.X_z))
-                    T_max=[];
                     for i=1:length(obj.stem_varset_p.X_z)
                         if not(isempty(obj.stem_varset_p.X_z{i}))
-                            T_max=size(obj.stem_varset_p.X_z{i},3);
+                            all_T=[all_T size(obj.stem_varset_p.X_z{i},3)];
                         end
                     end
-                    if T_max>1
-                        n1=0;
-                        n2=0;
-                        for i=1:length(obj.stem_varset_p.X_z)
-                            n1=n1+size(obj.stem_varset_p.X_z{i},1);
-                            if sum(abs(obj.stem_varset_p.X_z{i}(:)))>0
-                                n2=n2+size(obj.stem_varset_p.X_z{i},2);
+                end
+                if not(isempty(obj.stem_varset_b))
+                    if not(isempty(obj.stem_varset_b.X_z))
+                        for i=1:length(obj.stem_varset_b.X_z)
+                            if not(isempty(obj.stem_varset_b.X_z{i}))
+                                all_T=[all_T size(obj.stem_varset_b.X_z{i},3)];
                             end
                         end
-                        X_z=zeros(n1,n2,obj.T);
-                        for t=1:size(obj.stem_varset_p.X_z{1},3)
-                            X_temp=[];
-                            for i=1:length(obj.stem_varset_p.X_z)
-                                if sum(abs(obj.stem_varset_p.X_z{i}(:)))>0
-                                    X_temp=blkdiag(X_temp,obj.stem_varset_p.X_z{i}(:,:,t));
-                                else
-                                    X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_z{i}(:,:,t),1),size(X_temp,2)));
-                                end
-                            end
-                            X_z(:,:,t)=X_temp;
-                        end
-                    else
-                        X_temp=[];
+                    end
+                end
+                T_max=max(all_T);
+                
+                if not(isempty(obj.stem_varset_p.X_z))
+                    X_z_temp=cell(T_max,1);
+                    for t=1:T_max
+                        X_z_temp{t}=[];
                         for i=1:length(obj.stem_varset_p.X_z)
-                            if sum(abs(obj.stem_varset_p.X_z{i}(:)))>0
-                                X_temp=blkdiag(X_temp,obj.stem_varset_p.X_z{i});
+                            if size(obj.stem_varset_p.X_z{i},3)>1
+                                X_z_temp{t}=blkdiag(X_z_temp{t},obj.stem_varset_p.X_z{i}(:,:,t));
                             else
-                                X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_p.X_z{i},1),size(X_temp,2)));
+                                X_z_temp{t}=blkdiag(X_z_temp{t},obj.stem_varset_p.X_z{i}(:,:,1));
                             end
                         end
-                        X_z=X_temp;
                     end
-                    X_z_p=X_z;
-                    clear X_z;
-                    clear X_temp;
+                    X_z_p=X_z_temp;
+                    clear X_z_temp;
                 else
-                    X_z_p=[];
+                    X_z_p={};
                 end
                 
                 if not(isempty(obj.stem_varset_b))
                     if not(isempty(obj.stem_varset_b.X_z))
-                        T_max=[];
-                        for i=1:length(obj.stem_varset_b.X_z)
-                            if not(isempty(obj.stem_varset_b.X_z{i}))
-                                T_max=size(obj.stem_varset_b.X_z{i},3);
-                            end
-                        end
-                        if T_max>1
-                            n1=0;
-                            n2=0;
+                        X_z_temp=cell(T_max,1);
+                        for t=1:T_max
+                            X_z_temp{t}=[];
                             for i=1:length(obj.stem_varset_b.X_z)
-                                n1=n1+size(obj.stem_varset_b.X_z{i},1);
-                                if sum(abs(obj.stem_varset_b.X_z{i}(:)))>0
-                                    n2=n2+size(obj.stem_varset_b.X_z{i},2);
-                                end
-                            end
-                            X_z=zeros(n1,n2,obj.T);
-                            for t=1:size(obj.stem_varset_b.X_z{1},3)
-                                X_temp=[];
-                                for i=1:length(obj.stem_varset_b.X_z)
-                                    if sum(abs(obj.stem_varset_b.X_z{i}(:)))>0
-                                        X_temp=blkdiag(X_temp,obj.stem_varset_b.X_z{i}(:,:,t));
-                                    else
-                                        X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_z{i}(:,:,t),1),size(X_temp,2)));
-                                    end
-                                end
-                                X_z(:,:,t)=X_temp;
-                            end
-                        else
-                            X_temp=[];
-                            for i=1:length(obj.stem_varset_b.X_z)
-                                if sum(abs(obj.stem_varset_b.X_z{i}(:)))>0
-                                    X_temp=blkdiag(X_temp,obj.stem_varset_b.X_z{i});
+                                if size(obj.stem_varset_b.X_z{i},3)>1
+                                    X_z_temp{t}=blkdiag(X_z_temp{t},obj.stem_varset_b.X_z{i}(:,:,t));
                                 else
-                                    X_temp=cat(1,X_temp,zeros(size(obj.stem_varset_b.X_z{i},1),size(X_temp,2)));
+                                    X_z_temp{t}=blkdiag(X_z_temp{t},obj.stem_varset_b.X_z{i}(:,:,1));
                                 end
                             end
-                            X_z=X_temp;
                         end
-                        X_z_b=X_z;
-                        clear X_z;
-                        clear X_temp;
+                        X_z_b=X_z_temp;
+                        clear X_z_temp;
                     else
-                        X_z_b=[];
+                        X_z_b={};
                     end
                 else
-                    X_z_b=[];
+                    X_z_b={};
                 end
                 
                 if not(isempty(X_z_p))&&not(isempty(X_z_b))
-                    obj.X_z=blkdiag(X_z_p,X_z_b);
+                    obj.X_z=cell(T_max,1);
+                    for t=1:T_max
+                        obj.X_z{t}=blkdiag(X_z_p{t},X_z_b{t});
+                    end
                 else
                     if not(isempty(X_z_p))
                         obj.X_z=X_z_p;
                     end
                     if not(isempty(X_z_b))
-                        obj.X_z=[zeros(obj.stem_varset_p.N,obj.T);X_z_p];
+                        obj.X_z=cell(T_max,1);
+                        for t=1:T_max
+                            obj.X_z{t}=cat(1,zeros(obj.stem_varset_p.N,size(X_z_b{t},2)),X_z_b{t});
+                        end
                     end
                 end
+                clear X_z_p
+                clear X_z_b
             else
-                %model_type=1
-                if size(obj.stem_varset_p.X_z{1},3)==obj.T
-                    if obj.model_subtype==1
+                %model_name is 'HDGM' or 'f-HDGM'
+                if not(isempty(obj.stem_varset_p.X_z))
+                    T_max=size(obj.stem_varset_p.X_z{1},3);
+                    X_z_temp=cell(T_max,1);
+                    if obj.stem_modeltype.is('f-HDGM')
                         %X_z has more than one column
-                        r=obj.dim(1)*size(obj.stem_varset_p.X_z{1},2);
-                        X_z=zeros(obj.Np,r,obj.T);
-                        for t=1:size(obj.stem_varset_p.X_z{1},3)
-                            X_temp=[];
+                        dim=obj.stem_varset_p.dim(1);
+                        blocks_y=[0 cumsum(repmat(dim,[1,length(obj.stem_varset_p.X_z)]))];
+                        blocks_z=[0 cumsum(repmat(dim,[1,size(obj.stem_varset_p.X_z{i},2)]))];
+                        for t=1:T_max
+                            X_temp=zeros(obj.N,blocks_z(end));
                             for i=1:length(obj.stem_varset_p.X_z)
-                                X_temp2=[];
                                 for j=1:size(obj.stem_varset_p.X_z{i},2)
-                                    X_temp2=cat(2,X_temp2,diag(obj.stem_varset_p.X_z{i}(:,j,t)));
+                                    X_temp(blocks_y(i)+1:blocks_y(i+1),blocks_z(j)+1:blocks_z(j+1))=diag(obj.stem_varset_p.X_z{i}(:,j,t));
                                 end
-                                X_temp=cat(1,X_temp,X_temp2);
                             end
-                            X_z(:,:,t)=X_temp;
+                            X_z_temp{t}=sparse(X_temp);
                         end
                     else
                         %X_z has one column
-                        X_z=zeros(obj.Np,1,obj.T); %should be a diagonal matrix for each t but it is leaved as a vector to save memory
-                        for t=1:size(obj.stem_varset_p.X_z{1},3)
-                            X_temp=[];
-                            for i=1:length(obj.stem_varset_p.X_z{i})
-                                X_temp=cat(1,X_temp,obj.stem_varset_p.X_z{i}(:,t));
+                        for t=1:T_max
+                            X_z_temp{t}=[];
+                            for i=1:length(obj.stem_varset_p.X_z)
+                                X_z_temp{t}=cat(1,X_z_temp{t},obj.stem_varset_p.X_z{i}(:,1,t));
                             end
-                            X_z(:,1,t)=X_temp;
                         end
                     end
-                else
-                    if obj.model_subtype==1
-                        %X_z has more than one column
-                        X_temp=[];
-                        for i=1:length(obj.stem_varset_p.X_z)
-                            X_temp2=[];
-                            for j=1:size(obj.stem_varset_p.X_z{i},2)
-                                X_temp2=cat(2,X_temp2,diag(obj.stem_varset_p.X_z{i}(:,j)));
-                            end
-                            X_temp=cat(1,X_temp,X_temp2);
-                        end
-                        X_z=X_temp;
-                    else
-                        %X_z has one column
-                        X_z=[];
-                        for i=1:length(obj.stem_varset_p.X_z)
-                            X_z=cat(1,X_z,obj.stem_varset_p.X_z{i});
-                        end
-                    end
+
+                    obj.X_z=X_z_temp;
+                    clear X_z_temp
                 end
-                
-                obj.X_z=X_z;
-                clear X_z
             end
 
             %X_p
             if not(isempty(obj.stem_varset_p.X_p))
-                X_p=[];
-                for i=1:length(obj.stem_varset_p.X_p)
-                    X_p=cat(1,X_p,obj.stem_varset_p.X_p{i});
+                all_T=[];
+                if not(isempty(obj.stem_varset_p.X_p))
+                    for i=1:length(obj.stem_varset_p.X_p)
+                        if not(isempty(obj.stem_varset_p.X_p{i}))
+                            all_T=[all_T size(obj.stem_varset_p.X_p{i},3)];
+                        end
+                    end
                 end
-                obj.X_p=X_p;
-                clear X_p;
+                T_max=max(all_T);
+                
+                X_p_temp=cell(T_max,1);
+                for t=1:T_max
+                    X_p_temp{t}=[];
+                    for i=1:length(obj.stem_varset_p.X_p)
+                        if size(obj.stem_varset_p.X_p{i},3)>1
+                            X_p_temp{t}=cat(1,X_p_temp{t},obj.stem_varset_p.X_p{i}(:,:,t));
+                        else
+                            X_p_temp{t}=cat(1,X_p_temp{t},obj.stem_varset_p.X_p{i}(:,:,1));
+                        end
+                    end
+                end
+                obj.X_p=X_p_temp;
+                clear X_p_temp;
             end
+            
+            %X_f
+            if not(isempty(obj.stem_varset_p.X_f))
+                X_f_temp=[];
+                for i=1:length(obj.stem_varset_p.X_f)
+                    X_f_temp=cat(1,X_f_temp,obj.stem_varset_p.X_f{i});
+                end
+                obj.X_f=X_f_temp;
+                clear X_f_temp;
+            end
+            
             disp('Generation ended.');
         end
         
@@ -639,54 +611,6 @@ classdef stem_data < handle
             disp('Generation ended.');
         end
         
-        function update_distance(obj,type,force)
-            %DESCRIPTION: generates the distance matrices
-            %
-            %INPUT
-            %obj    - [stem_data object] (1x1) the stem_data object
-            %<type> - [string]           (1x1) (Default: 'both') 'point': only the distance matrix for the point data is evaluated. 
-            %                                                    'pixel': only the distance matrix for the pixel data is evaluated.
-            %                                                    'both':  both the matrices are evaluated.
-            %
-            %OUTPUT         
-            %
-            %none: the DistMat_p and DistMat_b property are generated and updated
-
-            if nargin<2
-                type='both';
-            end
-            if nargin<3
-                force=0;
-            end
-            cmp=strcmp(type,{'both','point','pixel'});
-            if sum(cmp)==0
-                error('type must be point, pixel or both');
-            end
-            
-            if strcmp(type,'point')||strcmp(type,'both')
-                if not(isempty(obj.stem_varset_p.X_p))||force||obj.model_type==1
-                    disp('Generating point distance matrices...');
-                    obj.DistMat_p=obj.stem_gridlist_p.get_distance_matrix();
-                    if obj.model_type==1
-                        if obj.model_subtype==1
-                            %y_t and the latent variable z_t have different dimensions
-                            type=1;
-                            idx_var=1;
-                            obj.DistMat_z=kron(ones(size(obj.stem_varset_p.X_z,2))*obj.stem_gridlist_p.get_distance_matrix(type,idx_var));
-                        end
-                    end
-                    disp('Generation ended.');
-                end
-            end
-            if strcmp(type,'pixel')||strcmp(type,'both')
-                if not(isempty(obj.stem_gridlist_b))&&not(isempty(obj.stem_varset_b.X_bp))
-                    disp('Generating pixel data distance matrices...');
-                    obj.DistMat_b=obj.stem_gridlist_b.get_distance_matrix(obj.pixel_correlated);
-                    disp('Generation ended.');
-                end
-            end
-        end     
-       
         %Data transform
         function detrend_Y(obj)
             %DESCRIPTION: remove the mean from each time series in Y
@@ -762,7 +686,15 @@ classdef stem_data < handle
             %
             %OUTPUT
             %
-            %none: the matrix Y is updated            
+            %none: the matrix Y is updated      
+            
+            if obj.log_transformed==1
+                error('You cannot log transform twice');
+            end
+            
+            if obj.boxcox_transformed==1
+                error('A boxcox transformation has been already applied');
+            end
             
             if obj.stem_varset_p.standardized
                 error('The log_transform method must be called before the standardize method');
@@ -785,6 +717,71 @@ classdef stem_data < handle
             obj.update_data;
         end
         
+        function boxcox_transform(obj,lambda)
+            %DESCRIPTION: boxcox-transforms the matrix Y. Lambda is the transformation paramter.
+            %             If not provided, lambda is estimated
+            %
+            %INPUT
+            %obj       - [stem_data object] (1x1) the stem_data object
+            %<lambda>  - [double]           (qx1)|(2qx1) the parameters of the boxcox transformation
+            %
+            %OUTPUT
+            %
+            %none: the matrix Y is updated 
+            
+            if obj.boxcox_transformed==1
+                error('You cannot apply twice the boxcox transformation');
+            end
+            
+            if obj.log_transformed==1
+                error('A log transformation has been already applied');
+            end
+            
+            if nargin<2
+                v = ver;
+                test_opt=any(strcmp('Financial Toolbox', {v.Name}));
+                if not(test_opt)
+                    error('You need the Financial Toolbox to estimate the lambda paramter. You can pass a value for lambda to avoid this error');
+                end
+                
+                if not(isempty(obj.stem_varset_b))
+                    lambda=nan(obj.nvar*2,1);
+                else
+                    lambda=nan(obj.nvar,1);
+                end
+            else
+                if not(isempty(obj.stem_varset_b))
+                    if not(length(lambda)==obj.nvar*2)
+                        error('lambda must be a 2q x 1 vector');
+                    end
+                else
+                    if not(length(lambda)==obj.nvar)
+                        error('lambda must be a q x 1 vector');
+                    end
+                end
+            end
+            
+            if obj.stem_varset_p.standardized
+                error('The boxcox_transform method must be called before the standardize method');
+            end
+            if not(isempty(obj.stem_varset_b))
+                if obj.stem_varset_b.standardized
+                    error('The boxcox_transform method must be called before the standardize method');
+                end
+            end
+            
+            disp('Point level data boxcox-transformation started...');
+            obj.stem_varset_p.boxcox_transform(lambda(1:obj.nvar));
+            disp('Point level data boxcox-transformation ended.');
+            if not(isempty(obj.stem_varset_b))
+                disp('Pixel data boxcox-transformation started...');
+                obj.stem_varset_b.boxcox_transform(lambda(obj.nvar+1:end));
+                disp('Pixel data boxcox-transformation ended.');
+            end
+            disp('Updtaing data matrices after boxcox-transformation...');
+            obj.update_data;
+        end
+        
         function time_average(obj,n_steps)
             %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_bp, X_beta, X_z and X_p
             %
@@ -797,7 +794,7 @@ classdef stem_data < handle
             %none: the matrices listed above are updated
             
             if nargin<2
-                error('The subsampling factor must be provided');
+                error('n_steps must be provided');
             end
             if n_steps<=1
                 error('n_steps must be greater than 1');
@@ -805,16 +802,15 @@ classdef stem_data < handle
             if round(n_steps)~=n_steps
                 error('n_steps must be an integer value');
             end
+            if n_steps>obj.T
+                error('n_steps cannot be higher than the number of time steps in the data');
+            end
    
             obj.stem_varset_p.time_average(n_steps);
             if not(isempty(obj.stem_varset_b))
                 obj.stem_varset_b.time_average(n_steps);   
             end
-            indices=0:n_steps:obj.T;
-            if indices(end)~=obj.T
-                indices=[indices,obj.T];
-            end
-            obj.stem_datestamp.average_stamps(indices);
+            obj.stem_datestamp.average_stamps(n_steps);
             
             obj.update_data;    
             disp('Time averaging ended.');
@@ -862,23 +858,22 @@ classdef stem_data < handle
             obj.stem_datestamp.subset_stamps(indices);
             
             %looks for line of all missing for the sparse grids of the point data
-            changed=0;
-            for i=1:obj.stem_varset_p.nvar
-                indices=sum(isnan(obj.stem_varset_p.Y{i}),2)==size(obj.stem_varset_p.Y{i},2);
-                if sum(indices)>0
-                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},indices);
-                    disp(['Deleted ',num2str(sum(indices)),' site(s) for the point variable ',obj.stem_varset_p.Y_name{i},' due to all missing.']);
-                    changed=1;
+            if not(obj.stem_modeltype.is('f-HDGM'))
+                changed=0;
+                for i=1:obj.stem_varset_p.nvar
+                    indices=sum(isnan(obj.stem_varset_p.Y{i}),2)==size(obj.stem_varset_p.Y{i},2);
+                    if sum(indices)>0
+                        obj.site_crop('point',obj.stem_varset_p.Y_name{i},indices,[],0);
+                        disp(['Deleted ',num2str(sum(indices)),' site(s) for the point variable ',obj.stem_varset_p.Y_name{i},' due to all missing.']);
+                        changed=1;
+                    end
                 end
-            end
-            if changed
-                disp('Updating point distance matrix after cropping...');
-                obj.update_distance('point'); %only point because the pixel data are not deleted from the data matrix even if they are NaN for all th time steps
-                disp('Update ended.');
-                if not(isempty(obj.stem_varset_b))
-                    disp('Updating M replication vector after cropping...');
-                    obj.update_M;
-                    disp('Update ended.');
+                if changed
+                    if not(isempty(obj.stem_varset_b))
+                        disp('Updating M replication vector after cropping...');
+                        obj.update_M;
+                        disp('Update ended.');
+                    end
                 end
             end
             disp('Updating data matrix after cropping...');
@@ -931,7 +926,7 @@ classdef stem_data < handle
                     if strcmp(obj.stem_gridlist_p.grid{i}.grid_type,'regular')
                         obj.stem_gridlist_p.grid{i}.grid_size=[length(grid_lat),length(grid_lon)];
                     end                    
-                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},indices);
+                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},indices,0,0);
                 else
                     error(['    Variable ',obj.stem_varset_p.Y_name{i},' does not have sites in the crop area.']);
                 end
@@ -958,7 +953,7 @@ classdef stem_data < handle
                         if strcmp(obj.stem_gridlist_b.grid{i}.grid_type,'regular')
                             obj.stem_gridlist_b.grid{i}.grid_size=[length(grid_lat),length(grid_lon)];
                         end
-                        obj.site_crop('pixel',obj.stem_varset_b.Y_name{i},indices);
+                        obj.site_crop('pixel',obj.stem_varset_b.Y_name{i},indices,[],0);
                     else
                         error(['    Variable ',obj.stem_varset_b.Y_name{i},' does not have sites in the crop area.']);
                     end
@@ -968,10 +963,6 @@ classdef stem_data < handle
             disp('Updating data matrices after cropping...');
             obj.update_data;
             disp('Update ended.');
-            disp('Updating distance matrices after cropping...');
-            obj.update_distance;
-            disp('Update ended.');
-
             if not(isempty(obj.stem_varset_b))
                 disp('Updating M replication vector after cropping...');
                 obj.update_M;
@@ -979,7 +970,7 @@ classdef stem_data < handle
             end
         end   
         
-        function site_crop(obj,type,var_name,indices,crossval)
+        function site_crop(obj,type,var_name,indices,crossval,update_data_matrices)
             %DESCRIPTION: remove specific sites from the dataset
             %
             %INPUT
@@ -988,6 +979,7 @@ classdef stem_data < handle
             %var_name            - [string]             (1x1)  the name of the variable from which to remove the sites
             %indices             - [integer >0]         (dNx1) the indices of the sites to remove
             %crossval            - [integer]            (1x1)  1:sites are cropped for cross-validation, 0: sites are cropped to be removed
+            %update_data_matrices- [integer]            (1x1)  1:matrices are updated, 0: are not
             %
             %OUTPUT
             %
@@ -1002,6 +994,9 @@ classdef stem_data < handle
             
             if nargin<5
                 crossval=0;
+            end
+            if nargin<6
+                update_data_matrices=1;
             end
             
             if strcmp(type,'point')
@@ -1039,16 +1034,15 @@ classdef stem_data < handle
                 obj.stem_gridlist_b.grid{idx_var}.coordinate(indices,:)=[];
             end
             disp('Cropping ended.');
-            disp('Updating data matrices after cropping...');
-            obj.update_data;
-            disp('Update ended.');
-            disp('Updating distance matrices after cropping...');
-            obj.update_distance(type);
-            disp('Update ended.');
-            if not(isempty(obj.stem_varset_b))
-                disp('Updating M replication vector after cropping...');
-                obj.update_M;
+            if update_data_matrices==1
+                disp('Updating data matrices after cropping...');
+                obj.update_data;
                 disp('Update ended.');
+                if not(isempty(obj.stem_varset_b))
+                    disp('Updating M replication vector after cropping...');
+                    obj.update_M;
+                    disp('Update ended.');
+                end
             end
         end
         
@@ -1092,9 +1086,6 @@ classdef stem_data < handle
             disp('Updating data matrices after cropping...');
             obj.update_data;
             disp('Update ended.');
-            disp('Updating distance matrices after cropping...');
-            obj.update_distance(type);
-            disp('Update ended.');
             if not(isempty(obj.stem_varset_b))
                 disp('Updating M replication vector after cropping...');
                 obj.update_M;
@@ -1111,6 +1102,7 @@ classdef stem_data < handle
             %Xp                  - [double]             (Dx1) the X coordinates of the polygon (longitude if Xp is given in degrees)
             %Yp                  - [double]             (Dx1) the Y coordinates of the polyton (latitude if Yp is given in degrees)
             %direction           - [string]             (1x1) 'inside': remove the sites inside the polygon; 'outside': remove the sites outside the polygon
+            %update_data_matrices- [integer]            (1x1)  1:matrices are updated, 0: are not
             %
             %OUTPUT
             %
@@ -1140,7 +1132,7 @@ classdef stem_data < handle
                         IN=not(IN);
                     end
                     idx=find(IN);
-                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},idx);
+                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},idx,[],0);
                 end
             else
                 if isempty(obj.stem_varset_b)
@@ -1153,16 +1145,13 @@ classdef stem_data < handle
                         IN=not(IN);
                     end
                     idx=find(IN);
-                    obj.site_crop('pixel',obj.stem_varset_b.Y_name{i},idx);
+                    obj.site_crop('pixel',obj.stem_varset_b.Y_name{i},idx,[],0);
                 end
             end
             disp('Cropping ended.');
             
             disp('Updating data matrices after cropping...');
             obj.update_data;
-            disp('Update ended.');
-            disp('Updating distance matrices after cropping...');
-            obj.update_distance(type);
             disp('Update ended.');
             if not(isempty(obj.stem_varset_b))
                 disp('Updating M replication vector after cropping...');
@@ -1181,13 +1170,15 @@ classdef stem_data < handle
             %
             %none: the matrices Y, X_bp, X_beta, X_z and X_p with are updated
             
-            disp('Look for duplicated sites...')
+            disp('Looking for duplicated sites...')
+            update_data=0;
             for i=1:obj.stem_varset_p.nvar
                 idx=obj.stem_gridlist_p.grid{i}.duplicated_sites;
                 if not(isempty(idx))
                     disp(['Removing ',num2str(length(idx)),' replicated sites for point variable ',obj.stem_varset_p.Y_name{i}]);
-                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},idx);
+                    obj.site_crop('point',obj.stem_varset_p.Y_name{i},idx,[],0);
                     obj.stem_gridlist_p.grid{i}.duplicated_sites=[];
+                    update_data=1;
                 end
             end
             
@@ -1196,14 +1187,69 @@ classdef stem_data < handle
                     idx=obj.stem_gridlist_b.grid{i}.duplicated_sites;
                     if not(isempty(idx))
                         disp(['Removing ',num2str(length(idx)),' replicated sites for pixel variable ',obj.stem_varset_b.Y_name{i}]);
-                        obj.site_crop('pixel',obj.stem_varset_b.Y_name{i},idx);
+                        obj.site_crop('pixel',obj.stem_varset_b.Y_name{i},idx,[],0);
                         obj.stem_gridlist_b.grid{i}.duplicated_sites=[];
+                        update_data=1;
                     end
                 end
             end
             disp('Operation ended.')
+
+            if update_data
+                disp('Updating data matrices after cropping...');
+                obj.update_data;
+                disp('Update ended.');
+            end
+            
+            if not(isempty(obj.stem_varset_b))
+                if update_data
+                    disp('Updating M replication vector after cropping...');
+                    obj.update_M;
+                    disp('Update ended.');
+                end
+            end
         end        
         
+        function permute(obj,type,indices)
+            %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_f with respect to indices
+            %
+            %INPUT
+            %obj         - [stem_data object]   (1x1) the stem_data object
+            %type        - [string]             (1x1) 'point': permute rows of point data; 'pixel': permute rows of pixel data
+            %indices     - [integer >0]         {q}(n_ix1)|(n_ix1) a cell array of indices or o vector of indices. In the latter case, the same vector is applied to all the q variables
+            %
+            %OUTPUT
+            %
+            %none: the matrices Y, X_bp, X_beta, X_z, X_p and X_f are updated
+
+            if sum(strcmp(type,{'point','pixel'}))==0
+                error('Type must be either point or pixel');
+            end
+            
+            disp('Permuting data rows...');
+            if strcmp(type,'point')
+                obj.stem_varset_p.permute(indices);
+                obj.stem_gridlist_p.permute(indices);
+            else
+                if isempty(obj.stem_varset_b)
+                    error('No pixel data');
+                end
+                obj.stem_varset_b.permute(indices);
+                obj.stem_gridlist_b.permute(indices);
+            end
+            
+            disp('Permutation ended.');
+            
+            disp('Updating data matrices after rows permutation...');
+            obj.update_data;
+            disp('Update ended.');
+            if not(isempty(obj.stem_varset_b))
+                disp('Updating M replication vector after rows permutation...');
+                obj.update_M;
+                disp('Update ended.');
+            end
+        end
+
         function h_fig = plot(obj,variable_name,variable_type,time_step,loading_name,loading_type)
             %DESCRIPTION: plot the variable data or the loading coefficients related to a variable
             %
@@ -1662,6 +1708,7 @@ classdef stem_data < handle
         end
         
         %Export methods
+        
         function N = N(obj)
             N=obj.stem_varset_p.N;
             if not(isempty(obj.stem_varset_b))
@@ -1699,7 +1746,7 @@ classdef stem_data < handle
             end
         end
         
-        %Class set methods
+        %Class get methods
         
         function standardized = get.standardized(obj)
             standardized=obj.stem_varset_p.standardized;
@@ -1709,9 +1756,13 @@ classdef stem_data < handle
             log_transformed=obj.stem_varset_p.log_transformed;
         end        
         
+        function boxcox_transformed = get.boxcox_transformed(obj)
+            boxcox_transformed=obj.stem_varset_p.boxcox_transformed;
+        end    
+        
         function X_bp_tv = get.X_bp_tv(obj)
             if not(isempty(obj.X_bp))
-                if size(obj.X_bp,3)==1
+                if length(obj.X_bp)==1
                     X_bp_tv=0;
                 else
                     X_bp_tv=1;
@@ -1723,7 +1774,7 @@ classdef stem_data < handle
         
         function X_beta_tv = get.X_beta_tv(obj)
             if not(isempty(obj.X_beta))
-                if size(obj.X_beta,3)==1
+                if length(obj.X_beta)==1
                     X_beta_tv=0;
                 else
                     X_beta_tv=1;
@@ -1735,7 +1786,7 @@ classdef stem_data < handle
         
         function X_z_tv = get.X_z_tv(obj) 
             if not(isempty(obj.X_z))
-                if size(obj.X_z,3)==1
+                if length(obj.X_z)==1
                     X_z_tv=0;
                 else
                     X_z_tv=1;
@@ -1747,7 +1798,7 @@ classdef stem_data < handle
         
         function X_p_tv = get.X_p_tv(obj)
             if not(isempty(obj.X_p))
-                if size(obj.X_p,3)==1
+                if length(obj.X_p)==1
                     X_p_tv=0;
                 else
                     X_p_tv=1;
@@ -1761,17 +1812,7 @@ classdef stem_data < handle
             X_tv=obj.X_bp_tv | obj.X_z_tv | obj.X_p_tv;
         end
         
-        function model_subtype = get.model_subtype(obj)
-            if not(isempty(obj.stem_varset_p.X_z))
-                if size(obj.stem_varset_p.X_z{1},2)==1
-                    model_subtype=0;
-                else
-                    model_subtype=1;
-                end
-            else
-                model_subtype=[];
-            end
-        end
+        %Class set methods
         
         function set.stem_varset_p(obj,stem_varset_p)
            if not(isa(stem_varset_p,'stem_varset'))
@@ -1785,14 +1826,6 @@ classdef stem_data < handle
                error('stem_varset must be of class stem_varset');
            end
            
-           %            if not(isempty(stem_varset_b.X_beta))
-           %                error('X_beta must be empty in stem_varset_b');
-           %            end
-           %
-           %            if not(isempty(stem_varset_b.X_z))
-           %                error('X_z must be empty in stem_varset_b');
-           %            end
-
            if not(isempty(stem_varset_b.X_p))
                error('X_p must be empty in stem_varset_b');
            end
@@ -1828,15 +1861,15 @@ classdef stem_data < handle
             obj.stem_datestamp=stem_datestamp;
         end
         
-        function set.shape(obj,shape)
-            obj.shape=shape;
+        function set.stem_modeltype(obj,stem_modeltype)
+            if not(isa(stem_modeltype,'stem_modeltype'))
+                error('stem_modeltype must be a stem_modeltype object');
+            end
+            obj.stem_modeltype=stem_modeltype;
         end
         
-        function set.model_type(obj,model_type)
-            if not(model_type>=0 && model_type<=3)
-                error('model_type must be between 0 and 3 included');
-            end
-            obj.model_type=model_type;
+        function set.shape(obj,shape)
+            obj.shape=shape;
         end
         
     end

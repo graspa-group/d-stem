@@ -56,6 +56,7 @@ classdef stem_EM_result < handle
         iterations=[];                  %[integer >0]       (1x1) number of EM iterations at convergence
         max_iterations=[];              %[integer >0]       (1x1) maximum number of EM iterations
         exit_toll=[];                   %[double] >0]       (1x1) exit tolerance
+        block_tapering_block_size=0;    %[integer>0]        (1x1) the block size used for block tapering in model estimation
         
         computation_time=[];            %[double]           (1x1) EM estimation time in seconds
         date_start=[];                  %[double]           (1x1) date of the start of the EM estimation

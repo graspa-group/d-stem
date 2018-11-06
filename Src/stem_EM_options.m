@@ -26,15 +26,17 @@
 
 classdef stem_EM_options
     properties
-        exit_toll=0.0001;                           %[double >0] (1x1) the EM algorithm stops if the relative norm between two consecutive iterations is below exit_toll
-        max_iterations=100;                         %[integer >0](1x1) the EM algorithm stops if the number of iterations exceed max_iterations
-        numeric_opt_type='single';                  %[string]    (1x1) 'single': then elements of the V_i matrices are numerically estimated one-by-one; 'full': the elements are jointly estimated.
-        mstep_system_size=13500;                    %[integer >0](1x1) if N_r(N_g)>mstep_system_size then theta_r and v_r (theta_g and v_g) are optimized by considering diagonal blocks of maximum dimension mstep_system_size
-        compute_logL_at_all_steps=1;                %[boolean]   (1x1) 1: the observed data log-likelihood is evaluated at each iteration of the EM algorithm
-        verbose=1;                                  %[boolean]   (1x1) 1: all the intermediate operations of the EM algorithm are displayed
-        path_distributed_computing=[];              %[string]    (1x1) full or relative path of the folder to use for distributed computing
-        timeout_distributed_computing=10000;        %[integer>0] (1x1) timeout in seconds when waiting for the data from the slaves
-        timeout_node_search=10;                     %[integer>0] (1x1) timeout in seconds when looking for the available slaves
+        exit_toll=0.0001;                           %[double >0]  (1x1) the EM algorithm stops if the relative norm between two consecutive iterations is below exit_toll
+        max_iterations=100;                         %[integer >0] (1x1) the EM algorithm stops if the number of iterations exceed max_iterations
+        numeric_opt_type='single';                  %[string]     (1x1) 'single': then elements of the V_i matrices are numerically estimated one-by-one; 'full': the elements are jointly estimated.
+        mstep_system_size=1500;                     %[integer >0] (1x1) if N_r(N_g)>mstep_system_size then theta_r and v_r (theta_g and v_g) are optimized by considering diagonal blocks of maximum dimension mstep_system_size
+        block_tapering_block_size=0;                %[integer >=0](1x1)|(Bx1) the dimension of blocks in block tapering or the Bx1 vector of block dimensions. If equal to 0, block tapering is NOT enabled
+        compute_logL_at_all_steps=1;                %[boolean]    (1x1) 1: the observed data log-likelihood is evaluated at each iteration of the EM algorithm
+        verbose=1;                                  %[boolean]    (1x1) 1: all the intermediate operations of the EM algorithm are displayed
+        path_distributed_computing=[];              %[string]     (1x1) full or relative path of the folder to use for distributed computing
+        timeout_distributed_computing=10000;        %[integer>0]  (1x1) timeout in seconds when waiting for the data from the slaves
+        timeout_node_search=10;                     %[integer>0]  (1x1) timeout in seconds when looking for the available slaves
+        wpar_estimation=1;                          %[boolean]    (1x1) 0: parameters \theta and V are not estimated; 1: parameters are estimated
     end
     
     methods
@@ -167,6 +169,19 @@ classdef stem_EM_options
                 obj.timeout_node_search=timeout_node_search;
             end
         end
-          
+        
+        function obj = set.block_tapering_block_size(obj,block_tapering_block_size)
+            if length(block_tapering_block_size)==1
+                if block_tapering_block_size<0
+                    error('block_tapering_block_size must be >=0');
+                end
+            else
+                if sum(block_tapering_block_size<=0)>1
+                    error('The elements of block_tapering_block_size must be > 0');
+                end
+            end
+            obj.block_tapering_block_size=block_tapering_block_size;
+        end
+  
     end
 end

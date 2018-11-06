@@ -2,10 +2,10 @@ clc
 clear all
 
 v = ver;
-test_stat=any(strcmp('Statistics Toolbox', {v.Name}));
-if not(test_stat)
-    error('You need the Statistics Toolbox and the Optimization Toolbox to run this case study. The Statistics Toolbox seems to be missing.');
-end
+%test_stat=any(strcmp('Statistics Toolbox', {v.Name}));
+%if not(test_stat)
+%    error('You need the Statistics Toolbox and the Optimization Toolbox to run this case study. The Statistics Toolbox seems to be missing.');
+%end
 test_opt=any(strcmp('Optimization Toolbox', {v.Name}));
 if not(test_opt)
     error('You need the Statistics Toolbox and the Optimization Toolbox to run this case study. The Optimization Toolbox seems to be missing.');
@@ -82,7 +82,7 @@ else
     shape=[];
 end
 obj_stem_data = stem_data(obj_stem_varset_p, obj_stem_gridlist_p, ...
-                          [], [], obj_stem_datestamp, shape);
+                          [], [], obj_stem_datestamp, [], [],  shape);
 %stem_par object creation
 flag_time_diagonal = 0;
 obj_stem_par = stem_par(obj_stem_data, 'exponential', flag_time_diagonal);

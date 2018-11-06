@@ -67,20 +67,26 @@ classdef stem_gridlist < handle
             end
         end        
         
-        function DistMat = get_distance_matrix(obj,type,idx_var)
-            %DESCRIPTION: get the distance matrix of all the variables
+        function DistMat = get_distance_matrix(obj,stem_modeltype,correlation_type,cross_type,idx_var)
+            %DESCRIPTION: get the distance matrix of all the variables. If the model is of the emulator type, a distance matrix is given for each dimension of the inputs
             %
             %INPUT
-            %obj        - [stem_gridlist object]    (1x1)
-            %<type>     - [boolean]                 (1x1) 1: also the cross-distances are evaluated (distances between different variables); 0: the distance matrix is block-diagonal with respect to the variables
-            %<idx_var>  - [integer>0]               (1x1) the index of the variable in order to get the distance matrix of that variable only
+            %obj                - [stem_gridlist object]    (1x1)
+            %stem_modeltype     - [stem_modeltype object]   (1x1) object of class stem_modeltype
+            %correlation_type   - [string]                  (1x1) the name of the correlation function (see the correlation_function method of the stem_misc class for valid names)
+            %<cross_type>       - [boolean]                 (1x1) 1: also the cross-distances are evaluated (distances between different variables); 0: the distance matrix is block-diagonal with respect to the variables
+            %<idx_var>          - [integer>0]               (1x1) the index of the variable in order to get the distance matrix of that variable only
             %
             %OUTPUT
-            %DistMat    - [double]                  (N_rxN_r|N_gxN_g)  The distance matrix
-            if nargin<2
-                type=1;
-            end
+            %DistMat            - [double]                  (N_pxN_p|N_bxN_b)|{d}  The distance matrix
+            
             if nargin<3
+                error('stem_modeltype and correlation_type must be provided');
+            end
+            if nargin<4
+                cross_type=1;
+            end
+            if nargin<5
                 idx_var=[];
             end
             if nargin>=3
@@ -90,6 +96,10 @@ classdef stem_gridlist < handle
                     end
                 end
             end
+            
+            if strcmp(correlation_type,'expsphere') && not(strcmp(obj.grid{1}.unit,'deg'))
+                error('Coordiantes must be given in lat/lon when the correlation function is expsphere');
+            end
 
             if isempty(idx_var)
                 d = obj.get_jointcoordinates();
@@ -97,62 +107,61 @@ classdef stem_gridlist < handle
                 d = obj.grid{idx_var}.coordinate;
             end
             if isempty(obj.tap)
-                DistMat=zeros(size(d,1));
-                for z=1:length(d)
-                    DistMat(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
-                end
-                DistMat=DistMat+DistMat';
-            else
-                if (type==1||length(obj.grid)==1||not(isempty(idx_var)))
-                    idx_r=[];
-                    idx_c=[];
-                    elements=[];
-                    for z=1:length(d)
-                        %evaluate the distance between the z-th coordinate and
-                        %the vector ahead (z included)
-                        dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
-                        %IMPORTANT! the distances equal to zero are setted to
-                        %eps so they are not confused with the zero generated
-                        %by tapering
-                        dist_vec(dist_vec==0)=eps;
-                        
-                        L=dist_vec<=obj.tap;
-                        idx_r=cat(1,idx_r,ones(sum(L),1)*z);
-                        idx_c=cat(1,idx_c,find(L)+z-1);
-                        elements=cat(1,elements,dist_vec(L));
-                        %traspose
-                        idx_c=cat(1,idx_c,ones(sum(L),1)*z);
-                        idx_r=cat(1,idx_r,find(L)+z-1);
-                        elements=cat(1,elements,dist_vec(L));
-                    end
-                    DistMat=sparse(idx_r,idx_c,elements);
-                else
-                    Dist=cell(length(obj.grid),1);
-                    for i=1:length(obj.grid)
-                        d = obj.grid{i}.coordinate;
-                        evaluate=1;
-                        if i>1
-                            try
-                                s=d-obj.grid{1}.coordinate;
-                                s=s(:);
-                                s=sum(abs(s));
-                                if s==0
-                                    evaluate=0;
-                                end
-                            catch
-                                %if the difference cannot be evaluated as
-                                %the size is different
-                                evaluate=1;
+                if not(strcmp(correlation_type,'expsphere'))
+                    if strcmp(obj.grid{1}.unit,'deg')
+                        if strcmp(stem_modeltype,'Emulator')
+                            error('The deg unit of measure for grids is not allowed when model_name is ''Emulator''');
+                        end
+                        DistMat=zeros(size(d,1));
+                        for z=1:length(d)
+                            DistMat(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
+                        end
+                        DistMat=DistMat+DistMat';
+                    else
+                        if not(strcmp(stem_modeltype,'Emulator'))
+                            DistMat=squareform(pdist(d));
+                            if strcmp(obj.grid{1}.unit,'m')
+                                DistMat=DistMat/1000;
+                            end
+                        else
+                            DistMat=cell(size(d,2),1);
+                            for i=1:size(d,2)
+                                DistMat{i}=squareform(pdist(d(:,i)));
                             end
                         end
-                        if evaluate
+                    end
+                else
+                    DistMat=cell(2,1);
+                    DistMat{1}=zeros(size(d,1));
+                    for z=1:length(d)
+                        DistMat{1}(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
+                    end
+                    DistMat{1}=DistMat{1}+DistMat{1}';
+                    DistMat{2}=distdim(squareform(pdist(d(:,1))), obj.grid{1}.unit, 'km');
+                end
+            else
+                if not(strcmp(correlation_type,'expsphere'))
+                    if not(strcmp(stem_modeltype,'Emulator'))
+                        if (cross_type==1||length(obj.grid)==1||not(isempty(idx_var)))
                             idx_r=[];
                             idx_c=[];
                             elements=[];
+                            
                             for z=1:length(d)
                                 %evaluate the distance between the z-th coordinate and
                                 %the vector ahead (z included)
-                                dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                if strcmp(obj.grid{1}.unit,'deg')
+                                    dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                else
+                                    temp=d(z,:);
+                                    temp2=d(z:end,:);
+                                    temp=repmat(temp,[size(temp2,1),1]);
+                                    dist_vec=sqrt(sum((temp-temp2).^2,2));
+                                    
+                                    if strcmp(obj.grid{1}.unit,'m')
+                                        dist_vec=dist_vec/1000;
+                                    end
+                                end
                                 %IMPORTANT! the distances equal to zero are setted to
                                 %eps so they are not confused with the zero generated
                                 %by tapering
@@ -167,15 +176,233 @@ classdef stem_gridlist < handle
                                 idx_r=cat(1,idx_r,find(L)+z-1);
                                 elements=cat(1,elements,dist_vec(L));
                             end
-                            Dist{i}=sparse(idx_r,idx_c,elements);
+                            DistMat=sparse(idx_r,idx_c,elements);
                         else
-                            Dist{i}=Dist{1};
+                            Dist=cell(length(obj.grid),1);
+                            for i=1:length(obj.grid)
+                                d = obj.grid{i}.coordinate;
+                                evaluate=1;
+                                if i>1
+                                    try
+                                        s=d-obj.grid{1}.coordinate;
+                                        s=s(:);
+                                        s=sum(abs(s));
+                                        if s==0
+                                            evaluate=0;
+                                        end
+                                    catch
+                                        %if the difference cannot be evaluated as
+                                        %the size is different
+                                        evaluate=1;
+                                    end
+                                end
+                                if evaluate
+                                    idx_r=[];
+                                    idx_c=[];
+                                    elements=[];
+                                    for z=1:length(d)
+                                        %evaluate the distance between the z-th coordinate and
+                                        %the vector ahead (z included)
+                                        if strcmp(obj.grid{1}.unit,'deg')
+                                            dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                        else
+                                            temp=d(z,:);
+                                            temp2=d(z:end,:);
+                                            temp=repmat(temp,[size(temp2,1),1]);
+                                            dist_vec=sqrt(sum((temp-temp2).^2,2));
+                                            if strcmp(obj.grid{1}.unit,'m')
+                                                dist_vec=dist_vec/1000;
+                                            end
+                                        end
+                                        
+                                        %IMPORTANT! the distances equal to zero are setted to
+                                        %eps so they are not confused with the zero generated
+                                        %by tapering
+                                        dist_vec(dist_vec==0)=eps;
+                                        
+                                        L=dist_vec<=obj.tap;
+                                        idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                                        idx_c=cat(1,idx_c,find(L)+z-1);
+                                        elements=cat(1,elements,dist_vec(L));
+                                        %traspose
+                                        idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                                        idx_r=cat(1,idx_r,find(L)+z-1);
+                                        elements=cat(1,elements,dist_vec(L));
+                                    end
+                                    Dist{i}=sparse(idx_r,idx_c,elements);
+                                else
+                                    Dist{i}=Dist{1};
+                                end
+                            end
+                            DistMat=blkdiag(Dist{1},Dist{2});
+                            for i=3:length(obj.grid)
+                                DistMat=blkdiag(DistMat,Dist{i});
+                            end
+                        end
+                    else
+                        %emulator case
+                        DistMat=cell(size(d,2),1);
+                        for i=1:size(d,2)
+                            idx_r=[];
+                            idx_c=[];
+                            elements=[];
+                            
+                            for z=1:length(d)
+                                %evaluate the distance between the z-th coordinate and
+                                %the vector ahead (z included)
+                                temp=d(z,i);
+                                temp2=d(z:end,i);
+                                dist_vec=abs(temp-temp2);
+                                
+                                if strcmp(obj.grid{1}.unit,'m')
+                                    dist_vec=dist_vec/1000;
+                                end
+                                
+                                %IMPORTANT! the distances equal to zero are setted to
+                                %eps so they are not confused with the zero generated
+                                %by tapering
+                                dist_vec(dist_vec==0)=eps;
+                                
+                                L=dist_vec<=obj.tap;
+                                idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                                idx_c=cat(1,idx_c,find(L)+z-1);
+                                elements=cat(1,elements,dist_vec(L));
+                                %traspose
+                                idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                                idx_r=cat(1,idx_r,find(L)+z-1);
+                                elements=cat(1,elements,dist_vec(L));
+                            end
+                            DistMat{i}=sparse(idx_r,idx_c,elements);
                         end
                     end
-                    DistMat=blkdiag(Dist{1},Dist{2});
-                    for i=3:length(obj.grid)
-                        DistMat=blkdiag(DistMat,Dist{i});
+                else
+                    DistMat=cell(2,1);
+                    if (cross_type==1||length(obj.grid)==1||not(isempty(idx_var)))
+                        idx_r=[];
+                        idx_c=[];
+                        elements=[];
+                        
+                        for z=1:length(d)
+                            %evaluate the distance between the z-th coordinate and
+                            %the vector ahead (z included)
+                            if strcmp(obj.grid{1}.unit,'deg')
+                                dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                            else
+                                temp=d(z,:);
+                                temp2=d(z:end,:);
+                                temp=repmat(temp,[size(temp2,1),1]);
+                                dist_vec=sqrt(sum((temp-temp2).^2,2));
+                                
+                                if strcmp(obj.grid{1}.unit,'m')
+                                    dist_vec=dist_vec/1000;
+                                end
+                            end
+                            %IMPORTANT! the distances equal to zero are setted to
+                            %eps so they are not confused with the zero generated
+                            %by tapering
+                            dist_vec(dist_vec==0)=eps;
+                            
+                            L=dist_vec<=obj.tap;
+                            idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                            idx_c=cat(1,idx_c,find(L)+z-1);
+                            elements=cat(1,elements,dist_vec(L));
+                            %traspose
+                            idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                            idx_r=cat(1,idx_r,find(L)+z-1);
+                            elements=cat(1,elements,dist_vec(L));
+                        end
+                        DistMat{1}=sparse(idx_r,idx_c,elements);
+                    else
+                        Dist=cell(length(obj.grid),1);
+                        for i=1:length(obj.grid)
+                            d = obj.grid{i}.coordinate;
+                            evaluate=1;
+                            if i>1
+                                try
+                                    s=d-obj.grid{1}.coordinate;
+                                    s=s(:);
+                                    s=sum(abs(s));
+                                    if s==0
+                                        evaluate=0;
+                                    end
+                                catch
+                                    %if the difference cannot be evaluated as
+                                    %the size is different
+                                    evaluate=1;
+                                end
+                            end
+                            if evaluate
+                                idx_r=[];
+                                idx_c=[];
+                                elements=[];
+                                for z=1:length(d)
+                                    %evaluate the distance between the z-th coordinate and
+                                    %the vector ahead (z included)
+                                    if strcmp(obj.grid{1}.unit,'deg')
+                                        dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                    else
+                                        temp=d(z,:);
+                                        temp2=d(z:end,:);
+                                        temp=repmat(temp,[size(temp2,1),1]);
+                                        dist_vec=sqrt(sum((temp-temp2).^2,2));
+                                        if strcmp(obj.grid{1}.unit,'m')
+                                            dist_vec=dist_vec/1000;
+                                        end
+                                    end
+                                    
+                                    %IMPORTANT! the distances equal to zero are setted to
+                                    %eps so they are not confused with the zero generated
+                                    %by tapering
+                                    dist_vec(dist_vec==0)=eps;
+                                    
+                                    L=dist_vec<=obj.tap;
+                                    idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                                    idx_c=cat(1,idx_c,find(L)+z-1);
+                                    elements=cat(1,elements,dist_vec(L));
+                                    %traspose
+                                    idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                                    idx_r=cat(1,idx_r,find(L)+z-1);
+                                    elements=cat(1,elements,dist_vec(L));
+                                end
+                                Dist{i}=sparse(idx_r,idx_c,elements);
+                            else
+                                Dist{i}=Dist{1};
+                            end
+                        end
+                        DistMat{1}=blkdiag(Dist{1},Dist{2});
+                        for i=3:length(obj.grid)
+                            DistMat{1}=blkdiag(DistMat{1},Dist{i});
+                        end
                     end
+                    
+                    idx_r=[];
+                    idx_c=[];
+                    elements=[];
+                    
+                    for z=1:length(d)
+                        %evaluate the distance between the z-th coordinate and
+                        %the vector ahead (z included)
+                        temp=d(z,1);
+                        temp2=d(z:end,1);
+                        dist_vec=abs(temp-temp2);
+                        
+                    
+                        %IMPORTANT! the distances equal to zero are setted to
+                        %eps so they are not confused with the zero generated
+                        %by tapering
+                        dist_vec(dist_vec==0)=eps;
+                        
+                        L=dist_vec<=obj.tap;
+                        idx_r=cat(1,idx_r,ones(sum(L),1)*z);
+                        idx_c=cat(1,idx_c,find(L)+z-1);
+                        elements=cat(1,elements,dist_vec(L));
+                        %traspose
+                        idx_c=cat(1,idx_c,ones(sum(L),1)*z);
+                        idx_r=cat(1,idx_r,find(L)+z-1);
+                        elements=cat(1,elements,dist_vec(L));
+                    end
+                    DistMat{2}=sparse(idx_r,idx_c,elements);
+                    DistMat{2}=distdim(DistMat{2}, obj.grid{1}.unit, 'km');
                 end
             end
         end
@@ -221,6 +448,16 @@ classdef stem_gridlist < handle
             obj.updatebox();
         end
         
+        function permute(obj,indices)
+            for i=1:length(obj.grid)
+                if iscell(indices)
+                    obj.grid{i}.permute(indices{i});
+                else
+                    obj.grid{i}.permute(indices);
+                end
+            end
+        end
+        
         %Class set methods
         function set.grid(obj,grid)
             obj.grid=grid;
@@ -243,27 +480,19 @@ classdef stem_gridlist < handle
             %obj        - [stem_gridlist object] (1x1)
             %
             %OUTPUT
-            %none: the box property is updated            
-            temp=[];
-            for i=1:length(obj.grid)
-                temp=cat(2,temp,obj.grid{i}.box(1));
+            %none: the box property is updated       
+            
+            for j=1:length(obj.grid{1}.box)
+                temp=[];
+                for i=1:length(obj.grid)
+                    temp=cat(2,temp,obj.grid{i}.box(j));
+                end
+                if mod(j,2)==1
+                    obj.box(j)=min(temp);
+                else
+                    obj.box(j)=max(temp);
+                end
             end
-            obj.box(1)=min(temp);
-            temp=[];
-            for i=1:length(obj.grid)
-                temp=cat(2,temp,obj.grid{i}.box(2));
-            end
-            obj.box(2)=max(temp);
-            temp=[];
-            for i=1:length(obj.grid)
-                temp=cat(2,temp,obj.grid{i}.box(3));
-            end
-            obj.box(3)=min(temp);
-            temp=[];
-            for i=1:length(obj.grid)
-                temp=cat(2,temp,obj.grid{i}.box(4));
-            end
-            obj.box(4)=max(temp);
         end
     end
 end

@@ -40,16 +40,19 @@ classdef stem_crossval < handle
         stem_varset={};             %[stem_varset objects]         {dqx1} the subset of data used for cross-validation
         stem_gridlist={};           %[stem_gridlist objects]       {dqx1} this object is needed for storing the coordinates of the cross-validation sites
         stem_crossval_result={};    %[stem_crossval_result object] {dqx1} the objects including the cross-validation results for each variable
+        
+        nn_size=0;                  %[integer>=0]                  (1x1) the size of the nearest neighbor set for each kriging site in cross-validation
     end
 
     methods
-        function obj = stem_crossval(variable_name,type,indices)
+        function obj = stem_crossval(variable_name,type,indices,nn_size)
             %DESCRIPTION: object constructor
             %
             %INPUT
             %variable_name - [string]               {dqx1} the names of the cross-validation variables
             %type          - [string]               {dqx1} 'point': cross-validation is on point-data
             %indices       - [integer >0]           {dq}x(dNx1) the indices of the cross-validation sites for each variable
+            %nn_size=0;    - [integer>=0]           (1x1) the size of the nearest neighbor set for each kriging site in cross-validation
             %
             %OUTPUT
             %obj           - [stem_crossval object] (1x1)    
@@ -72,6 +75,7 @@ classdef stem_crossval < handle
             obj.variable_name=variable_name;
             obj.type=type;            
             obj.indices=indices;
+            obj.nn_size=nn_size;
         end
        
         %Class set methods
@@ -91,7 +95,15 @@ classdef stem_crossval < handle
                 end
             end
             obj.indices=indices;
-        end            
+        end         
+        
+        function set.nn_size(obj,nn_size)
+            if nn_size>=0
+                obj.nn_size=nn_size;
+            else
+                error('nn_size must be >=0');
+            end
+        end
     end
     
 end

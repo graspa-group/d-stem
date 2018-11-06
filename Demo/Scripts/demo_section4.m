@@ -2,7 +2,7 @@ clc
 clear all
 
 v = ver;
-test_stat=any(strcmp('Statistics Toolbox', {v.Name}));
+test_stat=any(strcmp('Statistics and Machine Learning Toolbox', {v.Name}));
 if not(test_stat)
     error('You need the Statistics Toolbox and the Optimization Toolbox to run this case study. The Statistics Toolbox seems to be missing.');
 end
@@ -63,7 +63,7 @@ else
     shape=[];
 end
 obj_stem_data = stem_data(obj_stem_varset_p, obj_stem_gridlist_p, ...
-                          [], [], obj_stem_datestamp, shape);
+                          [], [], obj_stem_datestamp, [], [],  shape);
 %stem_par object creation
 obj_stem_par = stem_par(obj_stem_data, 'exponential');
 %stem_model object creation
@@ -93,30 +93,38 @@ obj_stem_model.EM_estimate(obj_stem_EM_options);
 obj_stem_model.set_varcov;
 obj_stem_model.set_logL;
 
-load ../Data/kriging/krig_elevation_005;
-krig_coordinates = [krig_elevation.lat(:), krig_elevation.lon(:)];
-krig_mask = krig_elevation.data_mask(:);
-
-%Kriging
-obj_stem_krig = stem_krig(obj_stem_model);
-obj_stem_krig_grid = stem_grid(krig_coordinates, 'deg', 'regular', ...
-                               'pixel', [80,170], 'square', 0.05, 0.05);
-back_transform = 1;
-no_varcov = 0;
-block_size = 1000;
-X_krig = '../Data/kriging/blocks';
-obj_stem_krig_result = obj_stem_krig.kriging('no2 ground', obj_stem_krig_grid, ...
-                                             block_size,krig_mask,X_krig, ...
-                                             back_transform, no_varcov);    
-
-obj_stem_model.print;    
-obj_stem_model.stem_EM_result.stem_kalmansmoother_result.plot;
-
-%April 10th, 2009 map
-if test_map
-    figure;
-    obj_stem_krig_result.plot(100);
-end
+% load ../Data/kriging/krig_elevation_005;
+% krig_coordinates = [krig_elevation.lat(:), krig_elevation.lon(:)];
+% krig_mask = krig_elevation.data_mask(:);
+% 
+% %Kriging
+% obj_stem_krig = stem_krig(obj_stem_model);
+% obj_stem_krig_grid = stem_grid(krig_coordinates, 'deg', 'regular', ...
+%                                'pixel', [80,170], 'square', 0.05, 0.05);
+% back_transform = 1;
+% no_varcov = 0;
+% block_size = 1000;
+% 
+% X_krig=[];
+% f=dir('../Data/kriging/blocks/*.mat');
+% for i=1:length(f)
+%     load(['../Data/kriging/blocks/',f(i).name]);
+%     X_krig=cat(1,X_krig,block.data);
+%     X_krig_names=block.label;
+% end
+% X_krig=double(X_krig);
+% obj_stem_krig_result = obj_stem_krig.kriging(obj_stem_krig_grid, ...
+%                                              block_size,krig_mask,X_krig, ...
+%                                              X_krig_names, back_transform, no_varcov);    
+% 
+% obj_stem_model.print;    
+% obj_stem_model.stem_EM_result.stem_kalmansmoother_result.plot;
+% 
+% %April 10th, 2009 map
+% if test_map
+%     figure;
+%     obj_stem_krig_result{1}.plot(100);
+% end
 
 obj_stem_model_s4 = obj_stem_model;
 save('../Output/obj_stem_model_s4.mat', 'obj_stem_model_s4', '-v7.3');

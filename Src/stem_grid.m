@@ -28,14 +28,16 @@ classdef stem_grid
     
     %CONSTANTS
     %
+    %d    - the dimension of the space
     %ni_g - the number of point sites for the i-th variable
     %ni_r - the number of pixel sites for the i-th variable
     
+    
     properties
-        coordinate=[];              %[double]    (ni_g|ni_rx2)  matrix of spatial coordinates composed of either x and y vectors or latitude and longitude vectors
-        unit='';                    %[string]    (1x1)          unit of measure of the coordinates. 'deg': degree; 'km': kilometers; 'm': meters
+        coordinate=[];              %[double]    (ni_g|ni_rxd)  matrix of spatial coordinates composed of either x_1,...,x_p coordinates or latitude and longitude
+        unit='';                    %[string]    (1x1)          unit of measure of the coordinates. 'deg': degree; 'km': kilometers; 'm': meters; 'none': none (to use when model_name is 'emulator');
         grid_type=[];               %[string]    (1x1)          'sparse': sparse spatial locations; 'regular': spatial locations at fixed intervals in space
-        grid_size=[];               %[integer >0](2x1)          if grid_type='regular', then grid_size is the number of rows and columns of the grid
+        grid_size=[];               %[integer >0](1xd)          if grid_type='regular', then grid_size is the number of elements in each of the d dimensions of the grid
         site_type=[];               %[string]    (1x1)          'point': the spatial coordinates relate to point data; 'pixel': the spatial coordinates related to pixel data
         pixel_shape='';             %[string]    (1x1)          'square': square pixels; 'rectangular': rectangular pixels
         pixel_side_w=[];            %[double]    (1x1)          the width of the pixel (in the same unit of measure of the unit property)
@@ -54,9 +56,9 @@ classdef stem_grid
             %INPUT
             %
             %coordinate         - [double]              (ni_g|ni_rx2)  matrix of spatial coordinates composed of either x and y vectors or latitude and longitude vectors
-            %unit='';           - [string]              (1x1)          unit of measure of the coordinates. 'deg': degree; 'km': kilometers; 'm': meters
+            %unit='';           - [string]              (1x1)          unit of measure of the coordinates. 'deg': degree; 'km': kilometers; 'm': meters; 'none': none;
             %grid_type=[];      - [string]              (1x1)          'sparse': sparse spatial locations; 'regular': spatial locations at fixed intervals in space
-            %grid_size=[];      - [integer >0]          (2x1)          if grid_type='regular', then grid_size is the number of rows and columns of the grid
+            %grid_size=[];      - [integer >0]          (1xd)          if grid_type='regular', then grid_size is the number of elements in each dimension of the grid
             %site_type=[];      - [string]              (1x1)          'point': the spatial coordinates relate to point data; 'pixel': the spatial coordinates related to pixel data
             %pixel_shape='';    - [string]              (1x1)          'square': square pixels; 'rectangular': rectangular pixels
             %pixel_side_w=[];   - [double]              (1x1)          the width of the pixel (in the same unit of measure of the unit property)
@@ -73,9 +75,12 @@ classdef stem_grid
             if nargin==4
                 grid_size=[];
             end
-            obj.grid_type=grid_type; %the other of this two lines is important and cannot change
+            
+            %the other of the following 3 lines is important and cannot change
+            obj.unit=unit;   
+            obj.grid_type=grid_type; 
             obj.coordinate=coordinate;
-            obj.unit=unit;
+            
             obj.site_type=site_type;
             obj.grid_size=grid_size;
             if nargin>5
@@ -98,34 +103,54 @@ classdef stem_grid
             end
         end
         
+        function obj = permute(obj,indices)
+            obj.coordinate=obj.coordinate(indices,:);
+        end
+        
+        function obj = sorted_by_lat(obj)
+            %DESCRIPTION: reorder coordinates with respect to the first coordinate
+            %
+            %INPUT
+            %none
+            %
+            %OUTPUT
+            %
+            %none
+            [~,idx]=sort(obj.coordinate(:,1));
+            obj.coordinate=obj.coordinate(idx,:);
+        end
+        
         % Class set methods
         function box = get.box(obj)
             if not(isempty(obj.coordinate))
-                box(1)=min(obj.coordinate(:,1));
-                box(2)=max(obj.coordinate(:,1));
-                box(3)=min(obj.coordinate(:,2));
-                box(4)=max(obj.coordinate(:,2));
+                box=zeros(size(obj.coordinate,2)*2,1);
+                counter=1;
+                for i=1:size(obj.coordinate,2)
+                    box(counter)=min(obj.coordinate(:,i));
+                    counter=counter+1;
+                    box(counter)=max(obj.coordinate(:,i));
+                    counter=counter+1;
+                end
             else
                 box=0;
             end
         end
         
         function obj = set.coordinate(obj,coordinate)
-            if not(size(coordinate,2)==2)
-                error('coordinate must be a Nx2 matrix');
+            if strcmp(obj.unit,'deg')
+                if not(size(coordinate,2)==2)
+                    error('coordinate must be a Nx2 matrix since unit is ''deg''');
+                end
             end
             
             if not(strcmp(obj.grid_type,'regular'))
-                if length(coordinate)<5000
+                if length(coordinate)<100000
                     obj.duplicated_sites=[];
-                    for i=1:length(coordinate)-1
+                    for i=1:size(coordinate,1)-1
                         temp=coordinate(i,:);
                         temp2=coordinate((i+1):end,:);
-                        temp_lat=temp2(:,1);
-                        temp_lon=temp2(:,2);
-                        a=temp_lat==temp(1);
-                        b=temp_lon==temp(2);
-                        c=a&b;
+                        temp=repmat(temp,[size(temp2,1),1]);
+                        c=all(temp==temp2,2);
                         if sum(c)>0
                             obj.duplicated_sites=[obj.duplicated_sites;find(c,1)+i];
                             disp(['WARNING: coordinate ',num2str(i),' equal to coordinate ',num2str(find(c,1)+i)]);
@@ -140,9 +165,10 @@ classdef stem_grid
         end
         
         function obj = set.unit(obj,unit)
-            if not(strcmp(unit,'deg') || strcmp(unit,'m') || strcmp(unit,'km'))
-                error('unit must be ''deg'' or ''m'' or ''km''');
+            if not(strcmp(unit,'deg') || strcmp(unit,'m') || strcmp(unit,'km') || strcmp(unit,'none'))
+                error('unit must be ''deg'' or ''m'' or ''km'' or ''none''');
             end
+            
             obj.unit=unit;
         end
         
@@ -166,9 +192,12 @@ classdef stem_grid
             end
             if not(isempty(grid_size))
                 if not(isvector(grid_size))
-                    error('The grid_size must be a 2x1 vector');
+                    error('The grid_size must be a 1xd vector with d the number of grid dimensions');
                 end
-                if not(grid_size(1)*grid_size(2)==size(obj.coordinate,1))
+                if not(size(grid_size,1)==1)
+                    error('grid_size must be a 1xd vector');
+                end
+                if not(prod(grid_size)==size(obj.coordinate,1))
                     error('The grid size is not compatible with the grid');
                 end
             end
@@ -194,7 +223,11 @@ classdef stem_grid
                 error('pixel_side_h must be >0');
             end
             obj.pixel_side_h=pixel_side_h;
-        end        
+        end 
+    end
+    
+    methods (Static)
         
     end
+        
 end
