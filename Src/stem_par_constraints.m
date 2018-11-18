@@ -6,7 +6,12 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % This file is part of D-STEM.
@@ -28,7 +33,7 @@ classdef stem_par_constraints
    
     properties
         time_diagonal=1;        %[boolean]	(1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
-        pixel_correlated;       %[boolean]  (1x1) 1: when model_name is 'DCM', pixel variables are cross-correlated; 0: pixel variables are NOT cross-correlated
+        pixel_correlated=0;       %[boolean]  (1x1) 1: when model_name is 'DCM', pixel variables are cross-correlated; 0: pixel variables are NOT cross-correlated
     end
     
     methods

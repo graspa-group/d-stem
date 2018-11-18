@@ -6,8 +6,14 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % This file is part of D-STEM.
 % 
@@ -118,7 +124,7 @@ classdef stem_misc
                 end
             else
                 if not(length(theta)==1)
-                    error('theta must be a scalar');
+                    warning('theta must be a scalar');
                 end
             end
             
@@ -264,7 +270,7 @@ classdef stem_misc
                                 if r>0
                                     if sum(abs(d(end-r+1:end)))==0
                                         res=sparse(diag(d(1:size(a,1))))*a;
-                                        %res=[res;zeros(r,size(a,2))];
+                                        res=[res;zeros(r,size(a,2))];
                                     else
                                         res=a.*repmat(d',[size(a,1),1]);
                                     end
@@ -281,7 +287,7 @@ classdef stem_misc
                                     if r>0
                                         if sum(abs(d(end-r+1:end)))==0
                                             res=a*sparse(diag(d(1:size(a,2))));
-                                            %res=[res,zeros(size(a,1),r)];
+                                            res=[res,zeros(size(a,1),r)];
                                         else
                                             error('The element of d exceeding the dimension of a must be zeros');
                                         end
@@ -456,127 +462,6 @@ classdef stem_misc
                 end
             end
         end        
-        
-        function [best_idx_group,best_group_size] = kmeans_globe(coordinates,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
-            if nargin<1
-                error('coordinates and n_groups must be provided');
-            end
-            if nargin<2
-                error('n_groups must be provide');
-            end
-            if nargin<3
-                trials=10;
-                disp(['k-means on ',num2str(trials),' trials']);
-            end
-            if nargin<4
-                force_poles=0;
-            end
-            if nargin<5
-                force_poles=0;
-            end
-            if nargin<6
-                flag_plot=0;
-            end
-            if nargin<7
-                flag_verbose=1;
-            end
-            
-            if n_groups<2
-                error('n_groups must be >=2');
-            end
-            
-            min_lat=min(coordinates(:,1));
-            max_lat=max(coordinates(:,1));
-            min_lon=min(coordinates(:,2));
-            max_lon=max(coordinates(:,2));
-            
-            best_total_distance=10^10;
-            for r=1:trials
-                if flag_verbose
-                    disp(['TRIAL: ',num2str(r)]);
-                end
-                disp('');
-                centers=zeros(n_groups,2);
-                centers(:,1)=unifrnd(min_lat,max_lat,n_groups,1);
-                centers(:,2)=unifrnd(min_lon,max_lon,n_groups,1);
-                
-                if force_poles
-                    centers(1,1)=90;
-                    centers(1,2)=0;
-                    centers(2,1)=-90;
-                    centers(2,2)=0;
-                end
-                
-                centers_last=centers;
-                
-                n_iter=0;
-                exit_toll=1;
-                distmat=zeros(n_groups,length(coordinates));
-                group_size=zeros(n_groups,1);
-                while exit_toll>0.001&&n_iter<1000
-                    for i=1:size(distmat,1)
-                        distmat(i,:)=distance(centers(i,1),centers(i,2),coordinates(:,1),coordinates(:,2));
-                    end
-                    [~,idx_group]=min(distmat,[],1);
-                    total_distance=0;
-                    for j=1:size(distmat,1)
-                        idx=find(idx_group==j);
-                        total_distance=total_distance+sum(distmat(j,idx));
-                        group_size(j)=length(idx);
-                        
-                        x = 0;
-                        y = 0;
-                        z = 0;
-                        
-                        latitude = coordinates(idx,1) * pi / 180;
-                        longitude = coordinates(idx,2) * pi / 180;
-                        
-                        x = x + sum(cos(latitude).*cos(longitude));
-                        y = y + sum(cos(latitude).*sin(longitude));
-                        z = z + sum(sin(latitude));
-                        
-                        x = x / length(idx);
-                        y = y / length(idx);
-                        z = z / length(idx);
-                        
-                        centralLongitude = atan2(y, x);
-                        centralSquareRoot = sqrt(x * x + y * y);
-                        centralLatitude = atan2(z, centralSquareRoot);
-                        
-                        centers(j,1)=centralLatitude * 180 / pi;
-                        centers(j,2)=centralLongitude * 180 / pi;
-                    end
-                    
-                    total_distance=total_distance+lambda_pen*var(group_size);
-                    
-                    exit_toll=norm(centers-centers_last);
-                    centers_last=centers;
-                    if flag_verbose
-                        disp(['k-means iter: ',num2str(n_iter),', tot. dist.: ',num2str(total_distance),', toll: ',num2str(exit_toll)]);
-                    end
-                    n_iter=n_iter+1;
-                end
-                
-                if total_distance<best_total_distance
-                    best_idx_group=idx_group;
-                    best_total_distance=total_distance;
-                    best_group_size=group_size;
-                end
-            end
-            
-            if flag_plot
-                figure;
-                hold on
-                for i=1:n_groups
-                    L=best_idx_group==i;
-                    plot(coordinates(L,2),coordinates(L,1),'*');
-                end
-                xlim([-180 180]);
-                ylim([-90 90]);
-                grid on
-                title(['Total distance: ',num2str(best_total_distance)]);
-            end
-        end
         
         function xls_coordinates = rc2xls(row,col)
             if col>26*27
@@ -985,7 +870,7 @@ classdef stem_misc
                 else
                     if sum(abs(size_ref_par-size_par))>0
                         if length(size_ref_par)==2
-                            error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2))]);
+                            warning([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2))]);
                         else
                             error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2)),'x',num2str(size_ref_par(3))]);
                         end
@@ -1024,6 +909,125 @@ classdef stem_misc
             %density         - [double]       (1x1)   the percentage of zero elements            
             density=100-nnz(matrix)/(size(matrix,1)*size(matrix,2))*100;
         end
+        
+        %Yaqiong
+        function f = update_coe_sigma_eps(x,i,others,Omega,Basis,flag_logsigma)
+            %DESCRIPTION: update sigma_eps when modeltype is f-HDGM and we
+            %set splines to estimate sigma_eps, the function will be called
+            %at stem_EM.M_setp when updating basis coefficients of sigma_eps
+            %
+            %INPUT
+            %
+            %Omega          - [double]       (N*Tx1)   the input matrix
+            %Basis          - [double]       (N*Txk)   the input matrix
+            %coe_sigma_eps  - [double]        (kx1) the vector
+            %
+            %OUTPUT
+            %
+            %n = size(Omega,1)/T;
+            others(i) = x;
+            coe_spline_sigma_eps = others;
+            f = 0;
+            for t=1:size(Omega,1)
+                if flag_logsigma==1
+                    sigma_t = exp(Basis(t,:)*coe_spline_sigma_eps);
+                else
+                    sigma_t = (Basis(t,:)*coe_spline_sigma_eps).^2;
+                end
+                f = f + log(sigma_t)+(sigma_t)^(-1)*Omega(t);
+            end  
+        end
+        
+        function [obj_stem_varset,obj_stem_gridlist_p]=table_to_varset(DataTable)
+
+            warning('the function is only avaliable ');
+            LatLon=unique([DataTable.Lat,DataTable.Lon],'rows');
+            N=size(LatLon,1);
+            T=max(DataTable.Time_step);
+            k=strfind(DataTable.Properties.VariableNames,'X_f');
+            for varidx=1:size(DataTable,2)
+                if k{varidx}
+                    Max_q=length(DataTable{1,varidx}{1});
+                    for i=2:size(DataTable,1)
+                        Max_q=max(Max_q,length(DataTable{i,varidx}{1}));
+                    end
+                end
+            end
+            
+
+            Y=cell(Max_q);
+            Y_name=cell(Max_q);
+            X_beta=cell(Max_q);
+            X_beta_name=cell(Max_q);
+            X_f=cell(Max_q);
+            X_f_name=cell(Max_q);
+            for i=1:Max_q
+                %response variable Y
+                k=strfind(DataTable.Properties.VariableNames,'Y_');
+                for varidx=1:size(DataTable,2)
+                    if k{varidx}
+                        for s=1:N
+                            for t=1:T
+                                tmp=table2array(DataTable(DataTable.Time_step==t&DataTable.Lat==LatLon(s,1)&DataTable.Lon==LatLon(s,2),varidx));
+                                Y{i}(s,t)=tmp{1}(i);
+                            end
+                        end 
+                        tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                        Y_name{i}=tmp(end);
+                    end
+                end
+
+                %X_f
+                k=strfind(DataTable.Properties.VariableNames,'X_f');
+                for varidx=1:size(DataTable,2)
+                    if k{varidx}
+                        for s=1:N
+                            for t=1:T
+                                tmp=table2array(DataTable(DataTable.Time_step==t&DataTable.Lat==LatLon(s,1)&DataTable.Lon==LatLon(s,2),varidx));
+                                X_f{i}(s,t)=tmp{1}(i);
+                            end
+                        end 
+                        tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                        X_f_name{i}=tmp(end);
+                    end
+                end
+
+                %X_beta
+                k=strfind(DataTable.Properties.VariableNames,'X_beta');
+                counter=1;
+                X_beta_name_tmp=[];
+                for varidx=1:size(DataTable,2)
+                    if k{varidx}
+                        for s=1:N
+                            for t=1:T
+                                tmp=table2array(DataTable(DataTable.Time_step==t&DataTable.Lat==LatLon(s,1)&DataTable.Lon==LatLon(s,2),varidx));
+                                X_beta{i}(s,counter,T)=tmp{1}(i);
+                            end
+                        end 
+                        counter=counter+1;
+                        tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                        X_beta_name_tmp=cat(2,X_beta_name_tmp,tmp(end));
+                    end
+                end
+                X_beta_name{i}=X_beta_name_tmp;
+                clear X_beta_name_tmp
+            end
+            X_bp=[];
+            X_bp_name=[];
+            X_z=[];
+            X_z_name=[];
+            X_p=[];
+            X_p_name=[];
+            obj_stem_varset=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_f,X_f_name);
+
+            obj_stem_gridlist_p=stem_gridlist();
+            obj_stem_grid=stem_grid(LatLon,'deg','sparse','point');
+            obj_stem_grid=obj_stem_grid.sorted_by_lat;
+            for i=1:q  
+                obj_stem_gridlist_p.add(obj_stem_grid);
+            end
+        end
+      
 
     end
 end

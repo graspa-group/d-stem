@@ -6,7 +6,12 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % This file is part of D-STEM.
@@ -48,10 +53,12 @@ classdef stem_data < handle
         stem_crossval=[];       %[stem_crossval object] (1x1) stem_crossval object with information on crossvalidation
         stem_modeltype=[];      %[stem_modeltype object](1x1) stem_modeltype object with information on the model type
         shape=[];               %[struct]               (1x1) boundary of the geographic region loaded from a shape file
-                
+        stem_fda=[];            %[stem_fda object]      (1x1) an object of class stem_fda for modeltype f-HDGM
+        
         simulated=0;            %[boolean]              (1x1) 1: the data have been simulated; 0: observed data
 
         X_beta=[];              %[double]               {TT}(N x N_b) the full X_beta matrices
+        X_beta_name =[];        %[string]               {q}{nb_i*k} only for f-HDGM, name of the loading vectors related to the beta parameter and basis
         X_z=[];                 %[double]               {TT}(N x p)   the full X_z matrices if model_name is 'DCM'
                                 %                       {TT}(N x 1)   the full X_z matrices if model_name is 'HDGM'
                                 %                       {TT}(N x N_r) the full X_z matrices if model_name is 'f-HDGM'
@@ -80,7 +87,7 @@ classdef stem_data < handle
     
     methods
         
-        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_crossval,st_modeltype,shape)
+        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_crossval,st_modeltype,shape,stem_fda)
             %DESCRIPTION: is the constructor of the class stem_data
             %
             %INPUT
@@ -93,6 +100,7 @@ classdef stem_data < handle
             %<stem_crossval>    - [stem_crossval object]  (1x1) stem_crossval object with information on crossvalidation
             %<st_modeltype>     - [stem_modeltype object] (1x1) stem_modeltype object with information on the model type
             %<shape>            - [struct]                (1x1) structure loaded from a shapefile with the boundary of the geographic region
+            %<stem_fda>         - [stem_fda object] (1x1) an object of class stem_fda
             %
             %OUTPUT
             %obj                - [stem_data object]      (1x1) the stem_data object
@@ -101,6 +109,7 @@ classdef stem_data < handle
                 error('Not enough input parameters');
             end
             obj.stem_varset_p=stem_varset_p;
+            
             
             obj.stem_gridlist_p=stem_gridlist_p;
             if not(length(obj.stem_gridlist_p.grid)==length(obj.stem_varset_p.Y))
@@ -215,6 +224,10 @@ classdef stem_data < handle
                     if not(isempty(obj.stem_varset_b))
                         error('stem_varset_b and stem_gridlist_b must be empty when model_name is f-HDGM');
                     end
+                    if isempty(stem_fda)
+                        error('obj_stem_fda must be provided since model_type is f-HDGM');
+                    end
+                    obj.stem_fda=stem_fda;
                 end
 
                 if not(isempty(obj.stem_varset_p.X_z))
@@ -273,7 +286,8 @@ classdef stem_data < handle
             %
             %OUTPUT
             %
-            %none: the matrices listed above are updated
+            %none: the matrices listed above are updated % update X_beta
+            %changed by Yaqiong
             
             disp('Generating data matrices...');
             %Y
@@ -344,6 +358,32 @@ classdef stem_data < handle
             end
 
             %X_beta
+            %Yaqiong
+            if obj.stem_modeltype.is('f-HDGM')&&obj.stem_fda.flag_beta_spline==1
+                qq=length(obj.stem_varset_p.X_f);
+                k=getnbasis(obj.stem_fda.spline_basis_beta); %used in labels of X_beta_name
+                X_beta0=cell(qq,1);
+                X_beta_Q = cell(qq,1);
+                X_beta_name_temp=cell(qq,1);
+                for i=1:qq
+                    for t=1:size(obj.stem_varset_p.X_f{i},2)
+                        temp=full(getbasismatrix(obj.stem_varset_p.X_f{i}(:,t),obj.stem_fda.spline_basis_beta));
+                        temp(isnan(temp))=0;
+                        for q=1:size(obj.stem_varset_p.X_beta{i},2)
+                            X_beta_Q{i}(:,:,t)= (obj.stem_varset_p.X_beta{i}(:,q,t).*ones(1,k)).*temp;
+                            X_beta0{i}(:,(q-1)*k+(1:k),t) = X_beta_Q{i}(:,:,t);
+                        end
+                    end
+                    labels=cell(1,size(obj.stem_varset_p.X_beta{i},2)*k);
+                    for q = 1:size(obj.stem_varset_p.X_beta{i},2)
+                        for j=1:k
+                            labels{1,(q-1)*k+j}=['basis_',num2str(j),'_@level',num2str(i),'_@',obj.stem_varset_p.X_beta_name{i}{q}];
+                        end
+                    end
+                    X_beta_name_temp{i}=labels;
+                end
+            end
+            
             all_T=[];
             if not(isempty(obj.stem_varset_p.X_beta))
                 for i=1:length(obj.stem_varset_p.X_beta)
@@ -370,15 +410,28 @@ classdef stem_data < handle
                     for i=1:length(obj.stem_varset_p.X_beta)
                         if size(obj.stem_varset_p.X_beta{i},3)>1
                             if not(obj.stem_modeltype.is('f-HDGM'))
+                                %Yaqiong WHY? for HDGM
+                                %if  obj.stem_modeltype.is('HDGM')
+                                    %X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
+                                %else
                                 X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
+                                %end
                             else
-                                X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
+                                if obj.stem_fda.flag_beta_spline==1 %Yaqiong
+                                    X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,t));
+                                else
+                                    X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
+                                end
                             end
                         else
-                            if not(obj.stem_modeltype.is('f-HDGM'))
+                            if not(obj.stem_modeltype.is('f-HDGM')) %Yaqiong
                                 X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
                             else
-                                X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
+                                if obj.stem_fda.flag_beta_spline==1
+                                    X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,1));
+                                else
+                                    X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
+                                end
                             end
                         end
                     end
@@ -419,6 +472,9 @@ classdef stem_data < handle
             else
                 if not(isempty(X_beta_p))
                     obj.X_beta=X_beta_p;
+                    if obj.stem_modeltype.is('f-HDGM')&&obj.stem_fda.flag_beta_spline==1
+                        obj.X_beta_name = X_beta_name_temp;
+                    end
                 end
                 if not(isempty(X_beta_b))
                     obj.X_beta=cell(T_max,1);
@@ -1210,6 +1266,132 @@ classdef stem_data < handle
             end
         end        
         
+        function [block_tapering_size_step,best_idx_group,best_group_size] = kmeans_globe(obj,coordinates,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
+            if nargin<1
+                error('coordinates and n_groups must be provided');
+            end
+            if nargin<2
+                error('n_groups must be provide');
+            end
+            if nargin<3
+                trials=10;
+                disp(['k-means on ',num2str(trials),' trials']);
+            end
+            if nargin<4
+                force_poles=0;
+            end
+            if nargin<5
+                force_poles=0;
+            end
+            if nargin<6
+                flag_plot=0;
+            end
+            if nargin<7
+                flag_verbose=1;
+            end
+            
+            if n_groups<2
+                error('n_groups must be >=2');
+            end
+            
+            min_lat=min(coordinates(:,1));
+            max_lat=max(coordinates(:,1));
+            min_lon=min(coordinates(:,2));
+            max_lon=max(coordinates(:,2));
+            
+            best_total_distance=10^10;
+            for r=1:trials
+                if flag_verbose
+                    disp(['TRIAL: ',num2str(r)]);
+                end
+                disp('');
+                centers=zeros(n_groups,2);
+                centers(:,1)=unifrnd(min_lat,max_lat,n_groups,1);
+                centers(:,2)=unifrnd(min_lon,max_lon,n_groups,1);
+                
+                if force_poles
+                    centers(1,1)=90;
+                    centers(1,2)=0;
+                    centers(2,1)=-90;
+                    centers(2,2)=0;
+                end
+                
+                centers_last=centers;
+                
+                n_iter=0;
+                exit_toll=1;
+                distmat=zeros(n_groups,length(coordinates));
+                group_size=zeros(n_groups,1);
+                while exit_toll>0.001&&n_iter<1000
+                    for i=1:size(distmat,1)
+                        distmat(i,:)=distance(centers(i,1),centers(i,2),coordinates(:,1),coordinates(:,2));
+                    end
+                    [~,idx_group]=min(distmat,[],1);
+                    total_distance=0;
+                    for j=1:size(distmat,1)
+                        idx=find(idx_group==j);
+                        total_distance=total_distance+sum(distmat(j,idx));
+                        group_size(j)=length(idx);
+                        
+                        x = 0;
+                        y = 0;
+                        z = 0;
+                        
+                        latitude = coordinates(idx,1) * pi / 180;
+                        longitude = coordinates(idx,2) * pi / 180;
+                        
+                        x = x + sum(cos(latitude).*cos(longitude));
+                        y = y + sum(cos(latitude).*sin(longitude));
+                        z = z + sum(sin(latitude));
+                        
+                        x = x / length(idx);
+                        y = y / length(idx);
+                        z = z / length(idx);
+                        
+                        centralLongitude = atan2(y, x);
+                        centralSquareRoot = sqrt(x * x + y * y);
+                        centralLatitude = atan2(z, centralSquareRoot);
+                        
+                        centers(j,1)=centralLatitude * 180 / pi;
+                        centers(j,2)=centralLongitude * 180 / pi;
+                    end
+                    
+                    total_distance=total_distance+lambda_pen*var(group_size);
+                    
+                    exit_toll=norm(centers-centers_last);
+                    centers_last=centers;
+                    if flag_verbose
+                        disp(['k-means iter: ',num2str(n_iter),', tot. dist.: ',num2str(total_distance),', toll: ',num2str(exit_toll)]);
+                    end
+                    n_iter=n_iter+1;
+                end
+                
+                if total_distance<best_total_distance
+                    best_idx_group=idx_group;
+                    best_total_distance=total_distance;
+                    best_group_size=group_size;
+                end
+            end
+            
+            if flag_plot
+                figure;
+                hold on
+                for i=1:n_groups
+                    L=best_idx_group==i;
+                    plot(coordinates(L,2),coordinates(L,1),'*');
+                end
+                xlim([-180 180]);
+                ylim([-90 90]);
+                grid on
+                title(['Total distance: ',num2str(best_total_distance)]);
+            end
+            
+            [v,idx_permute]=sort(best_idx_group);
+            block_tapering_size_step=diff([0 find(diff([v 0]))]);
+            obj.permute('point',idx_permute);
+           
+        end
+        
         function permute(obj,type,indices)
             %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_f with respect to indices
             %
@@ -1517,7 +1699,7 @@ classdef stem_data < handle
             if strcmp(obj.stem_gridlist_p.grid{1}.unit,'deg')
                 prefix_x='  Longitude ';
                 prefix_y='  Latitude ';
-                postfix='°';
+                postfix='?';
             else
                 prefix_x='X ';
                 prefix_y='Y ';
@@ -1813,6 +1995,14 @@ classdef stem_data < handle
         end
         
         %Class set methods
+        
+        %set.stem_fda is added by Yaqiong
+        function set.stem_fda(obj,stem_fda)
+           if not(isa(stem_fda,'stem_fda'))
+               error('stem_fda must be of class stem_fda');
+           end
+           obj.stem_fda=stem_fda;
+        end
         
         function set.stem_varset_p(obj,stem_varset_p)
            if not(isa(stem_varset_p,'stem_varset'))

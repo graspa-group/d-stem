@@ -6,8 +6,14 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % This file is part of D-STEM.
 % 
@@ -29,8 +35,7 @@ classdef stem_par
     properties
         %estimated parameters
         beta=[];            %[double]       (N_bx1) beta parameters
-        alpha_bp=[];        %[double]       (2qx1) alpha pixel/point parameters
-        alpha_p=[];         %[double]       (qxk) alpha point parameters;
+        alpha_bp=[];        %[double]       (qx1) alpha point parameters
         theta_b=[];         %[double >0]    (qx1|1x1) coregionalization theta parameter for the pixel variables
         theta_p=[];         %[double >0]    (kx1|kxd) coregionalization theta parameters for the point level variables
         v_b=[];             %[double]       (qxq) correlation matrix for the pixel sensing variables
@@ -39,11 +44,10 @@ classdef stem_par
         lambda=[];          %[double]       (1x1) lambda parameter for the case of irregular time steps
         sigma_eta=[];       %[double]       (pxp) error variance-covariance matrix of the temporal component
         sigma_eps=[];       %[double]       (qxq|2qx2q|qxqxT) measurement-error variance-covariance matrix
-        alpha_z=[];         %[double]       (px1) alpha parameters related to the z latent variable when model_name is 'HDGM' or 'f-HDGM'
         theta_z=[];         %[double]       (1x1|1x2|1xp|2xp) coregionalization theta parameter related to the z latent variable when model_name is 'HDGM' or 'f-HDGM'
         v_z=[];             %[double]       (pxp) coregionalization matrix related to the z latent variable when model_name is 'HDGM' or 'f-HDGM'
         
-        stem_fda=[];        %[stem_fda obj] (1x1) object of class stem_fda
+        %stem_fda=[];        %[stem_fda obj] (1x1) object of class stem_fda
     end
     
     properties (SetAccess=private)
@@ -58,18 +62,24 @@ classdef stem_par
         k=[];                           %[integer>0]    (1x1) number of coregionalization components for the point level variables
         n_beta=[];                      %[integer>0]    (1x1) total number of loading coefficients in X_beta
         d=[];                           %[integer>0]    (1x1)
+        flag_beta_spline = 0;                 %[interger]     (1x1) the indicator of Beta(h) when modeltype is fHDGM
+        flag_sigma_eps_spline = 0;                %[interger]     (1x1) the indicator of Sigma(h) when modeltype is fHDGM
+        flag_logsigma = 0;              %[interger] (1x1) the indicator of is on logsigma or not, with 1 indicating using the log and temporally used by ourselves
+        flag_sqrsigma = 0;   %[interger] (1x1) the indicator of is on sqrtsigma or not, with 1 indicating using the sqrt and temporally used by ourselves
+        k_beta=[];                      %[integer>0]    (1x1) number of basis functions for beta(h) when modeltype is fHDGM
+        k_sigma=[];                     %[integer>0]    (1x1) number of basis functions for sigma(h) when modeltype is fHDGM
+        
         correlation_type='exponential'; %[string]       (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the sphere  
     end
     
     methods
         
-        function obj = stem_par(obj_stem_data,correlation_type,obj_stem_fda,obj_stem_par_constraints)
+        function obj = stem_par(obj_stem_data,correlation_type,obj_stem_par_constraints)
             %DESCRIPTION: object constructor
             %
             %INPUT
             %obj_stem_data                  - [stem_data object]            (1x1) an object of class stem_data
             %<correlation_type>             - [string]                      (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the sphere
-            %<obj_stem_fda>                 - [stem_fda object]             (1x1) an object of class stem_fda
             %<obj_stem_par_contraints>      - [stem_par_contraints object]	(1x1) an object of class stem_par_constraints
             %
             %OUTPUT
@@ -84,13 +94,8 @@ classdef stem_par
             if nargin>1
                 obj.correlation_type=correlation_type;
             end
+            
             if nargin>2
-                if not(isa(obj_stem_fda,'stem_fda'))
-                    error('obj_stem_fda must be of class stem_fda');
-                end
-                obj.stem_fda=obj_stem_fda;
-            end
-            if nargin>3
                 if not(isa(obj_stem_par_constraints,'stem_par_constraints'))
                     error('obj_stem_par_constraints must be of class stem_par_constraints');
                 end
@@ -138,10 +143,20 @@ classdef stem_par
                         end
                     end
                 else
-                    if nargin<3
-                        error('obj_stem_fda must be provided since model_type is f-HDGM');
+                    %if nargin<3
+                    %    error('obj_stem_fda must be provided since model_type is f-HDGM');
+                    %end
+                    obj.p=getnbasis(obj_stem_data.stem_fda.spline_basis);
+                    obj.flag_beta_spline = obj_stem_data.stem_fda.flag_beta_spline;
+                    if obj.flag_beta_spline==1
+                        obj.k_beta = getnbasis(obj_stem_data.stem_fda.spline_basis_beta);
                     end
-                    obj.p=getnbasis(obj.stem_fda.spline_basis);
+                    obj.flag_sigma_eps_spline = obj_stem_data.stem_fda.flag_sigma_eps_spline;
+                    if obj.flag_sigma_eps_spline==1
+                        obj.k_sigma = getnbasis(obj_stem_data.stem_fda.spline_basis_sigma);
+                        obj.flag_logsigma = obj_stem_data.stem_fda.flag_logsigma;
+                        obj.flag_sqrsigma = obj_stem_data.stem_fda.flag_sqrsigma;
+                    end
                 end
             end
             
@@ -189,6 +204,9 @@ classdef stem_par
                     end
                 end
                 obj.n_beta=size_ref;
+                if obj_stem_data.stem_fda.flag_beta_spline==1
+                    obj.n_beta = size(obj_stem_data.stem_varset_p.X_beta{1},2)*obj.k_beta;
+                end
             end
 
             %k
@@ -208,6 +226,7 @@ classdef stem_par
             if not(obj.stem_modeltype.is('MBC')&&strcmpi(obj.stem_modeltype.clustering_type,'Dynamic'))
                 if not(obj.stem_modeltype.is('f-HDGM'))
                     if not(isempty(obj_stem_data.stem_varset_b))
+                        %Yaqiong
                         obj.alpha_bp=zeros(obj.q*2,1);
                         obj.sigma_eps=zeros(obj.q*2);
                         if obj.stem_par_constraints.pixel_correlated
@@ -228,14 +247,19 @@ classdef stem_par
                         obj.sigma_eps=zeros(obj.q);
                     end
                 else
-                    obj.sigma_eps=0;
+                    if obj.flag_sigma_eps_spline==1 %Yaqiong
+                        %obj.sigma_eps=zeros(obj_stem_data.stem_varset_p.N,1);
+                        obj.sigma_eps = zeros(obj.k_sigma,1);
+                    else
+                        obj.sigma_eps=0;
+                    end 
                 end
             else
                 obj.sigma_eps=zeros(obj.p);
             end
             
             if obj.k>0
-                obj.alpha_p=zeros(obj.q,obj.k);
+                
                 if not(obj.stem_modeltype.is('Emulator'))
                     if not(strcmp(obj.correlation_type,'expsphere'))
                         obj.theta_p=zeros(1,obj.k);
@@ -256,7 +280,7 @@ classdef stem_par
                 if not(obj.stem_modeltype.is({'HDGM','f-HDGM'}))
                     obj.sigma_eta=zeros(obj.p);
                 else
-                    obj.alpha_z=zeros(obj.p,1);
+                    
                     if not(strcmp(correlation_type,'expsphere'))
                         if obj.stem_modeltype.is('f-HDGM')
                             obj.theta_z=zeros(1,obj.p);
@@ -300,16 +324,6 @@ classdef stem_par
             obj.alpha_bp=alpha_bp;
         end
         
-        function obj = set.alpha_p(obj,alpha_p)
-            stem_misc.compare(obj.alpha_p,alpha_p,stem_misc.varname(alpha_p));
-            obj.alpha_p=alpha_p;
-        end      
-        
-        function obj = set.alpha_z(obj,alpha_z)
-            stem_misc.compare(obj.alpha_z,alpha_z,stem_misc.varname(alpha_z));
-            obj.alpha_z=alpha_z;
-        end 
-        
         function obj = set.theta_b(obj,theta_b)
             if sum(theta_b<0)>0
                 error('The element of theta_b cannot be negative');
@@ -332,16 +346,6 @@ classdef stem_par
         end        
         
         function obj = set.v_b(obj,v_b)
-            if not(obj.stem_par_constraints.pixel_correlated)
-                temp=v_b-eye(size(v_b,1));
-                if sum(temp(:))>0
-                    error('v_b must be the identity matrix since the pixel variables are uncorrelated');
-                end
-            else
-                if not(sum(diag(v_b-eye(size(v_b,1))))==0)
-                    error('The diagonal elements of v_b must be 1');
-                end                
-            end
             if min(eig(v_b))<0
                 error('v_b must be positive definited');
             end
@@ -352,7 +356,7 @@ classdef stem_par
         function obj = set.v_p(obj,v_p)
             for i=1:size(v_p,3)
                 if not(sum(diag(v_p(:,:,i)-eye(size(v_p,1))))==0)
-                    error('The diagonal elements of each v_p(:,:,i) matrix must be 1');
+                    warning('The diagonal elements of each v_p(:,:,i) matrix must be 1');
                 end
                 if min(eig(v_p(:,:,i)))<0
                     error('Each v_p(:,:,i) matrix must be positive definited');
@@ -364,7 +368,7 @@ classdef stem_par
         
         function obj = set.v_z(obj,v_z)
             if not(sum(diag(v_z-eye(size(v_z,1))))==0)
-                error('The diagonal elements of v_z must be 1');
+                warning('The diagonal elements of v_z must be 1');
             end
             if min(eig(v_z))<0
                 error('v_z must be positive definited');
@@ -384,15 +388,12 @@ classdef stem_par
         end
         
         function obj = set.sigma_eps(obj,sigma_eps)
+            %Yaqiong
+           
             stem_misc.compare(obj.sigma_eps,sigma_eps,stem_misc.varname(sigma_eps));
+          
             obj.sigma_eps=sigma_eps;
         end
         
-        function obj = set.stem_fda(obj,stem_fda)
-            if not(isa(stem_fda,'stem_fda'))
-                error('stem_fda must be of class stem_fda');
-            end
-            obj.stem_fda=stem_fda;
-        end
     end
 end

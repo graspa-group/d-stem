@@ -6,8 +6,14 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % This file is part of D-STEM.
 % 
@@ -31,7 +37,9 @@ classdef stem_krig_options
         back_transform=1;           %[boolean]          (1x1)   1: kriging output are back-transformed to the orginal unit; 0: kriging output are NOT back transformed 
         no_varcov=1;                %[boolean]          (1x1)   1: the variance of the kriging output is NOT computed; 0: the variance is computed
         crossval=0;                 %[boolean]          (1x1)   1: the kriging is done for cross-validation; 0: standard kriging. This flag must be 0 when you are doing kriging
-        type='y';                   %[string]           (1x1)   'y': the kriging is on the y variable(s), 'y-xbeta': the kriging is on y-X_beta*beta', this option is only valid with f-HDGM models
+        %Yaqiong, should we change the meaning of 'y-xbeta' on
+        %y-X_beta*beta', to spline coeff. 'z_t'
+        %type='y';                   %[string]           (1x1)   'y': the kriging is on the y variable(s), 'y-xbeta': the kriging is on y-X_beta*beta', this option is only valid with f-HDGM models
         workers=1;                  %[integer>0]        (1x1)   the number of matlab workers used for block kriging
     end
     
@@ -81,20 +89,19 @@ classdef stem_krig_options
             end
             obj.crossval=crossval;
         end
-        
+        %{
         function obj = set.type(obj,type)
             if not(strcmp(type,'y')||strcmp(type,'y-xbeta'))
                 error('type must be either ''y'' or ''y-xbeta''');
             end
             obj.type=type;
         end
-        
+        %}
         function obj = set.workers(obj,workers)
             if workers<=0
                 error('workers must be >0');
             end
             obj.workers=workers;
         end
-
     end
 end

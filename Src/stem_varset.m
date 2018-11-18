@@ -6,7 +6,12 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % This file is part of D-STEM.
@@ -115,7 +120,7 @@ classdef stem_varset < handle
             %X_z_name        -  [string]   {q}{nz_i}             name of the loading vectors related to the latent variable z
             %X_p             -  [double]   {q}(n_i x nw x TT)    loading vectors related to the latent variable w_p
             %X_p_name        -  [string]   {q}{nw}               name of the loading vectors related to the latent variable w_p
-            %X_f             -  [double]   {q}(n_i x TT)     domain of the functional observations in Y 
+            %X_f             -  [double]   {q}(n_i x TT)         domain of the functional observations in Y 
             %X_f_name        -  [string]   1x1                   name of the domain of the function observations in Y
             %
             %OUTPUT

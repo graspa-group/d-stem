@@ -6,8 +6,14 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % This file is part of D-STEM.
 % 
@@ -37,6 +43,7 @@ classdef stem_EM_options
         timeout_distributed_computing=10000;        %[integer>0]  (1x1) timeout in seconds when waiting for the data from the slaves
         timeout_node_search=10;                     %[integer>0]  (1x1) timeout in seconds when looking for the available slaves
         wpar_estimation=1;                          %[boolean]    (1x1) 0: parameters \theta and V are not estimated; 1: parameters are estimated
+        workers=1;                                  %[integer>0]  (1x1)   the number of matlab workers used for EM estimation %Yaqiong
     end
     
     methods

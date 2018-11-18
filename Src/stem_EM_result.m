@@ -6,8 +6,14 @@
 %%% Affiliation: University of Bergamo                                   %
 %%%              Dept. of Management, Economics and Quantitative Methods %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-%%% Code website: https://code.google.com/p/d-stem/                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % This file is part of D-STEM.
 % 
@@ -38,10 +44,10 @@ classdef stem_EM_result < handle
         stem_kalmansmoother_result=[]   %[stem_kalmansmoother_result object]    (1x1) stem_kalmansmoother_result object
    
         y_hat=[];                       %[double]           (NxT) Estimated variable data with missing data filled
-        y_hat_back=[];                  %[double]           (NxT) Backtransformed estimated variable data with missing data filled
-        y_back=[];                      %[double]           (NxT) Backtransformed original variable data
+        %y_hat_back=[];                  %[double]           (NxT) Backtransformed estimated variable data with missing data filled
+        %y_back=[];                      %[double]           (NxT) Backtransformed original variable data
         res=[];                         %[double]           (NxT) Model residuals
-        res_back=[];                    %[double]           (NxT) Backtransformed model residuals
+        %res_back=[];                    %[double]           (NxT) Backtransformed model residuals
         diag_Var_y_hat_back=[]          %[double]           (NxT)     diagonals of Var[y|Y(1)] backtrasformed
         E_wp_y1=[];                     %[double]           (N_pxTxK) E[wp|Y(1)]
         E_wb_y1=[];                     %[double]           (N_pxTxK) E[wp_k|Y(1)]
@@ -49,7 +55,13 @@ classdef stem_EM_result < handle
         diag_Var_wb_y1=[];              %[double]           (N_bxT)   diagonals of Var[wb|Y(1)]
         diag_Var_e_y1=[];               %[double]           (NxT)     diagonals of Var[y|Y(1)]
         
+        %Yaqiong
+        y_hat_back=[];                  %[double]           {q}(n_i x T) Backtransformed estimated variable data with missing data filled
+        y_back=[];                      %[double]           {q}(n_i x T) Backtransformed original variable data
+        res_back=[];                    %[double]           {q}(n_i x T) Backtransformed model residuals
+        AIC = [];                       %[double]           (1x1) AIC at convergence 
         logL=[];                        %[double]           (1x1) observed-data log-likelihood at convergence
+        
         logL_all=[];                    %[double]           (Ix1) observed-data log-likelihood at all EM iterations
         varcov=[];                      %[double]           (HxH) parameter variance-covariance matrix at convergence
         
