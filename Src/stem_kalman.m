@@ -326,10 +326,10 @@ classdef stem_kalman < handle
                                 sigma_W_p_tap=[];
                             end
                             if not(isempty(sigma_eps))
-                                %Yaqiong
+                                %Yaqiong 20181119
                                 if iscell(sigma_eps)
-                                    sigma_eps_tap=cell(1,length(X_beta));
-                                    for t=1:length(X_beta)
+                                    sigma_eps_tap=cell(1,length(X_z));
+                                    for t=1:length(X_z)
                                         sigma_eps_tap{t}=sigma_eps{t}(idx_tapering_q,idx_tapering_q);
                                     end 
                                 else
@@ -339,7 +339,14 @@ classdef stem_kalman < handle
                                 sigma_eps_tap=[];
                             end
                             if not(isempty(sigma_geo))
-                                sigma_geo_tap=sigma_geo(idx_tapering_q,idx_tapering_q);
+                                if iscell(sigma_eps)
+                                    sigma_geo_tap=cell(1,length(X_z));
+                                    for t=1:length(X_z)
+                                        sigma_geo_tap{t}=sigma_geo{t}(idx_tapering_q,idx_tapering_q);
+                                    end 
+                                else
+                                     sigma_geo_tap=sigma_geo(idx_tapering_q,idx_tapering_q);
+                                end 
                             else
                                 sigma_geo_tap=[];
                             end
@@ -485,8 +492,10 @@ classdef stem_kalman < handle
             end
             if not(isempty(sigma_eps))
                 if iscell(sigma_eps)
-                    sigma_eps_tap=cell(1,length(X_beta));
-                    for t=1:length(X_beta)
+                    %Yaqiong 20181119
+                    sigma_eps_tap=cell(1,length(X_z));
+                    %sigma_eps_tap=cell(1,length(X_beta));
+                    for t=1:length(length(X_z))
                         sigma_eps_tap{t}=sigma_eps{t}(idx_tapering_q,idx_tapering_q);
                     end 
                 else
@@ -496,7 +505,14 @@ classdef stem_kalman < handle
                 sigma_eps_tap=[];
             end
             if not(isempty(sigma_geo))
-                sigma_geo_tap=sigma_geo(idx_tapering_q,idx_tapering_q);
+                if iscell(sigma_eps)
+                    sigma_geo_tap=cell(1,length(X_z));
+                    for t=1:length(X_z)
+                        sigma_geo_tap{t}=sigma_geo{t}(idx_tapering_q,idx_tapering_q);
+                    end 
+                else
+                     sigma_geo_tap=sigma_geo(idx_tapering_q,idx_tapering_q);
+                end 
             else
                 sigma_geo_tap=[];
             end

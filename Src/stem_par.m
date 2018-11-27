@@ -146,7 +146,7 @@ classdef stem_par
                     %if nargin<3
                     %    error('obj_stem_fda must be provided since model_type is f-HDGM');
                     %end
-                    obj.p=getnbasis(obj_stem_data.stem_fda.spline_basis);
+                    obj.p=getnbasis(obj_stem_data.stem_fda.spline_basis_z);
                     obj.flag_beta_spline = obj_stem_data.stem_fda.flag_beta_spline;
                     if obj.flag_beta_spline==1
                         obj.k_beta = getnbasis(obj_stem_data.stem_fda.spline_basis_beta);
@@ -213,7 +213,7 @@ classdef stem_par
             if isempty(obj_stem_data.stem_varset_p.X_p)
                 obj.k=0;
             else
-                obj.k=size(obj_stem_data.stem_varset_p.X_p{1},4);
+                obj.k=size(obj_stem_data.stem_varset_p.X_p{1},2);
             end
             
             %parameter vector and matrix building
@@ -227,7 +227,7 @@ classdef stem_par
                 if not(obj.stem_modeltype.is('f-HDGM'))
                     if not(isempty(obj_stem_data.stem_varset_b))
                         %Yaqiong
-                        obj.alpha_bp=zeros(obj.q*2,1);
+                        obj.alpha_bp=zeros(obj.q,1);
                         obj.sigma_eps=zeros(obj.q*2);
                         if obj.stem_par_constraints.pixel_correlated
                             if not(strcmp(obj.correlation_type,'expsphere'))
@@ -346,6 +346,16 @@ classdef stem_par
         end        
         
         function obj = set.v_b(obj,v_b)
+            if not(obj.stem_par_constraints.pixel_correlated)
+                temp=v_b-eye(size(v_b,1));
+                if sum(temp(:))>0
+                    error('v_b must be the identity matrix since the pixel variables are uncorrelated');
+                end
+            else
+                if not(sum(diag(v_b-eye(size(v_b,1))))==0)
+                    error('The diagonal elements of v_b must be 1');
+                end                
+            end
             if min(eig(v_b))<0
                 error('v_b must be positive definited');
             end
@@ -355,9 +365,9 @@ classdef stem_par
         
         function obj = set.v_p(obj,v_p)
             for i=1:size(v_p,3)
-                if not(sum(diag(v_p(:,:,i)-eye(size(v_p,1))))==0)
-                    warning('The diagonal elements of each v_p(:,:,i) matrix must be 1');
-                end
+                %if not(sum(diag(v_p(:,:,i)-eye(size(v_p,1))))==0)
+                %    warning('The diagonal elements of each v_p(:,:,i) matrix must be 1');
+                %end
                 if min(eig(v_p(:,:,i)))<0
                     error('Each v_p(:,:,i) matrix must be positive definited');
                 end
@@ -368,7 +378,7 @@ classdef stem_par
         
         function obj = set.v_z(obj,v_z)
             if not(sum(diag(v_z-eye(size(v_z,1))))==0)
-                warning('The diagonal elements of v_z must be 1');
+               % warning('The diagonal elements of v_z must be 1');
             end
             if min(eig(v_z))<0
                 error('v_z must be positive definited');

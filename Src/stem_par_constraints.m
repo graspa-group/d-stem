@@ -29,7 +29,7 @@
 % You should have received a copy of the GNU General Public License
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
-classdef stem_par_constraints
+classdef stem_par_constraints < handle
    
     properties
         time_diagonal=1;        %[boolean]	(1x1) 1: matrix G and sigma_eta are diagonal; 0: matrix G and sigma_eta are full
@@ -47,14 +47,14 @@ classdef stem_par_constraints
         end
         
         %Class set methods
-        function obj = set.time_diagonal(obj,time_diagonal)
+        function set.time_diagonal(obj,time_diagonal)
             if not(time_diagonal==0||time_diagonal==1)
                 error('time_diagonal must be either 0 or 1');
             end        
             obj.time_diagonal=time_diagonal;
         end
         
-        function obj = set.pixel_correlated(obj,pixel_correlated)
+        function set.pixel_correlated(obj,pixel_correlated)
             if (pixel_correlated<0)||(pixel_correlated>1)
                 error('The pixel_correlated input argument must be either 0 or 1');
             end

@@ -870,7 +870,7 @@ classdef stem_misc
                 else
                     if sum(abs(size_ref_par-size_par))>0
                         if length(size_ref_par)==2
-                            warning([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2))]);
+                            error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2))]);
                         else
                             error([name,' must be ',num2str(size_ref_par(1)),'x',num2str(size_ref_par(2)),'x',num2str(size_ref_par(3))]);
                         end
@@ -920,114 +920,171 @@ classdef stem_misc
             %
             %Omega          - [double]       (N*Tx1)   the input matrix
             %Basis          - [double]       (N*Txk)   the input matrix
-            %coe_sigma_eps  - [double]        (kx1) the vector
+            %coe_sigma_eps  - [double]       (kx1) the vector
             %
             %OUTPUT
             %
-            %n = size(Omega,1)/T;
+            %f 
+            
             others(i) = x;
             coe_spline_sigma_eps = others;
-            f = 0;
-            for t=1:size(Omega,1)
-                if flag_logsigma==1
-                    sigma_t = exp(Basis(t,:)*coe_spline_sigma_eps);
-                else
-                    sigma_t = (Basis(t,:)*coe_spline_sigma_eps).^2;
-                end
-                f = f + log(sigma_t)+(sigma_t)^(-1)*Omega(t);
-            end  
+            
+            sigma=exp(Basis*coe_spline_sigma_eps);
+            f = nansum(log(sigma))+nansum(Omega./sigma);
+            
+            %commented by FF
+            %f = exp(Basis*coe_spline_sigma_eps);
+            %for t=1:size(Omega,1)
+            %    if flag_logsigma==1
+            %        sigma_t = exp(Basis(t,:)*coe_spline_sigma_eps);
+            %    else
+            %        sigma_t = (Basis(t,:)*coe_spline_sigma_eps).^2;
+            %    end
+            %    f = f + log(sigma_t)+(sigma_t)^(-1)*Omega(t);
+            %end  
         end
         
         function [obj_stem_varset,obj_stem_gridlist_p]=table_to_varset(DataTable)
+            %DESCRIPTION: The function returns the obj_sten_varset and obj_stem_gridlist from the 
+            %original data in the form of table. Now it is only used for f-HDGM
+            %
+            %INPUT
+            %
+            %Data Table      - [double]       (1x1)   A table with
+            %variables named profile, Y_, X_f_ , X_beta_, lat, lon, and
+            %time_step
+            %
+            %OUTPUT
+            %
+            %obj_stem_varset        -[stem_varset object] (1x1)
+            %obj_stem_gridlist_p    -[stem_gridlist object] (1x1)
 
-            warning('the function is only avaliable ');
+      
             LatLon=unique([DataTable.Lat,DataTable.Lon],'rows');
             N=size(LatLon,1);
             T=max(DataTable.Time_step);
             k=strfind(DataTable.Properties.VariableNames,'X_f');
             for varidx=1:size(DataTable,2)
                 if k{varidx}
-                    Max_q=length(DataTable{1,varidx}{1});
-                    for i=2:size(DataTable,1)
-                        Max_q=max(Max_q,length(DataTable{i,varidx}{1}));
-                    end
+                    B=rowfun(@stem_misc.getlength,DataTable(:,varidx));
+                    Max_q=max(B.Var1);
                 end
-            end
+            end           
             
-
-            Y=cell(Max_q);
-            Y_name=cell(Max_q);
-            X_beta=cell(Max_q);
-            X_beta_name=cell(Max_q);
-            X_f=cell(Max_q);
-            X_f_name=cell(Max_q);
-            for i=1:Max_q
-                %response variable Y
-                k=strfind(DataTable.Properties.VariableNames,'Y_');
-                for varidx=1:size(DataTable,2)
-                    if k{varidx}
-                        for s=1:N
-                            for t=1:T
-                                tmp=table2array(DataTable(DataTable.Time_step==t&DataTable.Lat==LatLon(s,1)&DataTable.Lon==LatLon(s,2),varidx));
-                                Y{i}(s,t)=tmp{1}(i);
-                            end
-                        end 
+            Y=cell(Max_q,1);
+            Y_name=cell(Max_q,1);
+            X_beta=cell(Max_q,1);
+            X_beta_name=cell(Max_q,1);
+            X_f=cell(Max_q,1);
+            X_f_name=cell(Max_q,1);
+            
+            
+            DataTable.Max_q=ones(13152,1)*Max_q;
+            Cols = size(DataTable,2);
+            %response variable Y
+            k=strfind(DataTable.Properties.VariableNames,'Y_');
+            for varidx=1:Cols-1
+                if k{varidx}
+                    temp=[];
+                    B=rowfun(@stem_misc.addNaNs,DataTable(:,[varidx,size(DataTable,2)]),'OutputVariableNames','tmp');
+                    DataTable1 = [DataTable,B];
+                    %{
+                    for f=1:size(DataTable,1)
+                        a=table2cell(DataTable(f,varidx));
+                        DataTable.tmp{f}=cat(2,a{:},NaN(1,Max_q-length(a{:})));
+                    end
+                    %}
+                    for s=1:N
+                        tmp=nan(T,Max_q);
+                        date_tmp=DataTable1.Time_step(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2));
+                        tmp(date_tmp,:)=cell2mat(DataTable1.tmp(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2)));
+                        temp=cat(1,temp,tmp);
+                    end
+                    for i=1:Max_q
+                        Y{i}=reshape(temp(:,i),T,[])';  
                         tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
                         Y_name{i}=tmp(end);
                     end
                 end
-
-                %X_f
-                k=strfind(DataTable.Properties.VariableNames,'X_f');
-                for varidx=1:size(DataTable,2)
-                    if k{varidx}
-                        for s=1:N
-                            for t=1:T
-                                tmp=table2array(DataTable(DataTable.Time_step==t&DataTable.Lat==LatLon(s,1)&DataTable.Lon==LatLon(s,2),varidx));
-                                X_f{i}(s,t)=tmp{1}(i);
-                            end
-                        end 
+            end
+            
+            %X_f
+            k=strfind(DataTable.Properties.VariableNames,'X_f');
+            for varidx=1:size(DataTable,2)
+                if k{varidx}
+                    temp=[];
+                    B=rowfun(@stem_misc.addNaNs,DataTable(:,[varidx,size(DataTable,2)]),'OutputVariableNames','tmp');
+                    DataTable1 = [DataTable,B];
+                    for s=1:N
+                        tmp=nan(T,Max_q);
+                        date_tmp=DataTable1.Time_step(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2));
+                        tmp(date_tmp,:)=cell2mat(DataTable1.tmp(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2)));
+                        temp=cat(1,temp,tmp);
+                    end
+                    for i=1:Max_q
+                        X_f{i}=reshape(temp(:,i),T,[])'; 
                         tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
                         X_f_name{i}=tmp(end);
                     end
                 end
-
-                %X_beta
-                k=strfind(DataTable.Properties.VariableNames,'X_beta');
-                counter=1;
-                X_beta_name_tmp=[];
-                for varidx=1:size(DataTable,2)
-                    if k{varidx}
-                        for s=1:N
-                            for t=1:T
-                                tmp=table2array(DataTable(DataTable.Time_step==t&DataTable.Lat==LatLon(s,1)&DataTable.Lon==LatLon(s,2),varidx));
-                                X_beta{i}(s,counter,T)=tmp{1}(i);
-                            end
-                        end 
-                        counter=counter+1;
-                        tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
-                        X_beta_name_tmp=cat(2,X_beta_name_tmp,tmp(end));
-                    end
-                end
-                X_beta_name{i}=X_beta_name_tmp;
-                clear X_beta_name_tmp
             end
+            
+            %X_beta
+            k=strfind(DataTable.Properties.VariableNames,'X_beta');
+            counter=1;
+            X_beta_name_tmp=[];
+            for varidx=1:size(DataTable,2)
+                if k{varidx}
+                    temp=[];
+                    B=rowfun(@stem_misc.addNaNs,DataTable(:,[varidx,size(DataTable,2)]),'OutputVariableNames','tmp');
+                    DataTable1 = [DataTable,B];
+                    for s=1:N
+                        tmp=nan(T,Max_q);
+                        date_tmp=DataTable1.Time_step(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2));
+                        tmp(date_tmp,:)=cell2mat(DataTable1.tmp(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2)));
+                        temp=cat(1,temp,tmp);
+                    end
+                    for i=1:Max_q
+                        X_beta{i}(:,counter,:)=reshape(temp(:,i),T,[])';   
+                    end
+                    tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                    X_beta_name_tmp=cat(1,X_beta_name_tmp,tmp(end));
+                    counter=counter+1;
+                end
+            end 
+            for i=1:Max_q
+                X_beta_name{i}=X_beta_name_tmp;
+            end
+                
             X_bp=[];
             X_bp_name=[];
             X_z=[];
             X_z_name=[];
             X_p=[];
             X_p_name=[];
-            obj_stem_varset=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_f,X_f_name);
+            obj_stem_varset=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_f,X_f_name{1}{:});
 
             obj_stem_gridlist_p=stem_gridlist();
             obj_stem_grid=stem_grid(LatLon,'deg','sparse','point');
             obj_stem_grid=obj_stem_grid.sorted_by_lat;
-            for i=1:q  
+            for i=1:Max_q  
                 obj_stem_gridlist_p.add(obj_stem_grid);
             end
+        end  
+        
+        function B=addNaNs(A,Max_q)
+            %DESCRIPTION: The function is used in function table_to_varset,
+            %to speed up.
+            %a=table2cell(A);
+            %B=cat(2,a{:},NaN(1,Max_q-length(a{:})));
+            B{1}=cat(2,A{:},NaN(1,Max_q-length(A{:})));
         end
-      
+        
+        function B=getlength(A)
+            %DESCRIPTION: The function is used in function table_to_varset,
+            %to speed up.
+            B=length(A{:});
+        end
 
     end
 end

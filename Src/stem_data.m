@@ -360,19 +360,33 @@ classdef stem_data < handle
             %X_beta
             %Yaqiong
             if obj.stem_modeltype.is('f-HDGM')&&obj.stem_fda.flag_beta_spline==1
+                if isempty(obj.stem_varset_p.X_beta)
+                    error('You must provide the covariates X_beta, since you set Fourier/Spline basis for beta estimates')
+                end
                 qq=length(obj.stem_varset_p.X_f);
                 k=getnbasis(obj.stem_fda.spline_basis_beta); %used in labels of X_beta_name
                 X_beta0=cell(qq,1);
                 X_beta_Q = cell(qq,1);
                 X_beta_name_temp=cell(qq,1);
                 for i=1:qq
-                    for t=1:size(obj.stem_varset_p.X_f{i},2)
-                        temp=full(getbasismatrix(obj.stem_varset_p.X_f{i}(:,t),obj.stem_fda.spline_basis_beta));
-                        temp(isnan(temp))=0;
-                        for q=1:size(obj.stem_varset_p.X_beta{i},2)
-                            X_beta_Q{i}(:,:,t)= (obj.stem_varset_p.X_beta{i}(:,q,t).*ones(1,k)).*temp;
-                            X_beta0{i}(:,(q-1)*k+(1:k),t) = X_beta_Q{i}(:,:,t);
+                    if size(obj.stem_varset_p.X_beta{i},3)>1
+                        for t=1:size(obj.stem_varset_p.X_f{i},2)
+                            temp=full(getbasismatrix(obj.stem_varset_p.X_f{i}(:,t),obj.stem_fda.spline_basis_beta));
+                            temp(isnan(temp))=0;
+                            for q=1:size(obj.stem_varset_p.X_beta{i},2)
+                                X_beta_Q{i}(:,:,t)= (obj.stem_varset_p.X_beta{i}(:,q,t).*ones(1,k)).*temp;
+                                X_beta0{i}(:,(q-1)*k+(1:k),t) = X_beta_Q{i}(:,:,t);
+                            end
                         end
+                    else
+                        for t=1:size(obj.stem_varset_p.X_f{i},2)
+                            temp=full(getbasismatrix(obj.stem_varset_p.X_f{i}(:,t),obj.stem_fda.spline_basis_beta));
+                            temp(isnan(temp))=0;
+                            for q=1:size(obj.stem_varset_p.X_beta{i},2)
+                                X_beta_Q{i}(:,:,t)= (obj.stem_varset_p.X_beta{i}(:,q,1).*ones(1,k)).*temp;
+                                X_beta0{i}(:,(q-1)*k+(1:k),t) = X_beta_Q{i}(:,:,t);
+                            end
+                        end 
                     end
                     labels=cell(1,size(obj.stem_varset_p.X_beta{i},2)*k);
                     for q = 1:size(obj.stem_varset_p.X_beta{i},2)
@@ -382,26 +396,37 @@ classdef stem_data < handle
                     end
                     X_beta_name_temp{i}=labels;
                 end
-            end
-            
-            all_T=[];
-            if not(isempty(obj.stem_varset_p.X_beta))
-                for i=1:length(obj.stem_varset_p.X_beta)
-                    if not(isempty(obj.stem_varset_p.X_beta{i}))
-                        all_T=[all_T size(obj.stem_varset_p.X_beta{i},3)];
-                    end
-                end
-            end
-            if not(isempty(obj.stem_varset_b))
-                if not(isempty(obj.stem_varset_b.X_beta))
-                    for i=1:length(obj.stem_varset_b.X_beta)
-                        if not(isempty(obj.stem_varset_b.X_beta{i}))
-                            all_T=[all_T size(obj.stem_varset_b.X_beta{i},3)];
+                all_T=[];
+                if not(isempty(X_beta0))
+                    for i=1:length(X_beta0)
+                        if not(isempty(X_beta0{i}))
+                            all_T=[all_T size(X_beta0{i},3)];
                         end
                     end
                 end
+                T_max=max(all_T);
+            else
+                all_T=[];
+                if not(isempty(obj.stem_varset_p.X_beta))
+                    for i=1:length(obj.stem_varset_p.X_beta)
+                        if not(isempty(obj.stem_varset_p.X_beta{i}))
+                            all_T=[all_T size(obj.stem_varset_p.X_beta{i},3)];
+                        end
+                    end
+                end
+                if not(isempty(obj.stem_varset_b))
+                    if not(isempty(obj.stem_varset_b.X_beta))
+                        for i=1:length(obj.stem_varset_b.X_beta)
+                            if not(isempty(obj.stem_varset_b.X_beta{i}))
+                                all_T=[all_T size(obj.stem_varset_b.X_beta{i},3)];
+                            end
+                        end
+                    end
+                end
+                T_max=max(all_T);
+                
             end
-            T_max=max(all_T);
+                      
             
             if not(isempty(obj.stem_varset_p.X_beta))
                 X_beta_temp=cell(T_max,1);
@@ -427,11 +452,16 @@ classdef stem_data < handle
                             if not(obj.stem_modeltype.is('f-HDGM')) %Yaqiong
                                 X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
                             else
-                                if obj.stem_fda.flag_beta_spline==1
-                                    X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,1));
+                                if obj.stem_fda.flag_beta_spline==1 %size(X_beta0,3)always more than 3 due to size(X_f,2)>1
+                                    if size(obj.stem_varset_p.X_f{i},2)
+                                        X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,t));
+                                    else
+                                        X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,1));
+                                    end
                                 else
                                     X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
                                 end
+                               
                             end
                         end
                     end

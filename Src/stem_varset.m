@@ -233,7 +233,7 @@ classdef stem_varset < handle
                                error('X_z{i} must have the same number of rows of Y{i}');
                             end
                             if not(size(X_z{i},2)==size(X_z{1},2))
-                                error('Each X_z{i} must have the same number of columns');
+                                %error('Each X_z{i} must have the same number of columns');
                             end
                             if not(size(X_z{i},3)==obj.T || size(X_z{i},3)==1)
                                 error('Each X_z{i} must have either 1 or T time steps');

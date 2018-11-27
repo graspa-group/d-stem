@@ -45,8 +45,7 @@ classdef stem_crossval < handle
         
         stem_varset={};             %[stem_varset objects]         {dqx1} the subset of data used for cross-validation
         stem_gridlist={};           %[stem_gridlist objects]       {dqx1} this object is needed for storing the coordinates of the cross-validation sites
-        stem_crossval_result={};    %[stem_crossval_result object] {dqx1} the objects including the cross-validation results for each variable
-        
+
         nn_size=0;                  %[integer>=0]                  (1x1) the size of the nearest neighbor set for each kriging site in cross-validation
     end
 

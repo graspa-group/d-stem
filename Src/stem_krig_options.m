@@ -36,11 +36,14 @@ classdef stem_krig_options
         nn_size=0;                  %[integer>0]        (1x1)   the size of the nearest neighbour set for each kriging location. If set to 0, the entire dataset is used
         back_transform=1;           %[boolean]          (1x1)   1: kriging output are back-transformed to the orginal unit; 0: kriging output are NOT back transformed 
         no_varcov=1;                %[boolean]          (1x1)   1: the variance of the kriging output is NOT computed; 0: the variance is computed
-        crossval=0;                 %[boolean]          (1x1)   1: the kriging is done for cross-validation; 0: standard kriging. This flag must be 0 when you are doing kriging
         %Yaqiong, should we change the meaning of 'y-xbeta' on
         %y-X_beta*beta', to spline coeff. 'z_t'
-        %type='y';                   %[string]           (1x1)   'y': the kriging is on the y variable(s), 'y-xbeta': the kriging is on y-X_beta*beta', this option is only valid with f-HDGM models
+        %type='y';                  %[string]           (1x1)   'y': the kriging is on the y variable(s), 'y-xbeta': the kriging is on y-X_beta*beta', this option is only valid with f-HDGM models
         workers=1;                  %[integer>0]        (1x1)   the number of matlab workers used for block kriging
+    end
+    
+    properties (Hidden = true)
+        crossval=0;                 %[boolean]          (1x1)   1: the kriging is done for cross-validation; 0: standard kriging. This flag must be 0 when you are doing kriging
     end
     
     methods

@@ -239,8 +239,8 @@ classdef stem_krig_result < handle
             
             %X_beta=nan(size(z,1),size(z,2),t,p);
             %X_beta=ones(size(z,1),size(z,2),size(z,3),p);
-            alpha_z=obj.stem_par.alpha_z;
-            alpha_z_2=alpha_z.^2;
+            %alpha_z=obj.stem_par.alpha_z;
+            %alpha_z_2=alpha_z.^2;
           
             z=obj.zk_s;
             var_z=obj.diag_Pk_s; 
@@ -260,11 +260,12 @@ classdef stem_krig_result < handle
                             X_beta_tmp(lat_i,lon_i,:,(i-1)*k+(1:k)) = squeeze(X_beta(lat_i,lon_i,:,i)).*b_beta;
                         end
                     end
-                end  
+                end 
+                X_beta = X_beta_tmp;
             end
-            X_beta = X_beta_tmp;
+            
      
-            basis = obj.stem_fda.spline_basis;
+            basis = obj.stem_fda.spline_basis_z;
             b=full(eval_basis(f,basis));
             s=nan(size(z,1),size(z,2),size(z,3));
             v=nan(size(z,1),size(z,2),size(z,3));
@@ -272,8 +273,10 @@ classdef stem_krig_result < handle
             y_hat = nan(size(z,1),size(z,2),size(z,3));
             for tt=1:size(z,3)
                 for i=1:size(z,1)
-                    s(i,:,tt)=(squeeze(z(i,:,tt,:)).*repmat(alpha_z',[size(z,2),1]))*b';
-                    v(i,:,tt)=(squeeze(var_z(i,:,tt,:)).*repmat(alpha_z_2',[size(z,2),1]))*(b.^2)';
+                    %s(i,:,tt)=(squeeze(z(i,:,tt,:)).*repmat(alpha_z',[size(z,2),1]))*b';
+                    s(i,:,tt)=squeeze(z(i,:,tt,:))*b';
+                    %v(i,:,tt)=(squeeze(var_z(i,:,tt,:)).*repmat(alpha_z_2',[size(z,2),1]))*(b.^2)';
+                    v(i,:,tt)=squeeze(var_z(i,:,tt,:))*(b.^2)';
                     Xbeta(i,:,tt)=squeeze(X_beta(i,:,tt,:))*obj.stem_par.beta;  
                     y_hat(i,:,tt)=Xbeta(i,:,tt)+s(i,:,tt);
                 end
@@ -283,14 +286,16 @@ classdef stem_krig_result < handle
             %figure
             lat=reshape(obj.stem_grid.coordinate(:,1),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
             lon=reshape(obj.stem_grid.coordinate(:,2),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
-            subplot(2,1,1);   
+            subplot(1,2,1);   
+            hold on
             if t>0
                 temp=y_hat(:,:,t);
                 title([obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',16);
             else
                 temp=mean(y_hat,3);
-                temp1=strsplit(obj.variable_name,'_');
-                title(['Average ',temp1{1},'_{',temp1{2},'}'],'FontSize',16)
+                title({['Average ',obj.variable_name{:}, '@domain ', num2str(f)] ;[' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))]},'FontSize',16);
+                 %temp1=strsplit(obj.variable_name,'_');
+                %title(['Average ',temp1{1},'_{',temp1{2},'}'],'FontSize',16)
                 %' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
             end
             h = mapshow(lon,lat,temp,'DisplayType','texturemap');
@@ -318,14 +323,17 @@ classdef stem_krig_result < handle
             set(gca,'FontSize',16);
             set(gcf, 'renderer', 'zbuffer');
             
-            subplot(2,1,2);
+            subplot(1,2,2);
+            hold on
             if t>0
                 temp=sqrt(diag_Var_y_hat(:,:,t));
                 title(['Std of ',obj.variable_name,' - ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',16);
             else
                 temp=mean(sqrt(diag_Var_y_hat),3);
-                temp1=strsplit(obj.variable_name,'_');
-                title(['Average ',temp1{1},'_{',temp1{2},'}'],'FontSize',16)
+                title({['Average std of ',obj.variable_name{:}, '@domain ', num2str(f)] ;[' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))]},'FontSize',16);
+                %title({['Average std of ',obj.variable_name{:}, '@', num2str(f)] ;[' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end)+1/24)]},'FontSize',16);
+                %temp1=strsplit(obj.variable_name,'_');
+                %title(['Average ',temp1{1},'_{',temp1{2},'}'],'FontSize',16)
                 %title(['Average std of ',obj.variable_name,' from ',datestr(obj.stem_datestamp.stamp(1)),' to ',datestr(obj.stem_datestamp.stamp(end))],'FontSize',16);
             end
             h = mapshow(lon,lat,temp,'DisplayType','texturemap');
@@ -358,7 +366,7 @@ classdef stem_krig_result < handle
             alpha_z_2=alpha_z.^2;
             z=obj.zk_s;
             var_z=obj.diag_Pk_s; 
-            basis = obj.stem_fda.spline_basis;
+            basis = obj.stem_fda.spline_basis_z;
             %p=50:0.25:1000;
             b=eval_basis(f_range,basis);
             %mapshow('landareas.shp', 'FaceColor', [0.5 1.0 0.5]);
