@@ -1,8 +1,7 @@
 clc
 clearvars
 
-addpath('../../../../D-STEM_dev/Src/'); %D-STEM
-addpath('../../../../D-STEM_dev/Src/fda/'); %fda library
+addpath('../../../Src/'); %D-STEM
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %      Data  building     %

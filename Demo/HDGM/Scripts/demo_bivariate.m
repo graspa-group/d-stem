@@ -1,11 +1,8 @@
 clc
 clearvars
 
-%%
+addpath('../../../Src/'); %D-STEM
 
-addpath('../../../../D-STEM_dev/Src/'); %D-STEM
-addpath('../../../../D-STEM_dev/Src/fda/'); %fda library
-%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %      Data  building     %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,6 +104,3 @@ obj_stem_model.print;
 obj_stem_model.plot_xval(0,'no2 ground');
 % cross-validation result for pm2.5
 obj_stem_model.plot_xval(0,'pm2.5 ground');
-
-obj_stem_model_HDGM = obj_stem_model;
-save('../Output/o_HDGM_bi.mat', 'obj_stem_model_HDGM', '-v7.3');

@@ -1,7 +1,7 @@
 clc
 clearvars
 
-addpath('../../../../D-STEM_dev/Src/');
+addpath('../../../Src/');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %      Data  building     %

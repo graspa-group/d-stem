@@ -1,11 +1,7 @@
 clc
 clearvars
 
-%%
-
-addpath('../../../../D-STEM_dev/Src/'); %D-STEM
-addpath('../../../../D-STEM_dev/Src/fda/'); %fda library
-%%
+addpath('../../../Src/'); %D-STEM
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %      Data  building     %
@@ -81,9 +77,5 @@ obj_stem_model.EM_estimate(obj_stem_EM_options);
 obj_stem_model.set_varcov;
 obj_stem_model.set_logL;
 
-%%
 obj_stem_model.print
 obj_stem_model.plot_xval
-
-obj_stem_model_HDGM = obj_stem_model;
-save('../Output/o_HDGM_uni.mat', 'obj_stem_model_HDGM', '-v7.3');
