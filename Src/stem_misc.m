@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -31,6 +34,20 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_misc
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
     
     methods (Static)
         
@@ -704,9 +721,9 @@ classdef stem_misc
                 h=figure;
                 hold on
                 if not(isempty(shape))
-                    mapshow(shape);
+                    geoshow(shape);
                 end
-                h2 = mapshow(lon,lat,data,'DisplayType','texture');
+                h2 = geoshow(lat,lon,data,'DisplayType','texture');
                 set(h2,'FaceColor','flat');
                 axis equal
                 xlim([min(lon(:)),max(lon(:))]);
@@ -741,7 +758,7 @@ classdef stem_misc
                     for i=1:length(lat)
                         if not(isnan(data(i)))
                             color = stem_misc.get_rainbow_color(data(i),minval,maxval);
-                            mapshow(lon(i),lat(i),'DisplayType','point','MarkerFaceColor',color, 'MarkerEdgeColor','k','Marker','o','MarkerSize',8);
+                            geoshow(lat(i),lon(i),'DisplayType','point','MarkerFaceColor',color, 'MarkerEdgeColor','k','Marker','o','MarkerSize',8);
                             hold on
                         end
                     end
@@ -861,6 +878,17 @@ classdef stem_misc
         end
         
         function compare(ref_par,par,name)
+            %DESCRIPTION: compare the length of paramters
+            %
+            %INPUT
+            %
+            %ref_par     -[double] (kx1) the reference paramter           
+            %par         -[double] (kx1) the paramter  
+            %name        -[string] (1x1) the name of the  paramter  
+            %
+            %OUTPUT
+            %
+            %none
             if not(isempty(ref_par))
                 size_ref_par=size(ref_par);
                 size_par=size(par);
@@ -881,6 +909,7 @@ classdef stem_misc
         end
         
         function name = varname(var)
+            %DESCRIPTION: returns the workspace variable name
             name = inputname(1);
         end
         
@@ -910,106 +939,177 @@ classdef stem_misc
             density=100-nnz(matrix)/(size(matrix,1)*size(matrix,2))*100;
         end
         
-        %Yaqiong
-        function f = update_coe_sigma_eps(x,i,others,Omega,Basis,flag_logsigma)
-            %DESCRIPTION: update sigma_eps when modeltype is f-HDGM and we
-            %set splines to estimate sigma_eps, the function will be called
-            %at stem_EM.M_setp when updating basis coefficients of sigma_eps
+        
+        function f = update_coe_sigma_eps(x,i,coe_spline_sigma_eps,Omega,Basis)
+            %DESCRIPTION: update coefficients of basis when modeltype is f-HDGM and is called at M_step of class stem_EM
             %
             %INPUT
             %
-            %Omega          - [double]       (N*Tx1)   the input matrix
-            %Basis          - [double]       (N*Txk)   the input matrix
-            %coe_sigma_eps  - [double]       (kx1) the vector
+            %x                        - [double]       (1x1)  the element of the coefficients
+            %i                        - [integer>0]    (kx1)  the index of coefficients to be estimated
+            %coe_spline_sigma_eps     - [double]       (kx1)  the coefficients of basis for sigma_eps
+            %Omega                    - [double]       (NTx1) the matrix with elements E_e_y1(:).^2+diag_Var_e_y1(:)
+            %Basis                    - [double]       (NTxk) the basis matrix
             %
             %OUTPUT
             %
-            %f 
+            %f: the log-likelihood value
             
-            others(i) = x;
-            coe_spline_sigma_eps = others;
+            coe_spline_sigma_eps(i)=x;
             
             sigma=exp(Basis*coe_spline_sigma_eps);
             f = nansum(log(sigma))+nansum(Omega./sigma);
             
-            %commented by FF
-            %f = exp(Basis*coe_spline_sigma_eps);
-            %for t=1:size(Omega,1)
-            %    if flag_logsigma==1
-            %        sigma_t = exp(Basis(t,:)*coe_spline_sigma_eps);
-            %    else
-            %        sigma_t = (Basis(t,:)*coe_spline_sigma_eps).^2;
-            %    end
-            %    f = f + log(sigma_t)+(sigma_t)^(-1)*Omega(t);
-            %end  
+           
         end
         
-        function [obj_stem_varset,obj_stem_gridlist_p]=table_to_varset(DataTable)
-            %DESCRIPTION: The function returns the obj_sten_varset and obj_stem_gridlist from the 
-            %original data in the form of table. Now it is only used for f-HDGM
+        function [obj_stem_varset,obj_stem_gridlist_p,o_datestamp]=data_formatter(DataTable)
+            %DESCRIPTION: provides the obj_sten_varset and obj_stem_gridlist objects. Only used for f-HDGM
             %
             %INPUT
             %
-            %Data Table      - [double]       (1x1)   A table with
-            %variables named profile, Y_, X_f_ , X_beta_, lat, lon, and
-            %time_step
+            %DataTable              - [table] (1x1) A table with variables named profile, Y_name, X_h_name , X_beta_name, lat, lon, and time_step
             %
             %OUTPUT
             %
-            %obj_stem_varset        -[stem_varset object] (1x1)
-            %obj_stem_gridlist_p    -[stem_gridlist object] (1x1)
-
+            %obj_stem_varset        -[stem_varset object]   (1x1) the stem_varset object
+            %obj_stem_gridlist_p    -[stem_gridlist object] (1x1) the stem_gridlist object 
       
-            LatLon=unique([DataTable.Lat,DataTable.Lon],'rows');
-            N=size(LatLon,1);
-            T=max(DataTable.Time_step);
-            k=strfind(DataTable.Properties.VariableNames,'X_f');
+
+            flag_unit=0;
+            if not(isempty(DataTable.Properties.VariableUnits))
+                flag_unit=1;
+            end
+            
+            if not(isdatetime(DataTable.Time))
+                error('Column Time must be datetime formtted as dd-MM-yyyy HH:mm')
+            end
+
+            %o_stemstamp
+            [ordered_time,idx]=sort(DataTable.Time);
+            DataTable=DataTable(idx,:);
+            
+            duration_vec=unique(diff(ordered_time));
+            minute_vec=minutes(duration_vec);
+            d = min(minute_vec);
+            while true
+              r = mod(minute_vec,d);
+              if ~any(r)
+                break
+              end
+              % find the smallest non-zero element of r
+              r(r == 0) = inf;
+              d = min(r);
+            end
+            
+            if mod(d,60)==0
+                if mod(d,60*24)==0
+                    step_unit='day';
+                    step_t=d/60/24;
+                    day_vec=unique(day(DataTable.Time));
+                    if length(unique(diff(day_vec)))==1
+                        if unique(diff(day_vec))==0
+                            step_unit='month';
+                            step_t=1;
+                            mon_vec=unique(month(DataTable.Time));
+                            if length(unique(diff(mon_vec)))==1
+                                if unique(diff(mon_vec))==0
+                                    step_unit='year';
+                                    step_t=1;
+                                end
+                            end
+                        end
+                    end
+                else
+                    step_unit='hour';
+                    step_t=d/60;
+                end
+            else
+                step_unit='minute';
+                step_t=d;
+            end
+
+            date_num=datenum(DataTable.Time);
+            if strcmp(step_unit,'minute')
+                T=(date_num(end)-date_num(1))/(step_t/24/60)+1;
+            end
+            
+            if strcmp(step_unit,'hour')
+                T=(date_num(end)-date_num(1))/(step_t/24)+1;
+            end
+            
+            if strcmp(step_unit,'day')
+                T=(date_num(end)-date_num(1))/(step_t)+1;
+            end
+             
+            if strcmp(step_unit,'month')
+                T=size(unique([year(DataTable.Time),month(DataTable.Time)],'row'),1);
+            end
+            
+            if strcmp(step_unit,'year')
+                T=length(year_vec);
+            end
+            
+            t_start=DataTable.Time(1);
+            t_end=DataTable.Time(end);
+            o_datestamp = stem_datestamp(t_start,t_end,T,step_unit);
+            
+            %obj_stem_varset
+            k=strfind(DataTable.Properties.VariableNames,'X_h');
             for varidx=1:size(DataTable,2)
                 if k{varidx}
                     B=rowfun(@stem_misc.getlength,DataTable(:,varidx));
                     Max_q=max(B.Var1);
                 end
-            end           
+            end   
+           
+            LatLon=unique([DataTable.Y_coordinate,DataTable.X_coordinate],'rows');
+            N=size(LatLon,1);
+            
+            stamp=t_start:(t_end-t_start)/(T-1):t_end;
+            date_num_fix=datenum(stamp);
+
+            DataTable.Time_step=datenum(DataTable.Time);
             
             Y=cell(Max_q,1);
             Y_name=cell(Max_q,1);
             X_beta=cell(Max_q,1);
             X_beta_name=cell(Max_q,1);
-            X_f=cell(Max_q,1);
-            X_f_name=cell(Max_q,1);
+            X_h=cell(Max_q,1);
             
+            DataTable.Max_q=ones(height(DataTable),1)*Max_q;
             
-            DataTable.Max_q=ones(13152,1)*Max_q;
-            Cols = size(DataTable,2);
             %response variable Y
-            k=strfind(DataTable.Properties.VariableNames,'Y_');
-            for varidx=1:Cols-1
-                if k{varidx}
-                    temp=[];
-                    B=rowfun(@stem_misc.addNaNs,DataTable(:,[varidx,size(DataTable,2)]),'OutputVariableNames','tmp');
-                    DataTable1 = [DataTable,B];
-                    %{
-                    for f=1:size(DataTable,1)
-                        a=table2cell(DataTable(f,varidx));
-                        DataTable.tmp{f}=cat(2,a{:},NaN(1,Max_q-length(a{:})));
-                    end
-                    %}
-                    for s=1:N
-                        tmp=nan(T,Max_q);
-                        date_tmp=DataTable1.Time_step(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2));
-                        tmp(date_tmp,:)=cell2mat(DataTable1.tmp(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2)));
-                        temp=cat(1,temp,tmp);
-                    end
-                    for i=1:Max_q
-                        Y{i}=reshape(temp(:,i),T,[])';  
-                        tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
-                        Y_name{i}=tmp(end);
-                    end
+            Y_Table=table(DataTable.Y, DataTable.Max_q);
+            temp=[];
+            B=rowfun(@stem_misc.addNaNs,Y_Table,'OutputVariableNames','tmp');
+            DataTable1 = [DataTable,B];
+            for s=1:N
+                tmp=nan(T,Max_q);
+                date_tmp=DataTable1.Time_step(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2));
+                t_idx=[];
+                for d=1:length(date_tmp)
+                    t_idx=cat(1,t_idx,find(date_num_fix==date_tmp(d)));
                 end
+                tmp(t_idx,:)=cell2mat(DataTable1.tmp(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2)));
+                temp=cat(1,temp,tmp);
+            end
+            missing_rate=sum(isnan(temp(:)))/numel(temp);
+            if missing_rate>0.5
+                warning(['The missing rate of Y is ', num2str(missing_rate*100),'%'])
+            end
+            for i=1:Max_q
+                Y{i}=reshape(temp(:,i),T,[])';  
+                Y_name{i}=DataTable.Y_name{1};
+            end
+            if flag_unit&&not(isempty(DataTable.Properties.VariableUnits{strcmp(DataTable.Properties.VariableNames,'Y')}))
+                Y_unit = DataTable.Properties.VariableUnits{strcmp(DataTable.Properties.VariableNames,'Y')};
+            else
+                Y_unit = [];
             end
             
-            %X_f
-            k=strfind(DataTable.Properties.VariableNames,'X_f');
+            %X_h
+            k=strfind(DataTable.Properties.VariableNames,'X_h');
             for varidx=1:size(DataTable,2)
                 if k{varidx}
                     temp=[];
@@ -1017,22 +1117,37 @@ classdef stem_misc
                     DataTable1 = [DataTable,B];
                     for s=1:N
                         tmp=nan(T,Max_q);
-                        date_tmp=DataTable1.Time_step(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2));
-                        tmp(date_tmp,:)=cell2mat(DataTable1.tmp(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2)));
+                        date_tmp=DataTable1.Time_step(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2));
+                        t_idx=[];
+                        for d=1:length(date_tmp)
+                            t_idx=cat(1,t_idx,find(date_num_fix==date_tmp(d)));
+                        end
+                        tmp(t_idx,:)=cell2mat(DataTable1.tmp(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2)));
                         temp=cat(1,temp,tmp);
                     end
+                    missing_rate=sum(isnan(temp(:)))/numel(temp);
+                    if missing_rate>0.5
+                        warning(['The missing rate of X_h is ', num2str(missing_rate*100),'%'])
+                    end
                     for i=1:Max_q
-                        X_f{i}=reshape(temp(:,i),T,[])'; 
-                        tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
-                        X_f_name{i}=tmp(end);
+                        X_h{i}=reshape(temp(:,i),T,[])';  
+                    end
+                    tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                    X_h_name=tmp(end);
+                    if flag_unit&&not(isempty(DataTable.Properties.VariableUnits{varidx}))
+                        X_h_unit = DataTable.Properties.VariableUnits{varidx};
+                    else
+                        X_h_unit = [];
                     end
                 end
             end
+            
             
             %X_beta
             k=strfind(DataTable.Properties.VariableNames,'X_beta');
             counter=1;
             X_beta_name_tmp=[];
+            X_beta_unit=[];
             for varidx=1:size(DataTable,2)
                 if k{varidx}
                     temp=[];
@@ -1040,16 +1155,29 @@ classdef stem_misc
                     DataTable1 = [DataTable,B];
                     for s=1:N
                         tmp=nan(T,Max_q);
-                        date_tmp=DataTable1.Time_step(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2));
-                        tmp(date_tmp,:)=cell2mat(DataTable1.tmp(DataTable1.Lat==LatLon(s,1)&DataTable1.Lon==LatLon(s,2)));
+                        date_tmp=DataTable1.Time_step(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2));
+                        t_idx=[];
+                        for d=1:length(date_tmp)
+                            t_idx=cat(1,t_idx,find(date_num_fix==date_tmp(d)));
+                        end
+                        tmp(t_idx,:)=cell2mat(DataTable1.tmp(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2)));
                         temp=cat(1,temp,tmp);
+                    end
+                    tmp_name=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                    X_beta_name_tmp=cat(1,X_beta_name_tmp,tmp_name(end));
+                    missing_rate=sum(isnan(temp(:)))/numel(temp);
+                    if missing_rate>0.5
+                        warning(['The missing rate of X_beta_',tmp_name{end},' is ', num2str(missing_rate*100),'%'])
                     end
                     for i=1:Max_q
                         X_beta{i}(:,counter,:)=reshape(temp(:,i),T,[])';   
                     end
-                    tmp=strsplit(DataTable.Properties.VariableNames{varidx},'_');
-                    X_beta_name_tmp=cat(1,X_beta_name_tmp,tmp(end));
                     counter=counter+1;
+                    if flag_unit&&not(isempty(DataTable.Properties.VariableUnits{varidx}))
+                        X_beta_unit = cat(1,X_beta_unit,{DataTable.Properties.VariableUnits{varidx}});
+                    else
+                        X_beta_unit = cat(1,X_beta_unit,[]);
+                    end
                 end
             end 
             for i=1:Max_q
@@ -1062,27 +1190,56 @@ classdef stem_misc
             X_z_name=[];
             X_p=[];
             X_p_name=[];
-            obj_stem_varset=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_f,X_f_name{1}{:});
+            obj_stem_varset=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_h,X_h_name{1});
 
+            obj_stem_varset.Y_unit=Y_unit;
+            obj_stem_varset.X_beta_unit=X_beta_unit;
+            obj_stem_varset.X_h_unit=X_h_unit;
+            if flag_unit&&not(isempty(DataTable.Properties.VariableUnits{strcmp(DataTable.Properties.VariableNames,'Time')}))
+                T_unit = DataTable.Properties.VariableUnits{strcmp(DataTable.Properties.VariableNames,'Time')};
+            else
+                T_unit = [];
+            end
+            obj_stem_varset.T_unit=T_unit;
+            
+            %obj_stem_gridlist_p
+            k=strfind(DataTable.Properties.VariableNames,'X_coordinate');
+            for varidx=1:size(DataTable,2)
+                if k{varidx}
+                    if flag_unit
+                        unit=DataTable.Properties.VariableUnits{varidx};
+                        if not(strcmp(unit,'deg') || strcmp(unit,'m') || strcmp(unit,'km') || strcmp(unit,'none'))
+                            error('unit must be ''deg'' or ''m'' or ''km'' or ''none''');
+                        end
+                    end
+                end
+            end
+            
             obj_stem_gridlist_p=stem_gridlist();
-            obj_stem_grid=stem_grid(LatLon,'deg','sparse','point');
+            obj_stem_grid=stem_grid(LatLon,unit,'sparse','point');
             obj_stem_grid=obj_stem_grid.sorted_by_lat;
             for i=1:Max_q  
                 obj_stem_gridlist_p.add(obj_stem_grid);
             end
+            
+            stem_misc.disp_star('Data description of stem_varset object')
+            disp(['Maximum number of observations per profile: q=',num2str(Max_q)]);
+            disp(' ');  
+            disp(['Number of spatial locations: n=',num2str(N)]);
+            disp(' ');   
+            disp(['Number of time steps: T=',num2str(T)]);
+            disp(' ');   
         end  
         
         function B=addNaNs(A,Max_q)
-            %DESCRIPTION: The function is used in function table_to_varset,
-            %to speed up.
-            %a=table2cell(A);
-            %B=cat(2,a{:},NaN(1,Max_q-length(a{:})));
+            %DESCRIPTION: called by method table_to_varset to speed up.
+            
             B{1}=cat(2,A{:},NaN(1,Max_q-length(A{:})));
         end
         
         function B=getlength(A)
-            %DESCRIPTION: The function is used in function table_to_varset,
-            %to speed up.
+            %DESCRIPTION: called by method table_to_varset to speed up.
+            
             B=length(A{:});
         end
 

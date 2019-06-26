@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -31,6 +34,20 @@
 
 classdef stem_grid
     
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
     %CONSTANTS
     %
     %d    - the dimension of the space
@@ -56,7 +73,7 @@ classdef stem_grid
     
     methods
         function obj = stem_grid(coordinate,unit,grid_type,site_type,grid_size,pixel_shape,pixel_side_w,pixel_side_h)
-            %DESCRIPTION: is the constructor of the class stem_data
+            %DESCRIPTION: object constructor
             %
             %INPUT
             %
@@ -109,6 +126,14 @@ classdef stem_grid
         end
         
         function obj = permute(obj,indices)
+            %DESCRIPTION: permute coordinates with respect to the indices
+            %
+            %INPUT
+            %indices           - [integer >0] (nx1) the indices of sites to permute
+            %
+            %OUTPUT
+            %
+            %none
             obj.coordinate=obj.coordinate(indices,:);
         end
         

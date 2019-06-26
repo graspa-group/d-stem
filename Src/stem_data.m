@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -32,17 +35,35 @@
 
 classdef stem_data < handle
     
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    
     %CONSTANTS
     %N_P - total number of point sites for all the q variables
     %N_B - total number of pixel sites for all the q variables
     %N   - N=N_P+N_B is the total number of observation sites (points and pixels)
     %N_b - total number of loading vectors of the fixed effects
     %N_r - total number of elements of the z latent variable when model_name is 'HDGM'
-    %S   - 2 if both point and pixel data are considered. S = 1 if only point data are considered.
+    %S   - 2 if both point and pixel data are considered. S = 1 if only point data are considered. 
     %T   - number of time steps
     %TT  - TT=T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant
+    %q   - the number of variables
     %p   - dimension of the latent temporal variable z
-    %d   - number of dimensions of the coordinate space
+    %d   - the number of dimensions of the coordinate space
+    %nb_i- the number of loading vectors for the i-th variable related to the beta parameter when model is f-HDGM
+    %k   - the number of basis for beta(h) estimation
+    %K   - the number of loading vectors related to the latent variable w_p 
     
     properties
         stem_varset_p=[];       %[stem_varset object]   (1x1) stem_varset object for the point variables
@@ -68,7 +89,7 @@ classdef stem_data < handle
         Y=[];                   %[double]     (N x T) the full observation matrix
         X_bp=[];                %[double]     {TT}(N x 1) the full X_bp matrices
         X_p=[];                 %[double]     {TT}(N x K) the full X_p matrices
-        X_f=[];                 %[double]     {TT}(Nx1) the full X_f matrices
+        X_h=[];                 %[double]     {TT}(Nx1) the full X_h matrices
       
         M=[];                   %[integer >1] (N_P x 1) vector of indices of the pixel mapped on the point sites
     end
@@ -87,29 +108,81 @@ classdef stem_data < handle
     
     methods
         
-        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_crossval,st_modeltype,shape,stem_fda)
+        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_crossval,stem_modeltype,shape,stem_fda)
             %DESCRIPTION: is the constructor of the class stem_data
             %
             %INPUT
             %
-            %stem_varset_p      - [stem_varset object]    (1x1) stem_varset object for the point variables
-            %stem_gridlist_p    - [stem_gridlist object]  (1x1) stem_gridlist object for the point variables  
-            %<stem_varset_b>    - [stem_varset object]    (1x1) stem_varset object for the pixel variables
-            %<stem_gridlist_b>  - [stem_gridlist object]  (1x1) stem_gridlist object for the pixel variables
-            %<stem_datestamp>   - [stem_datestamp object] (1x1) stem_datestamp object with information on time steps
-            %<stem_crossval>    - [stem_crossval object]  (1x1) stem_crossval object with information on crossvalidation
-            %<st_modeltype>     - [stem_modeltype object] (1x1) stem_modeltype object with information on the model type
-            %<shape>            - [struct]                (1x1) structure loaded from a shapefile with the boundary of the geographic region
-            %<stem_fda>         - [stem_fda object] (1x1) an object of class stem_fda
+            %stem_varset_p    - [stem_varset object]    (1x1) stem_varset object for the point variables
+            %stem_gridlist_p  - [stem_gridlist object]  (1x1) stem_gridlist object for the point variables  
+            %stem_varset_b    - [stem_varset object]    (1x1) stem_varset object for the pixel variables
+            %stem_gridlist_b  - [stem_gridlist object]  (1x1) stem_gridlist object for the pixel variables
+            %stem_datestamp   - [stem_datestamp object] (1x1) stem_datestamp object with information on time steps
+            %stem_crossval    - [stem_crossval object]  (1x1) stem_crossval object with information on crossvalidation
+            %stem_modeltype   - [stem_modeltype object] (1x1) stem_modeltype object with information on the model type
+            %shape            - [struct]                (1x1) structure loaded from a shapefile with the boundary of the geographic region
+            %stem_fda         - [stem_fda object]       (1x1) an object of class stem_fda
             %
             %OUTPUT
-            %obj                - [stem_data object]      (1x1) the stem_data object
+            %obj              - [stem_data object]      (1x1) the stem_data object
             
-            if nargin<2
-                error('Not enough input parameters');
+            temp_struct=stem_varset_p;
+            if isstruct(temp_struct) 
+                names=fieldnames(temp_struct);
+                if sum(strcmp('stem_varset_p',names))
+                    stem_varset_p=temp_struct.stem_varset_p;
+                else
+                    error('stem_varset_p must be provided by the user');
+                end
+                if sum(strcmp('stem_gridlist_p',names))
+                    stem_gridlist_p=temp_struct.stem_gridlist_p;
+                else
+                    error('stem_gridlist_p must be provided by the user');
+                end
+                if sum(strcmp('stem_varset_b',names))
+                    stem_varset_b=temp_struct.stem_varset_b;
+                else
+                    stem_varset_b=[];
+                end
+                if sum(strcmp('stem_gridlist_b',names))
+                    stem_gridlist_b=temp_struct.stem_gridlist_b;
+                else
+                    stem_gridlist_b=[];
+                end
+                if sum(strcmp('stem_datestamp',names))
+                    stem_datestamp=temp_struct.stem_datestamp;
+                else
+                    error('stem_datestamp must be provided by the user');
+                end
+                if sum(strcmp('stem_crossval',names))
+                    stem_crossval=temp_struct.stem_crossval;
+                else
+                    stem_crossval=[];
+                end
+                if sum(strcmp('stem_modeltype',names))
+                    stem_modeltype=temp_struct.stem_modeltype;
+                else
+                    error('stem_modeltype must be provided by the user');
+                end
+                if sum(strcmp('shape',names))
+                    shape=temp_struct.shape;
+                else
+                    shape=[];
+                end
+                if sum(strcmp('stem_fda',names))
+                    stem_fda=temp_struct.stem_fda;
+                else
+                    if stem_modeltype.is('f-HDGM')
+                        error('stem_fda must be provided by the user');
+                    end
+                end
+            else
+                if nargin<2
+                    error('Not enough input parameters');
+                end
             end
-            obj.stem_varset_p=stem_varset_p;
             
+            obj.stem_varset_p=stem_varset_p; 
             
             obj.stem_gridlist_p=stem_gridlist_p;
             if not(length(obj.stem_gridlist_p.grid)==length(obj.stem_varset_p.Y))
@@ -127,7 +200,7 @@ classdef stem_data < handle
             if nargin==3
                 error('stem_gridlist_b must be provided');
             end
-            if nargin>2
+            if nargin>2||isstruct(temp_struct)
                 if not(isempty(stem_varset_b))
                     obj.stem_varset_b=stem_varset_b;
                     if not(length(obj.stem_varset_b.dim)==length(stem_varset_p.dim))
@@ -169,26 +242,35 @@ classdef stem_data < handle
                     end
                 end
             end
-            if nargin>4
+            if nargin>4||isstruct(temp_struct)
                 obj.stem_datestamp=stem_datestamp;
                 if not(length(obj.stem_datestamp.stamp)==obj.stem_varset_p.T)
                     error('The number of datestamps differs from T');
                 end
             end
             
-            if nargin>=6
+            if nargin>=6||isstruct(temp_struct)
                 if not(isempty(stem_crossval))
                     obj.stem_crossval=stem_crossval;
-                    for i=1:length(obj.stem_crossval.variable_name)
-                        idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name{i});
+                    if stem_modeltype.is('f-HDGM') 
+                        
+                        idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name);  
                         if isempty(idx_var)
-                            error(['Cross-validation variable ',obj.stem_crossval.variable_name{i},' not found']);
+                            error(['Cross-validation variable ',obj.stem_crossval.variable_name,' not found']);
                         end
+                        
+                    else
+                        for i=1:length(obj.stem_crossval.variable_name)
+                            idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name{i});
+                            if isempty(idx_var)
+                                error(['Cross-validation variable ',obj.stem_crossval.variable_name{i},' not found']);
+                            end
+                        end    
                     end
                 end
             end
 
-            if nargin>=8
+            if nargin>=8||isstruct(temp_struct)
                 if not(isempty(shape))
                     obj.shape=shape;
                     obj.shape(1,1).Geometry='Line';
@@ -198,14 +280,35 @@ classdef stem_data < handle
             else
                 obj.shape=shaperead('landareas.shp');
             end
-
-            if nargin<7
+            if strcmp(stem_gridlist_p.grid{1}.unit,'deg')
+                shapename=fieldnames(obj.shape);
+                for i=1:length(shapename)
+                    if strcmp(shapename{i}, 'X')
+                         [obj.shape.Lon]=obj.shape.X;
+                         obj.shape = rmfield(obj.shape,'X');
+                    end
+                    if strcmp(shapename{i}, 'x')
+                        [obj.shape.Lon]=obj.shape.x;
+                        obj.shape = rmfield(obj.shape,'x');
+                    end
+                    if strcmp(shapename{i}, 'Y')
+                         [obj.shape.Lat]=obj.shape.Y;
+                         obj.shape = rmfield(obj.shape,'Y');
+                    end
+                    if strcmp(shapename{i}, 'y')
+                        [obj.shape.Lat]=obj.shape.y;
+                        obj.shape = rmfield(obj.shape,'y');
+                    end
+                end
+            end
+            
+            if nargin<7&&not(isstruct(temp_struct))
                 obj.stem_modeltype=stem_modeltype('DCM');
             else
-                if isempty(st_modeltype)
+                if isempty(stem_modeltype)
                     obj.stem_modeltype=stem_modeltype('DCM');   
                 else
-                    obj.stem_modeltype=st_modeltype;
+                    obj.stem_modeltype=stem_modeltype;
                 end
             end
        
@@ -215,8 +318,8 @@ classdef stem_data < handle
                 end
                 
                 if obj.stem_modeltype.is('f-HDGM')
-                    if isempty(obj.stem_varset_p.X_f)
-                        error('X_f must be set when model_name is f-HDGM');
+                    if isempty(obj.stem_varset_p.X_h)
+                        error('X_h must be set when model_name is f-HDGM');
                     end
                     if not(isempty(obj.stem_varset_p.X_z))
                         error('X_z must be empty when model_name is f-HDGM. X_z will be updated internally.');
@@ -228,6 +331,13 @@ classdef stem_data < handle
                         error('obj_stem_fda must be provided since model_type is f-HDGM');
                     end
                     obj.stem_fda=stem_fda;
+                    for i=1:length(obj.stem_varset_p.X_h)
+                        low=sum(sum(obj.stem_varset_p.X_h{i}<obj.stem_fda.spline_range(1)));
+                        high=sum(sum(obj.stem_varset_p.X_h{i}>obj.stem_fda.spline_range(2)));
+                        if low>0||high>0
+                            error('The elements in X_h should be within the spline range.')
+                        end
+                    end 
                 end
 
                 if not(isempty(obj.stem_varset_p.X_z))
@@ -243,7 +353,7 @@ classdef stem_data < handle
                             error('When model_name is HDGM, X_z must have only one column');
                         end
                     end
-                end
+                end       
                 
                 if stem_datestamp.irregular==1
                     error('Irregular time steps are not yer supported when model_name is HDGM or f-HDGM');
@@ -279,15 +389,14 @@ classdef stem_data < handle
         end
         
         function update_data(obj)
-            %DESCRIPTION: generates the matrices Y, X_bp, X_beta, X_z, X_p and X_f
+            %DESCRIPTION: generates the matrices Y, X_bp, X_beta, X_z, X_p and X_h
             %
             %INPUT
             %obj - [stem_data object] (1x1) the stem_data object
             %
             %OUTPUT
             %
-            %none: the matrices listed above are updated % update X_beta
-            %changed by Yaqiong
+            %none: the matrices listed above are updated
             
             disp('Generating data matrices...');
             %Y
@@ -358,20 +467,20 @@ classdef stem_data < handle
             end
 
             %X_beta
-            %Yaqiong
             if obj.stem_modeltype.is('f-HDGM')&&obj.stem_fda.flag_beta_spline==1
                 if isempty(obj.stem_varset_p.X_beta)
                     error('You must provide the covariates X_beta, since you set Fourier/Spline basis for beta estimates')
                 end
-                qq=length(obj.stem_varset_p.X_f);
-                k=getnbasis(obj.stem_fda.spline_basis_beta); %used in labels of X_beta_name
-                X_beta0=cell(qq,1);
-                X_beta_Q = cell(qq,1);
-                X_beta_name_temp=cell(qq,1);
-                for i=1:qq
+                
+                N_q=length(obj.stem_varset_p.X_h);
+                k=getnbasis(obj.stem_fda.spline_basis_beta);
+                X_beta0=cell(N_q,1);
+                X_beta_Q = cell(N_q,1);
+                X_beta_name_temp=cell(N_q,1);
+                for i=1:N_q
                     if size(obj.stem_varset_p.X_beta{i},3)>1
-                        for t=1:size(obj.stem_varset_p.X_f{i},2)
-                            temp=full(getbasismatrix(obj.stem_varset_p.X_f{i}(:,t),obj.stem_fda.spline_basis_beta));
+                        for t=1:size(obj.stem_varset_p.X_h{i},2)
+                            temp=full(getbasismatrix(obj.stem_varset_p.X_h{i}(:,t),obj.stem_fda.spline_basis_beta));
                             temp(isnan(temp))=0;
                             for q=1:size(obj.stem_varset_p.X_beta{i},2)
                                 X_beta_Q{i}(:,:,t)= (obj.stem_varset_p.X_beta{i}(:,q,t).*ones(1,k)).*temp;
@@ -379,8 +488,8 @@ classdef stem_data < handle
                             end
                         end
                     else
-                        for t=1:size(obj.stem_varset_p.X_f{i},2)
-                            temp=full(getbasismatrix(obj.stem_varset_p.X_f{i}(:,t),obj.stem_fda.spline_basis_beta));
+                        for t=1:size(obj.stem_varset_p.X_h{i},2)
+                            temp=full(getbasismatrix(obj.stem_varset_p.X_h{i}(:,t),obj.stem_fda.spline_basis_beta));
                             temp(isnan(temp))=0;
                             for q=1:size(obj.stem_varset_p.X_beta{i},2)
                                 X_beta_Q{i}(:,:,t)= (obj.stem_varset_p.X_beta{i}(:,q,1).*ones(1,k)).*temp;
@@ -391,7 +500,7 @@ classdef stem_data < handle
                     labels=cell(1,size(obj.stem_varset_p.X_beta{i},2)*k);
                     for q = 1:size(obj.stem_varset_p.X_beta{i},2)
                         for j=1:k
-                            labels{1,(q-1)*k+j}=['basis_',num2str(j),'_@level',num2str(i),'_@',obj.stem_varset_p.X_beta_name{i}{q}];
+                            labels{1,(q-1)*k+j}=['basis_',num2str(j),'_@',obj.stem_varset_p.X_beta_name{i}{q}];
                         end
                     end
                     X_beta_name_temp{i}=labels;
@@ -424,7 +533,6 @@ classdef stem_data < handle
                     end
                 end
                 T_max=max(all_T);
-                
             end
                       
             
@@ -435,25 +543,20 @@ classdef stem_data < handle
                     for i=1:length(obj.stem_varset_p.X_beta)
                         if size(obj.stem_varset_p.X_beta{i},3)>1
                             if not(obj.stem_modeltype.is('f-HDGM'))
-                                %Yaqiong WHY? for HDGM
-                                %if  obj.stem_modeltype.is('HDGM')
-                                    %X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
-                                %else
                                 X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
-                                %end
                             else
-                                if obj.stem_fda.flag_beta_spline==1 %Yaqiong
+                                if obj.stem_fda.flag_beta_spline==1 
                                     X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,t));
                                 else
                                     X_beta_temp{t}=cat(1,X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,t));
                                 end
                             end
                         else
-                            if not(obj.stem_modeltype.is('f-HDGM')) %Yaqiong
+                            if not(obj.stem_modeltype.is('f-HDGM')) 
                                 X_beta_temp{t}=blkdiag(X_beta_temp{t},obj.stem_varset_p.X_beta{i}(:,:,1));
                             else
-                                if obj.stem_fda.flag_beta_spline==1 %size(X_beta0,3)always more than 3 due to size(X_f,2)>1
-                                    if size(obj.stem_varset_p.X_f{i},2)
+                                if obj.stem_fda.flag_beta_spline==1 
+                                    if size(obj.stem_varset_p.X_h{i},2)
                                         X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,t));
                                     else
                                         X_beta_temp{t}=cat(1,X_beta_temp{t},X_beta0{i}(:,:,1));
@@ -656,14 +759,14 @@ classdef stem_data < handle
                 clear X_p_temp;
             end
             
-            %X_f
-            if not(isempty(obj.stem_varset_p.X_f))
-                X_f_temp=[];
-                for i=1:length(obj.stem_varset_p.X_f)
-                    X_f_temp=cat(1,X_f_temp,obj.stem_varset_p.X_f{i});
+            %X_h
+            if not(isempty(obj.stem_varset_p.X_h))
+                X_h_temp=[];
+                for i=1:length(obj.stem_varset_p.X_h)
+                    X_h_temp=cat(1,X_h_temp,obj.stem_varset_p.X_h{i});
                 end
-                obj.X_f=X_f_temp;
-                clear X_f_temp;
+                obj.X_h=X_h_temp;
+                clear X_h_temp;
             end
             
             disp('Generation ended.');
@@ -1108,9 +1211,15 @@ classdef stem_data < handle
                     end
                 end
                 
-                disp('Cropping sites...');
                 obj.stem_varset_p.site_crop(var_name,indices);
-                obj.stem_gridlist_p.grid{idx_var}.coordinate(indices,:)=[];
+                if not(isempty(obj.X_h))
+                    for idx = idx_var'
+                        obj.stem_gridlist_p.grid{idx}.coordinate(indices,:)=[];
+                    end
+                else
+                    obj.stem_gridlist_p.grid{idx_var}.coordinate(indices,:)=[];
+                end
+                
             else
                 if isempty(obj.stem_varset_b)
                     error('No pixel data');
@@ -1119,7 +1228,7 @@ classdef stem_data < handle
                 idx_var=obj.stem_varset_b.get_Y_index(var_name);
                 obj.stem_gridlist_b.grid{idx_var}.coordinate(indices,:)=[];
             end
-            disp('Cropping ended.');
+            
             if update_data_matrices==1
                 disp('Updating data matrices after cropping...');
                 obj.update_data;
@@ -1296,19 +1405,31 @@ classdef stem_data < handle
             end
         end        
         
-        function [block_tapering_size_step,best_idx_group,best_group_size] = kmeans_globe(obj,coordinates,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
-            if nargin<1
-                error('coordinates and n_groups must be provided');
-            end
+        function [block_tapering_size_step,best_idx_group] = kmeans_globe(obj,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
+            %DESCRIPTION: kmeans method for block tapering
+            %
+            %INPUT
+            %n_groups            - [integer >0]   (1x1) number of groups to partition
+            %trials              - [integer >0]   (1x1) maximum of kmeans iteration    
+            %lambda_pen          - [double]       (1x1) penalty parameter
+            %force_poles         - [boolean]      (1x1) 1: the poles included
+            %flag_plot           - [boolean]      (1x1) 1: plot of clustered sites
+            %flag_verbose        - [boolean]      (1x1) 1: all the intermediate information during iteration is displayed 
+            %
+            %OUTPUT
+            %
+            %block_tapering_size_step  - [integer] (n_groupsx1) the step of block tapering size
+            %best_idx_group            - [integer] (nx1) the best clustering index of site
+            
             if nargin<2
-                error('n_groups must be provide');
+                error('n_groups must be provided');
             end
             if nargin<3
                 trials=10;
                 disp(['k-means on ',num2str(trials),' trials']);
             end
             if nargin<4
-                force_poles=0;
+                lambda_pen=0;
             end
             if nargin<5
                 force_poles=0;
@@ -1317,12 +1438,14 @@ classdef stem_data < handle
                 flag_plot=0;
             end
             if nargin<7
-                flag_verbose=1;
+                flag_verbose=0;
             end
             
             if n_groups<2
                 error('n_groups must be >=2');
             end
+            
+            coordinates = obj.stem_gridlist_p.grid{1}.coordinate;
             
             min_lat=min(coordinates(:,1));
             max_lat=max(coordinates(:,1));
@@ -1423,7 +1546,7 @@ classdef stem_data < handle
         end
         
         function permute(obj,type,indices)
-            %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_f with respect to indices
+            %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_h with respect to indices
             %
             %INPUT
             %obj         - [stem_data object]   (1x1) the stem_data object
@@ -1432,7 +1555,7 @@ classdef stem_data < handle
             %
             %OUTPUT
             %
-            %none: the matrices Y, X_bp, X_beta, X_z, X_p and X_f are updated
+            %none: the matrices Y, X_bp, X_beta, X_z, X_p and X_h are updated
 
             if sum(strcmp(type,{'point','pixel'}))==0
                 error('Type must be either point or pixel');
@@ -1469,7 +1592,7 @@ classdef stem_data < handle
             %obj             - [stem_data object]   (1x1) the stem_data object
             %variable_name   - [string]             (1x1) the name of the variable
             %variable_type   - [string]             (1x1) the type of the variable, either 'point' or 'pixel'
-            %time_step       - [integer >=0|string] (1x1) the time step to plot. If time_step=0 the temporal average is plotted. If time_step is a string it must be in the format dd-mm-yyyy
+            %time_step       - [integer >=0|string] (1x1) the time step to plot. If time_step=0 the temporal average is plotted. If time_step is a string it must be in the format 'dd-MM-yyyy HH:mm'
             %<loading_name>  - [string]             (1x1) (defalut: []) the name of the loading coefficients to plot (related to the variable specified)
             %<loading_type>  - [string]             (1x1) (default: []) the type of the loading coefficients. Can be 'beta', 'z', 'w_b' or 'w_p'
             %
@@ -1487,8 +1610,8 @@ classdef stem_data < handle
                 error('You must also provide the loading_type');
             end
             if ischar(time_step)
-                date_num=datenum(time_step,'dd-mm-yyyy');
-                time_step=find(obj.stem_datestamp.stamp==date_num);
+                date0=datetime(time_step,'InputFormat','dd-MM-yyyy HH:mm');
+                time_step=find(obj.stem_datestamp.stamp==date0);
                 if isempty(time_step)
                     error(['The date stamp ',time_step,' cannot be found']);
                 end
@@ -1729,7 +1852,7 @@ classdef stem_data < handle
             if strcmp(obj.stem_gridlist_p.grid{1}.unit,'deg')
                 prefix_x='  Longitude ';
                 prefix_y='  Latitude ';
-                postfix='?';
+                postfix=[' ',obj.stem_gridlist_p.grid{1}.unit];
             else
                 prefix_x='X ';
                 prefix_y='Y ';
@@ -2025,8 +2148,6 @@ classdef stem_data < handle
         end
         
         %Class set methods
-        
-        %set.stem_fda is added by Yaqiong
         function set.stem_fda(obj,stem_fda)
            if not(isa(stem_fda,'stem_fda'))
                error('stem_fda must be of class stem_fda');

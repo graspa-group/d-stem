@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -31,10 +34,28 @@
 
 classdef stem_datestamp < handle
     
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    
+    %CONSTANTS
+    %T     - number of time steps
+    
     properties
         date_start=[];      %[integer>0]  (1x1) the date of the first time step. It can be a date in the Matlab format (the output of the datenum function) or a numeric index
         date_end=[];        %[integer>0]  (1x1) the date of the last  time step. It can be a date in the Matlab format (the output of the datenum function) or a numeric index
         T=[];               %[integer>0]  (1x1) the total number of time steps
+        step_unit=[]        %[string]     (1x1) unit of time step can be "month", "year", "day", "hour", "minute"
     end
     
     properties (SetAccess = private)
@@ -47,23 +68,24 @@ classdef stem_datestamp < handle
             %DESCRIPTION: object constructor
             %
             %INPUT - CASE 1
-            %date_start    - [string|integer>0]     (1x1) time related to the first time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index 
-            %date_end      - [string|integer>0]     (1x1) time related to the last  time step. It can be a string in the format dd-mm-yyyy HH:MM or an integer index
+            %date_start    - [string|datetime]      (1x1) time related to the first time step. It can be a string in the format dd-MM-yyyy HH:mm or a datetime
+            %date_end      - [string|datetime]      (1x1) time related to the last  time step. It can be a string in the format dd-MM-yyyy HH:mm or a datetime
             %T             - [integer>0]            (1x1) the total number of time steps
+            %<step_unit>   - [string]               (1x1) unit of time step can be "month", "year", "day", "hour", "minute"
             %
             %INPUT - CASE 2
-            %dates         - [string|double]        (Tx1) times related to the T observations. It can be a cell array of string in the format dd-mm-yyyy HH:MM or a vector of continuous times
+            %dates         - [string]               (Tx1) times related to the T observations. It can be a cell array of string in the format dd-MM-yyyy HH:mm
             %
             %OUTPUT
             %obj           - [stem_datestamp object](1x1)  
             
-            if not(nargin==1||nargin==3)
-                error('Input arguments must be either 1 or 3');
+            if not(nargin==1||nargin==3||nargin==4)
+                error('Input arguments must be either 1 or 3 or 4');
             end
             
             if (nargin==1)
                 if not(isvector(varargin{1})||iscell(varargin{1}))
-                    error('The input argument must be a vector of continuous times or a cell array of dates in the format dd-mm-yyyy HH:MM');
+                    error('The input argument must be a vector of continuous times or a cell array of dates in the format dd-MM-yyyy HH:mm');
                 end
                 if (isvector(varargin{1}))
                    if not(isrow(varargin{1}))
@@ -74,7 +96,7 @@ classdef stem_datestamp < handle
                    obj.stamp=zeros(length(varargin{1}),1);
                    dates=varargin{1};
                    for i=1:length(obj.stamp)
-                       obj.stamp(i)=datenum(dates{i},'dd-mm-yyyy HH:MM');
+                       obj.stamp(i)=datenum(dates{i},'dd-MM-yyyy HH:mm');
                    end
                 end
                 if min(diff(obj.stamp))<0
@@ -84,28 +106,54 @@ classdef stem_datestamp < handle
                 obj.date_end=obj.stamp(end);
                 obj.T=length(varargin{1});
                 obj.irregular=1;
-            end
-            if (nargin==3)
+            else
                 date_start=varargin{1};
                 date_end=varargin{2};
-                T=varargin{3};
-                if isnumeric(date_start)
+
+                if isdatetime(date_start)
                     obj.date_start=date_start;
+                elseif ischar(date_start)
+                    obj.date_start=datetime(date_start,'InputFormat','dd-MM-yyyy HH:mm');
                 else
-                    obj.date_start=datenum(date_start,'dd-mm-yyyy HH:MM');
+                    error('Please format the date as dd-MM-yyyy HH:mm')
                 end
-                if isnumeric(date_end)
+
+                if isdatetime(date_end)
                     obj.date_end=date_end;
+                elseif ischar(date_end)
+                    obj.date_end=datetime(date_end,'InputFormat','dd-MM-yyyy HH:mm');
                 else
-                    obj.date_end=datenum(date_end,'dd-mm-yyyy HH:MM');
+                    error('Please format the date as dd-MM-yyyy HH:mm')
                 end
-                if obj.date_end<obj.date_start
+
+                date_start_num=datenum(obj.date_start);
+                date_end_num=datenum(obj.date_end);
+                if date_end_num<date_start_num
                     error('date_start cannot be higher than date_end');
                 end
+
+                T=varargin{3};
                 obj.T=T;
                 obj.stamp=obj.date_start:(obj.date_end-obj.date_start)/(obj.T-1):obj.date_end;
                 obj.irregular=0;
+                if (nargin==4)
+                    obj.step_unit=varargin{4};
+                    
+                    if sum(strcmp(obj.step_unit,["month","year","day","hour","minute"]))==0
+                        error('Unit of time step must be "month", "year", "day", "hour", "minute"')
+                    end
+                    %according to the unit, change the stamp if it is
+                    %monthly or yearly.
+                    if strcmp(obj.step_unit,'month')
+                        obj.stamp=obj.date_start+calmonths(0:T-1);
+                    end
+                    if strcmp(obj.step_unit,'year')
+                        obj.stamp=obj.date_start+calyears(0:T-1);
+                    end
+                end
+                
             end
+             
         end
         
         function subset_stamps(obj,indices)
@@ -135,10 +183,11 @@ classdef stem_datestamp < handle
             %none: the properties of the object are updated  
             
             indices=0:n_steps:obj.T;
-
-            stamp_temp=zeros(length(indices)-1,1);
+            
             for i=1:length(indices)-1
-                stamp_temp(i)=mean(obj.stamp(indices(i)+1):obj.stamp(indices(i+1)));
+                %stamp_temp(i)=mean(obj.stamp(indices(i)+1):obj.stamp(indices(i+1)));
+                stamp_temp(i)=obj.stamp(indices(i)+1)+...
+                    (obj.stamp(indices(i+1))-obj.stamp(indices(i)+1))/2;
             end
             obj.stamp=stamp_temp;
             obj.date_start=min(obj.stamp);

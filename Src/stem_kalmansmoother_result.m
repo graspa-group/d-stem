@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -30,6 +33,25 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_kalmansmoother_result < handle
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
+    %p   - dimension of the latent temporal variable z
+    %T   - number of time steps
+    
     properties
         zk_s  = [];          %[double]                (pxT+1)    the smoothed state
         Pk_s  = [];          %[double]                (pxpxT+1)  variance-covariance matrix of the smoothed state
@@ -43,10 +65,14 @@ classdef stem_kalmansmoother_result < handle
             %DESCRIPTION: constructor of the class stem_kalmansmoother_result
             %
             %INPUT 
-            %See the class properties
+            %zk_s  = [];          -[double]                (pxT+1)    the smoothed state
+            %Pk_s  = [];          -[double]                (pxpxT+1)  variance-covariance matrix of the smoothed state
+            %PPk_s = [];          -[double]                (pxpxT+1)  lag-one variance-covariance matrix of the smoothed state
+            %logL  = [];          -[double]                (1x1)      observed-data log-likelihood
+            %stem_datestamp = []; -[stem_datestamp object] (1x1)      the stem_datestamp object where to recover information for plotting
             %
             %OUTPUT
-            %obj             - [stem_kalmansmoother_result object]   (1x1) stem_kalmansmoother_result object
+            %obj                  -[stem_kalmansmoother_result object]   (1x1) stem_kalmansmoother_result object
             
             obj.zk_s = zk_s;
             obj.Pk_s = Pk_s;
@@ -60,8 +86,8 @@ classdef stem_kalmansmoother_result < handle
             %
             %INPUT 
             %obj            - [stem_kalmansmoother_result object]   (1x1) stem_kalmansmoother_result object
-            %<level>        - [double >0 and <1] (default: 0.05)    (1x1) the confidence level
-            %<flag_max>     - [boolean]                             (1x1) 1: also max(zk_s) is plotted; 0: no additional plot
+            %level          - [double >0 and <1] (default: 0.05)    (1x1) the confidence level
+            %flag_max       - [boolean]                             (1x1) 1: also max(zk_s) is plotted; 0: no additional plot
             %
             %OUTPUT
             %none: zk_s is plotted
@@ -106,14 +132,21 @@ classdef stem_kalmansmoother_result < handle
                     tick=[tick obj.stem_datestamp.stamp(end)];
                 end
                 set(gca,'XTick',tick);
-                if not(min(tick)==1)
-                    formatOut = 'dd/mm/yyyy HH:MM';
-                    ticklabel=datestr(tick,formatOut);
+                if isdatetime(min(tick))
+                    ticklabel=datestr(tick);
                     set(gca,'XTickLabel',ticklabel);
                     xlabel('Date');
                 else
-                    xlabel('Time');
+                    if not(min(tick)==1)
+                        formatOut = 'dd/mm/yyyy HH:MM';
+                        ticklabel=datestr(tick,formatOut);
+                        set(gca,'XTickLabel',ticklabel);
+                        xlabel('Date');
+                    else
+                        xlabel('Time');
+                    end
                 end
+                
                 ylabel(['z_{',num2str(i),'}(t)']);
                 grid on
             end

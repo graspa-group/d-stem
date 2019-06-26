@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -33,21 +36,41 @@
 
 classdef stem_crossval_result < handle
     
-    %CONSTANTS
+    %PROPERTIES
+    %Each class property or method property is defined as follows
     %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
     %dN - the number of cross-validation sites
     %T  - the number of time steps
+    %H  - the dimension of vector h
     
     properties
+        
         y_back=[];                  %[double]                  (dNxT) the original data (back-transformed) of the cross-validation sites
         y_hat_back=[];              %[double]                  (dNxT) the estimated data (back-transformed) for the cross-validation sites
         res=[];                     %[double]                  (dNxT) cross-validation residuals
         res_back=[];                %[double]                  (dNxT) back-transformed cross-validation residuals (if the original data are log-transformed and/or standardized)
         
-        mse=[];                     %[double >=0]              (dNx1) mean squared error for each cross-validation site
-        mse_time=[];                %[double >=0]              (dNx1) mean squared error for each time step
-        relative_mse=[];            %[double >=0]              (dNx1) relative mean squared error for each cross-validation site
-        relative_mse_time=[];       %[double >=0]              (dNx1) relative mean squared error for each time step
+        cv_mse_t=[];                %[double >=0]              (Tx1) mean squared error with respect to time t 
+        cv_R2_t=[];                 %[double >=0]              (Tx1) R-square with respect to time t 
+        cv_mse_s=[];                %[double >=0]              (dNx1) mean squared error with respect to site s 
+        cv_R2_s=[];                 %[double >=0]              (dNx1) R-square with respect to time t 
+        
+        cv_h=[];                    %[double >=0]              (Hx1) the h values if f-HDGM
+        cv_mse_h=[];                %[double >=0]              (Hx1) mean squared error with respect to h if f-HDGM
+        cv_R2_h=[];                 %[double >=0]              (Hx1) R-square with respect to h if f-HDGM
+        
         min_distance=[];            %[double >=0]              (dNx1) the distance from each cross-validation site to the nearest non cross-validation site
     end
     
@@ -63,17 +86,5 @@ classdef stem_crossval_result < handle
             %obj           - [stem_crossval_result object] (1x1)
         end
         
-        function print(obj)
-            disp(' ');
-            disp(['XVAL RESULTS FOR ',obj.stem_krig_result.variable_name]);
-            disp(' ');
-            disp(['Data std: ',num2str(nanstd(obj.y_back(:)))]);
-            disp(['xval residual std: ',num2str(nanstd(obj.res_back(:)))]);
-            R2=1-nanvar(obj.res_back(:))/nanvar(obj.y_back(:));
-            disp(['xval R2: ',num2str(R2)]);
-            disp(' ');
-            disp(['Avg. spatial std : ',num2str(mean(nanstd(obj.res_back,[],1)))]);
-            disp(['Avg. temporal std: ',num2str(mean(nanstd(obj.res_back,[],2)))]);
-        end
     end
 end

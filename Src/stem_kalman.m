@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -31,11 +34,25 @@
 
 classdef stem_kalman < handle
     
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
     %CONSTANTS
     %N   = n1_p+...+nq_p+n1_b+...+nq_b - total number of observation sites
     %N_p = n1_p+...+nq_p - total number of point sites
     %N_b = n1_b+...+nq_b - total number of pixel sites
-    %N_b = n1_b+...+nq_b+n1_b+...+nq_b - total number of covariates
+    %N_beta - total number of covariates
     %T   - number of temporal steps
     %TT = T if the space-time varying coefficients are time-variant and TT=1 if they are time-invariant    
     
@@ -60,16 +77,14 @@ classdef stem_kalman < handle
             end
         end
         
-        function [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_eta,G_tilde_diag,sigma_geo,aj_bp,M] = filter(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel)
+        function [st_kalmanfilter_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_eta,G_tilde_diag,sigma_geo,aj_bp,M] = filter(obj,compute_logL,enable_varcov_computation)
             %DESCRIPTION: Kalman filter front-end method
             %
             %INPUT
             %
             %obj                            - [stem_kalman object]              (1x1)  stem_kalman object
-            %<compute_logL>                 - [boolean]                         (1x1)  (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
-            %<enable_varcov_computation>    - [boolean]                         (1x1)  (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
-            %<time_steps>                   - [integer >0]                      (dTx1) (default: []) the subset of time steps with respect to which compute the Kalman filter
-            %<pathparallel>                 - [string]                          (1x1)  (defalut: []) full or relative path of the folder to use for distributed computation
+            %compute_logL                   - [boolean]                         (1x1)  (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]                         (1x1)  (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
             %    
             %OUTPUT
             %st_kalmanfilter_result         - [stem_kalmanfilter_result object] (1x1)     
@@ -88,13 +103,7 @@ classdef stem_kalman < handle
             if nargin<3
                 enable_varcov_computation=0;
             end
-            if nargin<4
-                pathparallel=[];
-                time_steps=[];
-            end
-            if nargin==4
-                error('The pathparallel input argument must be provided');
-            end
+            
             disp('    Kalman filter started...');
             ct1=clock;
            
@@ -132,7 +141,7 @@ classdef stem_kalman < handle
             end
             
             
-            [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,times,par.beta,G,par.lambda,s_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
+            [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = stem_kalman.Kfilter(data.Y,data.X_bp,data.X_beta,data.X_z,data.X_p,times,par.beta,G,par.lambda,s_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
             
             st_kalmanfilter_result = stem_kalmanfilter_result(zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL);
             
@@ -146,12 +155,12 @@ classdef stem_kalman < handle
             %INPUT
             %
             %obj                            - [stem_kalman object]    (1x1)         stem_kalman object
-            %<compute_logL>                 - [boolean]               (1x1)         (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
-            %<enable_varcov_computation>    - [boolean]               (1x1)         (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
-            %<time_steps>                   - [integer >0]            (dTx1)        (default: []) the subset of time steps with respect to which compute the Kalman filter
-            %<pathparallel>                 - [string]                (1x1)         (defalut: []) full or relative path of the folder to use for distributed computation
-            %<block_tapering_block_size>    - [integer >0]            (1x1)|(bx1)   (default: 0) the block dimension for block tapering or a vector of block sizes
-            %<workers>                      - [integer>0]             (1x1)         (default: 1)the number of matlab workers used for the estimation %Yaqiong
+            %compute_logL                   - [boolean]               (1x1)         (default: 0) 1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            %enable_varcov_computation      - [boolean]               (1x1)         (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %time_steps                     - [integer >0]            (dTx1)        (default: []) the subset of time steps with respect to which compute the Kalman filter
+            %pathparallel                   - [string]                (1x1)         (defalut: []) full or relative path of the folder to use for distributed computation
+            %block_tapering_block_size      - [integer >0]            (1x1)|(bx1)   (default: 0) the block dimension for block tapering or a vector of block sizes
+            %workers                        - [integer>0]             (1x1)         (default: 1)the number of matlab workers used for the estimation 
             %
             %    
             %OUTPUT
@@ -188,230 +197,255 @@ classdef stem_kalman < handle
             
             disp('    Kalman smoother started...');
             ct1=clock;
-
+            
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
             
             [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,sigma_eta,G_tilde_diag,aj_bp,M] = obj.stem_model.get_sigma();
             
-            tapering=obj.stem_model.tapering;
-
-            time_diagonal=obj.stem_model.stem_par.stem_par_constraints.time_diagonal;
-            if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
-                time_diagonal=0;
-            end
-            
-            if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
-                s_eta=sigma_eta;
-                r=length(G_tilde_diag);
-                G=sparse(1:r,1:r,G_tilde_diag,r,r);
-                z0=zeros(r,1);
-                P0=speye(r);
-            else
-                s_eta=par.sigma_eta;
-                G=par.G;
-                z0=zeros(obj.stem_model.stem_par.p,1);
-                P0=eye(obj.stem_model.stem_par.p);
-            end
-            
-            if obj.stem_model.stem_data.stem_datestamp.irregular==1
-                if not(isempty(pathparallel))
-                    error('Irregular time steps not yet supported in distributed computing Kalman Smoother');
+            if obj.stem_model.stem_data.stem_modeltype.is('f-HDGM')&&data.T==1
+                res=data.Y;
+                res(isnan(res))=0;
+                
+                if not(isempty(data.X_beta))
+                    Xbeta=data.X_beta{1}*par.beta;
+                    res=res-Xbeta;
                 end
-                times=obj.stem_model.stem_data.stem_datestamp.stamp;
+                
+                cov_z_y=sigma_eta*data.X_z{1}';
+                var_Y=sigma_eps{1}+data.X_z{1}*cov_z_y;
+                
+                L=not(isnan(data.Y));
+                H1=var_Y(L,L);
+                
+                chol_H1=chol(H1);
+                cs=stem_misc.chol_solve(chol_H1,res(L));
+                zk_s=cov_z_y(:,L)*cs;
+                zk_s=cat(2,zeros(length(zk_s),1),zk_s);
+                temp=stem_misc.chol_solve(chol_H1,cov_z_y(:,L)');
+                Pk_s{2}=sigma_eta-cov_z_y(:,L)*temp;
+                
+                st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,[],0,obj.stem_model.stem_data.stem_datestamp);
             else
-                times=[];
-            end
-            
-            if sum(block_tapering_block_size)>0
-                dim=data.dim;
-                if sum(diff(dim))>0
-                    error('Block tapering is not yet supported in the multivariate heterotopic case');
+                tapering=obj.stem_model.tapering;
+                
+                time_diagonal=obj.stem_model.stem_par.stem_par_constraints.time_diagonal;
+                if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
+                    time_diagonal=0;
                 end
-            end
-            
-            
-            if sum(block_tapering_block_size)==0||not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))
-                [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_bp,data.X_beta,data.X_z,...
-                    data.X_p,times,par.beta,G,par.lambda,s_eta,sigma_W_b,...
-                    sigma_W_p,sigma_eps,sigma_geo,M,z0,P0,...
-                    time_diagonal,time_steps,pathparallel,tapering,compute_logL,...
-                    enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
-                st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
-            else
-                p=par.p;
-                q=par.q;
-                if not(p==1)
-                    blocks_data=[0 cumsum(dim)];
-                    if isscalar(block_tapering_block_size)
-                        blocks_tapering=0:block_tapering_block_size:dim(1);
-                    else
-                        blocks_tapering=[0 cumsum(block_tapering_block_size)];
-                    end
-                    
-                    if not(blocks_tapering(end)==dim(1))
-                        blocks_tapering=[blocks_tapering dim(1)];
-                    end
-                    zk_s=zeros(r,obj.stem_model.T+1);
-                    logL=0;
-                    Pk_s=cell(obj.stem_model.T+1,1);
-                    PPk_s=cell(obj.stem_model.T+1,1);
-                    for t=1:obj.stem_model.T+1
-                        Pk_s{t}=sparse(r,r);
-                        PPk_s{t}=sparse(r,r);
-                    end
-                    sigma_Z_tap=sparse(r,r);
-                    if workers==1
-                        for z=1:length(blocks_tapering)-1
-                            idx_tapering_q=[];
-                            idx_tapering_p=[];
-                            for h=1:q
-                                idx_tapering_q=[idx_tapering_q (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
-                            end
-                            for h=1:p
-                                idx_tapering_p=[idx_tapering_p (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
-                            end
-
-                            Y=data.Y(idx_tapering_q,:);
-                            if not(isempty(data.X_bp))
-                                X_bp=data.Xbp;
-                                for t=1:length(Xbp)
-                                    X_bp{t}=X_bp{t}(idx_tapering_q);
-                                end
-                            else
-                                X_bp=[];
-                            end
-                            if not(isempty(data.X_beta))
-                                X_beta=data.X_beta;
-                                for t=1:length(X_beta)
-                                    X_beta{t}=X_beta{t}(idx_tapering_q,:);
-                                end
-                            else
-                                X_beta=[];
-                            end
-                            if not(isempty(data.X_z))
-                                X_z=data.X_z;
-                                for t=1:length(X_z)
-                                    X_z{t}=X_z{t}(idx_tapering_q,idx_tapering_p);
-                                end
-                            else
-                                X_z=[];
-                            end
-                            if not(isempty(data.X_p))
-                                X_p=data.X_p;
-                                for t=1:length(X_p)
-                                    X_p{t}=X_p{t}(idx_tapering_q,:);
-                                end
-                            else
-                                X_p=[];
-                            end
-                            if not(isempty(G))
-                                G_tap=G(idx_tapering_p,idx_tapering_p);
-                            else
-                                G_tap=[];
-                            end
-                            if not(isempty(s_eta))
-                                s_eta_tap=s_eta(idx_tapering_p,idx_tapering_p);
-                            else
-                                s_eta_tap=[];
-                            end
-                            if not(isempty(sigma_W_b))
-                                sigma_W_b_tap=sigma_W_b(idx_tapering_q,idx_tapering_q);
-                            else
-                                sigma_W_b_tap=[];
-                            end
-                            if not(isempty(sigma_W_p))
-                                sigma_W_p_tap=sigma_W_p(idx_tapering_q,idx_tapering_q);
-                            else
-                                sigma_W_p_tap=[];
-                            end
-                            if not(isempty(sigma_eps))
-                                %Yaqiong 20181119
-                                if iscell(sigma_eps)
-                                    sigma_eps_tap=cell(1,length(X_z));
-                                    for t=1:length(X_z)
-                                        sigma_eps_tap{t}=sigma_eps{t}(idx_tapering_q,idx_tapering_q);
-                                    end 
-                                else
-                                     sigma_eps_tap=sigma_eps(idx_tapering_q,idx_tapering_q);
-                                end
-                            else
-                                sigma_eps_tap=[];
-                            end
-                            if not(isempty(sigma_geo))
-                                if iscell(sigma_eps)
-                                    sigma_geo_tap=cell(1,length(X_z));
-                                    for t=1:length(X_z)
-                                        sigma_geo_tap{t}=sigma_geo{t}(idx_tapering_q,idx_tapering_q);
-                                    end 
-                                else
-                                     sigma_geo_tap=sigma_geo(idx_tapering_q,idx_tapering_q);
-                                end 
-                            else
-                                sigma_geo_tap=[];
-                            end
-                            
-                            if not(isempty(M))
-                                M_tap=M(idx_tapering_q);
-                            else
-                                M_tap=[];
-                            end
-                            z0_tap=z0(idx_tapering_p,:);
-                            P0_tap=P0(idx_tapering_p,idx_tapering_p);
-
-                            [zk_s_tap,Pk_s_tap,PPk_s_tap,logL_tap] = obj.Ksmoother(Y,X_bp,X_beta,X_z,...
-                                X_p,times,par.beta,G_tap,par.lambda,s_eta_tap,sigma_W_b_tap,...
-                                sigma_W_p_tap,sigma_eps_tap,sigma_geo_tap,M_tap,z0_tap,P0_tap,...
-                                time_diagonal,time_steps,pathparallel,tapering,compute_logL,...
-                                enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
-
-                            zk_s(idx_tapering_p,:)=zk_s_tap;
-                            logL=logL+logL_tap;
-                            for t=1:obj.stem_model.T+1
-                                Pk_s{t}(idx_tapering_p,idx_tapering_p)=Pk_s_tap{t};
-                                PPk_s{t}(idx_tapering_p,idx_tapering_p)=PPk_s_tap{t};
-                            end
-                            sigma_Z_tap(idx_tapering_p,idx_tapering_p)=sigma_Z(idx_tapering_p,idx_tapering_p);
-                        end
-                        st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
-                        sigma_Z=sigma_Z_tap;
-                    else
-                        %Yaqiong
-                        %poolobj = parpool(workers);
-                        parfor z=1:length(blocks_tapering)-1
-                            idx_tapering_q=[];
-                            idx_tapering_p=[];
-                            for h=1:q
-                                idx_tapering_q=[idx_tapering_q (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
-                            end
-                            for h=1:p
-                                idx_tapering_p=[idx_tapering_p (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
-                            end
-                            [zk_s_tap{z},Pk_s_tap{z},PPk_s_tap{z},logL_tap{z}] = get_tap(obj,idx_tapering_q,idx_tapering_p,time_diagonal,enable_varcov_computation,times,time_steps,pathparallel,tapering,compute_logL);
-                        end
-                        for z=1:length(blocks_tapering)-1
-                            idx_tapering_q=[];
-                            idx_tapering_p=[];
-                            for h=1:q
-                                idx_tapering_q=[idx_tapering_q (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
-                            end
-                            for h=1:p
-                                idx_tapering_p=[idx_tapering_p (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
-                            end
-                            zk_s(idx_tapering_p,:)=zk_s_tap{z};
-                            logL=logL+logL_tap{z};
-                            for t=1:obj.stem_model.T+1
-                                Pk_s{t}(idx_tapering_p,idx_tapering_p)=Pk_s_tap{z}{t};
-                                PPk_s{t}(idx_tapering_p,idx_tapering_p)=PPk_s_tap{z}{t};
-                            end
-                            sigma_Z_tap(idx_tapering_p,idx_tapering_p)=sigma_Z(idx_tapering_p,idx_tapering_p); 
-                        end
-                        st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
-                        sigma_Z=sigma_Z_tap;
-                        %delete(poolobj);
-                    end
+                
+                if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
+                    s_eta=sigma_eta;
+                    r=length(G_tilde_diag);
+                    G=sparse(1:r,1:r,G_tilde_diag,r,r);
+                    z0=zeros(r,1);
+                    P0=speye(r);
                 else
-                    error('Kalman block tapering for HDGM not yet implemented');
+                    s_eta=par.sigma_eta;
+                    G=par.G;
+                    z0=zeros(obj.stem_model.stem_par.p,1);
+                    P0=eye(obj.stem_model.stem_par.p);
+                end
+                
+                if obj.stem_model.stem_data.stem_datestamp.irregular==1
+                    if not(isempty(pathparallel))
+                        error('Irregular time steps not yet supported in distributed computing Kalman Smoother');
+                    end
+                    times=obj.stem_model.stem_data.stem_datestamp.stamp;
+                else
+                    times=[];
+                end
+                
+                if sum(block_tapering_block_size)>0
+                    dim=data.dim;
+                    if sum(diff(dim))>0
+                        error('Block tapering is not yet supported in the multivariate heterotopic case');
+                    end
+                end
+                
+                if sum(block_tapering_block_size)==0||not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))
+                    [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_bp,data.X_beta,data.X_z,...
+                        data.X_p,times,par.beta,G,par.lambda,s_eta,sigma_W_b,...
+                        sigma_W_p,sigma_eps,sigma_geo,aj_bp,M,z0,P0,...
+                        time_diagonal,time_steps,pathparallel,tapering,compute_logL,...
+                        enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
+                    st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
+                else
+                    p=par.p;
+                    q=par.q;
+                    if not(p==1)
+                        blocks_data=[0 cumsum(dim)];
+                        if isscalar(block_tapering_block_size)
+                            blocks_tapering=0:block_tapering_block_size:dim(1);
+                        else
+                            blocks_tapering=[0 cumsum(block_tapering_block_size)];
+                        end
+                        
+                        if not(blocks_tapering(end)==dim(1))
+                            blocks_tapering=[blocks_tapering dim(1)];
+                        end
+                        zk_s=zeros(r,obj.stem_model.T+1);
+                        logL=0;
+                        Pk_s=cell(obj.stem_model.T+1,1);
+                        PPk_s=cell(obj.stem_model.T+1,1);
+                        for t=1:obj.stem_model.T+1
+                            Pk_s{t}=sparse(r,r);
+                            PPk_s{t}=sparse(r,r);
+                        end
+                        sigma_Z_tap=sparse(r,r);
+                        if workers==1
+                            for z=1:length(blocks_tapering)-1
+                                idx_tapering_q=[];
+                                idx_tapering_p=[];
+                                for h=1:q
+                                    idx_tapering_q=[idx_tapering_q (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
+                                end
+                                for h=1:p
+                                    idx_tapering_p=[idx_tapering_p (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
+                                end
+                                
+                                Y=data.Y(idx_tapering_q,:);
+                                if not(isempty(data.X_bp))
+                                    X_bp=data.Xbp;
+                                    for t=1:length(Xbp)
+                                        X_bp{t}=X_bp{t}(idx_tapering_q);
+                                    end
+                                else
+                                    X_bp=[];
+                                end
+                                if not(isempty(data.X_beta))
+                                    X_beta=data.X_beta;
+                                    for t=1:length(X_beta)
+                                        X_beta{t}=X_beta{t}(idx_tapering_q,:);
+                                    end
+                                else
+                                    X_beta=[];
+                                end
+                                if not(isempty(data.X_z))
+                                    X_z=data.X_z;
+                                    for t=1:length(X_z)
+                                        X_z{t}=X_z{t}(idx_tapering_q,idx_tapering_p);
+                                    end
+                                else
+                                    X_z=[];
+                                end
+                                if not(isempty(data.X_p))
+                                    X_p=data.X_p;
+                                    for t=1:length(X_p)
+                                        X_p{t}=X_p{t}(idx_tapering_q,:);
+                                    end
+                                else
+                                    X_p=[];
+                                end
+                                if not(isempty(G))
+                                    G_tap=G(idx_tapering_p,idx_tapering_p);
+                                else
+                                    G_tap=[];
+                                end
+                                if not(isempty(s_eta))
+                                    s_eta_tap=s_eta(idx_tapering_p,idx_tapering_p);
+                                else
+                                    s_eta_tap=[];
+                                end
+                                if not(isempty(sigma_W_b))
+                                    sigma_W_b_tap=sigma_W_b(idx_tapering_q,idx_tapering_q);
+                                else
+                                    sigma_W_b_tap=[];
+                                end
+                                if not(isempty(sigma_W_p))
+                                    sigma_W_p_tap=sigma_W_p(idx_tapering_q,idx_tapering_q);
+                                else
+                                    sigma_W_p_tap=[];
+                                end
+                                if not(isempty(sigma_eps))
+                           
+                                    if iscell(sigma_eps)
+                                        sigma_eps_tap=cell(1,length(X_z));
+                                        for t=1:length(X_z)
+                                            sigma_eps_tap{t}=sigma_eps{t}(idx_tapering_q,idx_tapering_q);
+                                        end
+                                    else
+                                        sigma_eps_tap=sigma_eps(idx_tapering_q,idx_tapering_q);
+                                    end
+                                else
+                                    sigma_eps_tap=[];
+                                end
+                                if not(isempty(sigma_geo))
+                                    if iscell(sigma_eps)
+                                        sigma_geo_tap=cell(1,length(X_z));
+                                        for t=1:length(X_z)
+                                            sigma_geo_tap{t}=sigma_geo{t}(idx_tapering_q,idx_tapering_q);
+                                        end
+                                    else
+                                        sigma_geo_tap=sigma_geo(idx_tapering_q,idx_tapering_q);
+                                    end
+                                else
+                                    sigma_geo_tap=[];
+                                end
+                                
+                                if not(isempty(M))
+                                    M_tap=M(idx_tapering_q);
+                                else
+                                    M_tap=[];
+                                end
+                                z0_tap=z0(idx_tapering_p,:);
+                                P0_tap=P0(idx_tapering_p,idx_tapering_p);
+                                
+                                if not(isempty(aj_bp))
+                                    error('The block tapering is not available foe the data fusion model.')
+                                end
+                                
+                                [zk_s_tap,Pk_s_tap,PPk_s_tap,logL_tap] = obj.Ksmoother(Y,X_bp,X_beta,X_z,...
+                                    X_p,times,par.beta,G_tap,par.lambda,s_eta_tap,sigma_W_b_tap,...
+                                    sigma_W_p_tap,sigma_eps_tap,sigma_geo_tap,aj_bp,M_tap,z0_tap,P0_tap,...
+                                    time_diagonal,time_steps,pathparallel,tapering,compute_logL,...
+                                    enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
+                                
+                                zk_s(idx_tapering_p,:)=zk_s_tap;
+                                logL=logL+logL_tap;
+                                for t=1:obj.stem_model.T+1
+                                    Pk_s{t}(idx_tapering_p,idx_tapering_p)=Pk_s_tap{t};
+                                    PPk_s{t}(idx_tapering_p,idx_tapering_p)=PPk_s_tap{t};
+                                end
+                                sigma_Z_tap(idx_tapering_p,idx_tapering_p)=sigma_Z(idx_tapering_p,idx_tapering_p);
+                            end
+                            st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
+                            sigma_Z=sigma_Z_tap;
+                        else
+                            parfor z=1:length(blocks_tapering)-1
+                                idx_tapering_q=[];
+                                idx_tapering_p=[];
+                                for h=1:q
+                                    idx_tapering_q=[idx_tapering_q (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
+                                end
+                                for h=1:p
+                                    idx_tapering_p=[idx_tapering_p (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
+                                end
+                                [zk_s_tap{z},Pk_s_tap{z},PPk_s_tap{z},logL_tap{z}] = get_tap(obj,idx_tapering_q,idx_tapering_p,time_diagonal,enable_varcov_computation,times,time_steps,pathparallel,tapering,compute_logL);
+                            end
+                            for z=1:length(blocks_tapering)-1
+                                idx_tapering_q=[];
+                                idx_tapering_p=[];
+                                for h=1:q
+                                    idx_tapering_q=[idx_tapering_q (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
+                                end
+                                for h=1:p
+                                    idx_tapering_p=[idx_tapering_p (blocks_tapering(z)+1:blocks_tapering(z+1))+blocks_data(h)];
+                                end
+                                zk_s(idx_tapering_p,:)=zk_s_tap{z};
+                                logL=logL+logL_tap{z};
+                                for t=1:obj.stem_model.T+1
+                                    Pk_s{t}(idx_tapering_p,idx_tapering_p)=Pk_s_tap{z}{t};
+                                    PPk_s{t}(idx_tapering_p,idx_tapering_p)=PPk_s_tap{z}{t};
+                                end
+                                sigma_Z_tap(idx_tapering_p,idx_tapering_p)=sigma_Z(idx_tapering_p,idx_tapering_p);
+                            end
+                            st_kalmansmoother_result = stem_kalmansmoother_result(zk_s,Pk_s,PPk_s,logL,obj.stem_model.stem_data.stem_datestamp);
+                            sigma_Z=sigma_Z_tap;
+                        end
+                    else
+                        error('Kalman block tapering for HDGM not yet implemented');
+                    end
                 end
             end
             ct2=clock;
@@ -420,6 +454,25 @@ classdef stem_kalman < handle
         
         function [zk_s_tap,Pk_s_tap,PPk_s_tap,logL_tap] = get_tap(obj,idx_tapering_q,idx_tapering_p,time_diagonal,...
                 enable_varcov_computation,times,time_steps,pathparallel,tapering,compute_logL)
+            %DESCRIPTION: works when run in parallel
+            %
+            %INPUT
+            %obj                            - [stem_kalman object]    (1x1)      stem_kalman object
+            %idx_tapering_q                 - [integer >0] (kx1)       the index of block tapering for response variable  
+            %idx_tapering_p                 - [integer >0] (kx1)       the index of block tapering for latent variable  
+            %time_diagonal                  - [boolean]    (1x1)       1: G and sigma_eta are diagonal matrice; 0:otherwise
+            %enable_varcov_computation      - [boolean]    (1x1)       1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
+            %times                          - [double]     (Tx1)       the vector of times of observation. Must be empty if time steps are regular
+            %time_steps                     - [integer >0] (dTx1)      time steps with respect to which compute the Kalman filter
+            %pathparallel                   - [string]     (1x1)       full or relative path of the folder to use for distributed computation
+            %tapering                       - [boolean]    (1x1)       1: tapering is enabled; 0: tapering is not enabled
+            %compute_logL                   - [boolean]    (1x1)       1: compute the observed-data log-likelihood; 0: the log-likelihood is not computed
+            % 
+            %OUTPUT 
+            %zk_s_tap                       - [double]     (pxT+1)|(rxT+1)       the smoothed state
+            %Pk_s_tap                       - [double]     {T+1}(pxp)|{T+1}(rxr) variance-covariance matrix of the smoothed state
+            %PPk_s_tap                      - [double]     {T+1}(pxp)|{T+1}(rxr) lag-one variance-covariance matrix of the smoothed state
+            %logL_tap                       - [double]     (1x1)                 observed-data log-likelihood
             
             data=obj.stem_model.stem_data;
             par=obj.stem_model.stem_par;
@@ -492,10 +545,9 @@ classdef stem_kalman < handle
             end
             if not(isempty(sigma_eps))
                 if iscell(sigma_eps)
-                    %Yaqiong 20181119
+                    
                     sigma_eps_tap=cell(1,length(X_z));
-                    %sigma_eps_tap=cell(1,length(X_beta));
-                    for t=1:length(length(X_z))
+                    for t=1:length(X_z)
                         sigma_eps_tap{t}=sigma_eps{t}(idx_tapering_q,idx_tapering_q);
                     end 
                 else
@@ -527,7 +579,7 @@ classdef stem_kalman < handle
 
             [zk_s_tap,Pk_s_tap,PPk_s_tap,logL_tap] = obj.Ksmoother(Y,X_bp,X_beta,X_z,...
                 X_p,times,par.beta,G_tap,par.lambda,s_eta_tap,sigma_W_b_tap,...
-                sigma_W_p_tap,sigma_eps_tap,sigma_geo_tap,M_tap,z0_tap,P0_tap,...
+                sigma_W_p_tap,sigma_eps_tap,sigma_geo_tap,aj_bp,M_tap,z0_tap,P0_tap,...
                 time_diagonal,time_steps,pathparallel,tapering,compute_logL,...
                 enable_varcov_computation,obj.stem_model.stem_data.stem_modeltype);
         end
@@ -537,18 +589,18 @@ classdef stem_kalman < handle
     
     methods (Static)
         
-        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_bp,X_beta,X_z,X_p,times,beta,G,lambda,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,stem_modeltype)
+        function [zk_f,zk_u,Pk_f,Pk_u,J_last,J,logL] = Kfilter(Y,X_bp,X_beta,X_z,X_p,times,beta,G,lambda,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,stem_modeltype)
             %DESCRIPTION: Kalman filter implementation
             %
             %INPUT
             %
             %Y                              - [double]     (NxT)       the full observation matrix
             %X_bp                           - [double]     {T}(Nx1)    the full X_bp matrix
-            %X_beta                         - [double]     {TT}(NxN_b) the full X_beta matrix
+            %X_beta                         - [double]     {TT}(NxN_beta) the full X_beta matrix
             %X_z                            - [double]     {TT}(Nxp)|{TT}(Nxr) the full X_z matrix
             %X_p                            - [double]     {TT}(NxK)   the full X_p matrix
             %times                          - [double]     (Tx1)       the vector of times of observation. Must be empty if time steps are regular
-            %beta                           - [double]     (N_bx1)     the beta model parameter
+            %beta                           - [double]     (N_betax1)     the beta model parameter
             %G                              - [double]     (pxp)|(rxr) the G model parameter or the G_tilde matrix when model_name is 'HDGM' or 'f-HDGM'
             %lambda                         - [double>0]   (1x1)       the lambda parameter for the case of irregular time steps
             %sigma_eta                      - [double]     (pxp)|(rxr) the sigma_eta model parameter or the sigma_eta matrix when model_name is 'HDGM' or 'f-HDGM'
@@ -599,7 +651,7 @@ classdef stem_kalman < handle
                 error('G and sigma_eta must have the same dimensions');
             end
             
-            if iscell(sigma_eps) %Yaqiong
+            if iscell(sigma_eps) 
                 if size(Y,1)~=size(sigma_eps{1},1)
                     error('The dimensions of sigma_eps must be equal to the number of rows of Y');
                 end
@@ -698,9 +750,9 @@ classdef stem_kalman < handle
                     if not(isempty(X_bp))
                         sigma_geo=zeros(N);
                         if length(X_bp)>1
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp{t-1},'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp{t-1},'b'),aj_bp,'b');
                         else
-                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp{1},'b');
+                            sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(stem_misc.M_apply(sigma_W_b,M,'b'),X_bp{1},'b'),aj_bp,'b');
                         end
                     end
 
@@ -713,10 +765,11 @@ classdef stem_kalman < handle
                             end
                         end                        
                         for k=1:size(X_p{1},2)
+                            aj_p(:,k)=[ones(size(sigma_W_p{k},1),1); zeros(size(sigma_geo,1)-size(sigma_W_p{k},1),1)];
                             if length(X_p)>1
-                               sigma_geo=sigma_geo+stem_misc.D_apply(sigma_W_p{k},X_p{t-1}(:,k),'b');
+                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p{t-1}(:,k),'b'),aj_p(:,k),'b');
                             else
-                               sigma_geo=sigma_geo+stem_misc.D_apply(sigma_W_p{k},X_p{1}(:,k),'b');
+                               sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},X_p{1}(:,k),'b'),aj_p(:,k),'b');
                             end
                         end
                     end
@@ -740,7 +793,7 @@ classdef stem_kalman < handle
                 if stem_modeltype.is({'f-HDGM'})
                     temp=X_z{tK-1};
                     X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
-                elseif stem_modeltype.is({'HDGM'})%Yaqiong
+                elseif stem_modeltype.is({'HDGM'})
                     temp=X_z{tK-1};
                     temp=sparse(1:length(temp),1:length(temp),temp,length(temp),length(temp));
                     X_z_orlated=cat(1,temp,zeros(N-size(temp,1),size(temp,2)));
@@ -752,13 +805,8 @@ classdef stem_kalman < handle
                         X_z_orlated=X_z{tK-1};
                     end
                 end
-                %X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
                 
-                %if stem_modeltype.is({'HDGM'}) %Yaqiong
-                %    X_z_orlated=X_z_orlated(Lt,Lt);
-                %else
                 X_z_orlated=X_z_orlated(Lt,:);
-                %end
                 
                 if stem_misc.zero_density(X_z_orlated)>90
                     X_z_orlated=sparse(X_z_orlated);
@@ -773,7 +821,7 @@ classdef stem_kalman < handle
                     end
                 end
                 
-                if iscell(sigma_geo) %Yaqiong, sigma_eps is cell for modeltype is f-HDGM and flag_sigma equals 1
+                if iscell(sigma_geo) 
                     temp = sigma_geo{t-1}(Lt,Lt);
                 else
                     if size(sigma_geo,3)==1
@@ -821,15 +869,11 @@ classdef stem_kalman < handle
                             temp=X_z_orlated'/temp;
                         else
                             d=1./diag(temp);
-                            sigma_geo_inv=sparse(1:length(d),1:length(d),d); %sigma_geo_inv=diag(1./diag(temp));
-                            %temp=X_z_orlated.*repmat(d,[1,size(X_z_orlated,2)]);
-                            %temp=temp';
-                            temp = X_z_orlated'*sigma_geo_inv;
-                            %temp=diag(temp);                   
+                            sigma_geo_inv=sparse(1:length(d),1:length(d),d); 
+                            temp = X_z_orlated'*sigma_geo_inv;                 
                         end
                     end
                     temp2=temp*X_z_orlated;
-                    %temp=temp';
                 end
                 
                 if not(time_diagonal)
@@ -958,7 +1002,7 @@ classdef stem_kalman < handle
                             try
                                 c=chol(sigma_t_inv);
                             catch
-                                a=1;
+                                error('error in cholesky');
                             end
                         end
                         logL=logL+(-(2*sum(log(diag(c))))); %the negative sign is due to the fact that is the log of sigma_t that must be computed
@@ -981,18 +1025,18 @@ classdef stem_kalman < handle
             end
         end
          
-        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_bp,X_beta,X_z,X_p,times,beta,G,lambda,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,stem_modeltype)
+        function [zk_s,Pk_s,PPk_s,logL] = Ksmoother(Y,X_bp,X_beta,X_z,X_p,times,beta,G,lambda,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,stem_modeltype)
             %DESCRIPTION: distributed Kalman filter implementation
             %
             %INPUT
             %
             %Y                              - [double]     (NxT)       the full observation matrix
             %X_bp                           - [double]     {TT}(Nx1)   the full X_bp matrix
-            %X_beta                         - [double]     {TT}(NxN_b) the full X_beta matrix
+            %X_beta                         - [double]     {TT}(NxN_beta) the full X_beta matrix
             %X_z                            - [double]     {TT}(Nxp)|{TT}(Nxr) the full X_z matrix
             %X_p                            - [double]     {TT}(NxK)   the full X_p matrix
             %times                          - [double]     (Tx1)       the vector of times of observation. Must be empty if time steps are regular
-            %beta                           - [double]     (N_bx1)     the beta model parameter
+            %beta                           - [double]     (N_betax1)     the beta model parameter
             %G                              - [double]     (pxp)|(rxr) the G model parameter or the G_tilde matrix when model_name is 'HDGM' or 'f-HDGM'
             %lambda                         - [double>0]   (1x1)       the lambda parameter for the case of irregular time steps
             %sigma_eta                      - [double]     (pxp)|(rxr) the sigma_eta model parameter or the sigma_eta matrix when model_name is 'HDGM' or 'f-HDGM'
@@ -1020,11 +1064,9 @@ classdef stem_kalman < handle
             %PPk_s                          - [double]     {T+1}(pxp)|{T+1}(rxr) lag-one variance-covariance matrix of the smoothed state
             %logL                           - [double]     (1x1)                 observed-data log-likelihood
         
-            if isempty(pathparallel)
-                [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_bp,X_beta,X_z,X_p,times,beta,G,lambda,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,stem_modeltype);
-            else
-                %[zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter_parallel(Y,X_bp,X_beta,X_z,X_p,beta,G,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,aj_p,aj_z,M,z0,P0,time_diagonal,time_steps,pathparallel,tapering,compute_logL,enable_varcov_computation,stem_modeltype);
-            end
+            
+            [zk_f,zk_u,Pk_f,Pk_u,J_last,~,logL] = stem_kalman.Kfilter(Y,X_bp,X_beta,X_z,X_p,times,beta,G,lambda,sigma_eta,sigma_W_b,sigma_W_p,sigma_eps,sigma_geo,aj_bp,M,z0,P0,time_diagonal,tapering,compute_logL,enable_varcov_computation,stem_modeltype);
+           
             
             if not(isempty(times))
                 irregular=1;
@@ -1086,7 +1128,6 @@ classdef stem_kalman < handle
                     X_z_orlated=X_z{end};
                 end
             end
-            %X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
             
             X_z_orlated=X_z_orlated(Lt,:);
             if stem_misc.zero_density(X_z_orlated)>90

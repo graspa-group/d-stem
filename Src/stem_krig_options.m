@@ -4,16 +4,18 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % This file is part of D-STEM.
 % 
@@ -31,14 +33,28 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_krig_options
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
+    
     properties
         block_size=0;               %[integer>0]        (1x1)   the size of the kriging blocks. If set to 0, only one block is used.
         nn_size=0;                  %[integer>0]        (1x1)   the size of the nearest neighbour set for each kriging location. If set to 0, the entire dataset is used
         back_transform=1;           %[boolean]          (1x1)   1: kriging output are back-transformed to the orginal unit; 0: kriging output are NOT back transformed 
-        no_varcov=1;                %[boolean]          (1x1)   1: the variance of the kriging output is NOT computed; 0: the variance is computed
-        %Yaqiong, should we change the meaning of 'y-xbeta' on
-        %y-X_beta*beta', to spline coeff. 'z_t'
-        %type='y';                  %[string]           (1x1)   'y': the kriging is on the y variable(s), 'y-xbeta': the kriging is on y-X_beta*beta', this option is only valid with f-HDGM models
+        no_varcov=0;                %[boolean]          (1x1)   1: the variance of the kriging output is NOT computed; 0: the variance is computed
         workers=1;                  %[integer>0]        (1x1)   the number of matlab workers used for block kriging
     end
     
@@ -92,19 +108,17 @@ classdef stem_krig_options
             end
             obj.crossval=crossval;
         end
-        %{
-        function obj = set.type(obj,type)
-            if not(strcmp(type,'y')||strcmp(type,'y-xbeta'))
-                error('type must be either ''y'' or ''y-xbeta''');
-            end
-            obj.type=type;
-        end
-        %}
+        
         function obj = set.workers(obj,workers)
-            if workers<=0
-                error('workers must be >0');
+            if not(isempty(workers))
+                if workers<=0
+                    error('workers must be >0');
+                elseif rem(workers,1)~=0
+                    error('workers must be integer');
+                end
+                obj.workers=workers;
             end
-            obj.workers=workers;
         end
+        
     end
 end

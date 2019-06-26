@@ -1,30 +1,39 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% D-STEM - Distributed Space Time Expecation Maximization              %
-%                                                                      %
-% Author: Francesco Finazzi                                            %
-% E-mail: francesco.finazzi@unibg.it                                   %
-% Affiliation: University of Bergamo                                   %
-%              Dept. of Management, Economics and Quantitative Methods %
-% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
-% Code website: https://code.google.com/p/d-stem/                      %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% D-STEM - Distributed Space Time Expecation Maximization              %
+%%%                                                                      %
+%%% Author: Francesco Finazzi                                            %
+%%% E-mail: francesco.finazzi@unibg.it                                   %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
+%%% Author: Yaqiong Wang                                                 %
+%%% E-mail: yaqiongwang@pku.edu.cn                                       %
+%%% Affiliation: Peking University,                                      %
+%%%              Guanghua school of management,                          %
+%%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
+%%% Code website: https://github.com/graspa-group/d-stem                 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Please follow these steps to reproduce the case studies of the JSS paper "D-STEM: A Software for the Analysis and Mapping of Environmental Space-Time Variables":
+In order to run a demo please follow these steps:
 
-1) Demo and Src folders must be located in the same folder.
-2) Open MATLAB;
-2) Open and run the script dstem_demo.m in the Demo folder;
+1) Open MATLAB;
+2) Select a demo folder between DCM, HDGM or f-HDGM;
+2) Open and run the demo_*.m script;
 3) Choose an option from the menu.
 
 Please note that:
 
 a) The following MATLAB toolboxes are required:
-   - Statistics Toolbox
+   - Statistics and Machine Learning Toolbox
    - Optimization Toolbox
    - Mapping Toolbox
+   - Parallel Computing Toolbox 
 
-b) The Mapping Toolbox is only required for plotting maps while it is not requires for model estimation.
+b) The Mapping Toolbox is only required for plotting maps while it is not requires for model estimation
 
-c) The code has been developed and tested on MATLAB 7.11.0 (R2010b) but it should also work with older (down to R2009a) and newer versions.
+c) The Parallel Computing Toolbox is only needed to exploit the parallel capabilities of D-STEM
 
-d) In order to run properly, the case studies should run on machines with at least 1 GB of RAM.
+d) The code has been developed and tested on MATLAB R2019a

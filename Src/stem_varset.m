@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -45,7 +48,7 @@ classdef stem_varset < handle
     %{q} is a cell array of length q
     %{q}{p} is a cell array of length q, each cell is a cell array of length p
     %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
-    
+    %
     %CONSTANTS
     %q     - the number of variables
     %n_i   - the number of sites for the i-th variable, i=1,...,q
@@ -62,14 +65,19 @@ classdef stem_varset < handle
         X_beta={};          %[double]   {q}(n_i x nb_i x TT)   loading vectors related to the beta parameter
         X_z={};             %[double]   {q}(n_i x nz_i x TT)   loading vectors related to the latent variable z
         X_p={};             %[double]   {q}(n_i x nw x TT)     loading vectors related to the latent variable w_p
-        X_f={};             %[double]   {q}(n_i x TT)          domain of the functional observations in Y 
+        X_h={};             %[double]   {q}(n_i x TT)          domain of the functional observations in Y 
         Y_name={};          %[string]   {q}                    variable names
         X_bp_name={};       %[string]   {q}                    name of the loading vectors related to the latent variable w_b
         X_beta_name={};     %[string]   {q}{nb_i}              name of the loading vectors related to the beta parameter
         X_z_name={};        %[string]   {q}{nz_i}              name of the loading vectors related to the latent variable z
         X_p_name={};        %[string]   {q}{nw}                name of the loading vectors related to the latent variable w_p        
-        X_f_name=[];        %[string]   1x1                    name of the domain of the function observations in Y
+        X_h_name=[];        %[string]   (1x1)                  name of the domain of the function observations in Y
         
+        Y_unit={};          %[string]   (1x1)                  unit of variable y
+        X_beta_unit={};     %[string]   (1x1)                  unit of covariates
+        X_h_unit=[];        %[string]   (1x1)                  unit of function domain 
+        T_unit=[];          %[string]   (1x1)                  unit of time step
+
         simulated=0;        %[boolean]  (1x1)                  1: the Y data are simulated; 0: the Y data are observed data
     end
     
@@ -101,11 +109,11 @@ classdef stem_varset < handle
         X_beta_tv=[];           %[boolean]         (1x1) 1: the loading vectors related to the beta parameter are time variant; 0:otherwise
         X_z_tv=[];              %[boolean]         (1x1) 1: the loading vectors related to the latent variable z are time variant; 0:otherwise
         X_p_tv=[];              %[boolean]         (1x1) 1: the loading vectors related to the latent variable w_p are time variant; 0:otherwise
-        X_f_tv=[];              %[boolean]         (1x1) 1: the domain of the functional observartions is time variant; 0:otherwise
+        X_h_tv=[];              %[boolean]         (1x1) 1: the domain of the functional observartions is time variant; 0:otherwise
     end
     
     methods
-        function obj = stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_f,X_f_name)
+        function obj = stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_h,X_h_name)
             %DESCRIPTION: is the constructor of the class stem_varset
             %
             %INPUT
@@ -120,14 +128,75 @@ classdef stem_varset < handle
             %X_z_name        -  [string]   {q}{nz_i}             name of the loading vectors related to the latent variable z
             %X_p             -  [double]   {q}(n_i x nw x TT)    loading vectors related to the latent variable w_p
             %X_p_name        -  [string]   {q}{nw}               name of the loading vectors related to the latent variable w_p
-            %X_f             -  [double]   {q}(n_i x TT)         domain of the functional observations in Y 
-            %X_f_name        -  [string]   1x1                   name of the domain of the function observations in Y
+            %X_h             -  [double]   {q}(n_i x TT)         domain of the functional observations in Y 
+            %X_h_name        -  [string]   1x1                   name of the domain of the function observations in Y
             %
             %OUTPUT
             %obj             -  [stem_varset object] (1x1) the stem_varset object
             
-            if not(mod(nargin,2)==0)
-                error('Not enough input arguments');
+            temp_struct=Y;
+            if isstruct(temp_struct)
+                names=fieldnames(temp_struct);
+                if sum(strcmp('Y',names))
+                    Y=temp_struct.Y;
+                end
+                if sum(strcmp('Y_name',names))
+                    Y_name=temp_struct.Y_name;
+                end
+                if sum(strcmp('X_bp',names))
+                    X_bp=temp_struct.X_bp;
+                else
+                    X_bp=[];
+                end 
+                if sum(strcmp('X_bp_name',names))
+                    X_bp_name=temp_struct.X_bp_name;
+                else
+                    X_bp_name=[];
+                end 
+                if sum(strcmp('X_beta',names))
+                    X_beta=temp_struct.X_beta;
+                else
+                    X_beta=[];
+                end 
+                if sum(strcmp('X_beta_name',names))
+                    X_beta_name=temp_struct.X_beta_name;
+                else
+                    X_beta_name=[];
+                end 
+                if sum(strcmp('X_z',names))
+                    X_z=temp_struct.X_z;
+                else
+                    X_z=[];
+                end 
+                if sum(strcmp('X_z_name',names))
+                    X_z_name=temp_struct.X_z_name;
+                else
+                    X_z_name=[];
+                end 
+                if sum(strcmp('X_p',names))
+                    X_p=temp_struct.X_p;
+                else
+                    X_p=[];
+                end 
+                if sum(strcmp('X_p_name',names))
+                    X_p_name=temp_struct.X_p_name;
+                else
+                    X_p_name=[];
+                end 
+                if sum(strcmp('X_h',names))
+                    X_h=temp_struct.X_h;
+                else
+                    X_h=[];
+                end 
+                if sum(strcmp('X_h_name',names))
+                    X_h_name=temp_struct.X_h_name;
+                else
+                    X_h_name=[];
+                end 
+            else
+                if not(mod(nargin,2)==0)
+                    error('Not enough input arguments');
+                end
             end
             
             for i=1:length(Y)
@@ -142,7 +211,7 @@ classdef stem_varset < handle
             end
             obj.Y_name=Y_name;
             
-            if nargin>2
+            if nargin>2||isstruct(temp_struct)
                 if not(isempty(X_bp))
                     if not(length(X_bp)==length(Y))
                         error('The number of cells of X_bp must be equal to the number of cells of Y');
@@ -170,7 +239,7 @@ classdef stem_varset < handle
                 end
             end
             
-            if nargin>4
+            if nargin>4||isstruct(temp_struct)
                 if not(isempty(X_beta))
                     if not(length(X_beta)==length(Y))
                         error('The number of cells of X_beta must be equal to the number of cells of Y');
@@ -193,9 +262,6 @@ classdef stem_varset < handle
                             if not(size(X_beta{i},3)==T_max)
                                 error('All the X_beta{i} must have the same temporal dimension');
                             end
-                            if sum(isnan(X_beta{i}(:)))>0
-                                error('X_beta cannot contain NaN');
-                            end
                         else
                             X_beta{i}=zeros(size(Y{i},1),1,T_max);
                         end
@@ -216,7 +282,7 @@ classdef stem_varset < handle
                 end
             end
             
-            if nargin>6
+            if nargin>6||isstruct(temp_struct)
                 if not(isempty(X_z))
                     if not(length(X_z)==length(Y))
                         error('The number of cells of X_z must be equal to the number of cells of Y');
@@ -231,9 +297,6 @@ classdef stem_varset < handle
                         if not(isempty(X_z{i}))
                             if not(size(X_z{i},1)==size(Y{i},1))
                                error('X_z{i} must have the same number of rows of Y{i}');
-                            end
-                            if not(size(X_z{i},2)==size(X_z{1},2))
-                                %error('Each X_z{i} must have the same number of columns');
                             end
                             if not(size(X_z{i},3)==obj.T || size(X_z{i},3)==1)
                                 error('Each X_z{i} must have either 1 or T time steps');
@@ -264,7 +327,7 @@ classdef stem_varset < handle
                 end
             end
             
-            if nargin>8
+            if nargin>8||isstruct(temp_struct)
                 if not(isempty(X_p))
                     if not(length(X_p)==length(Y))
                         error('The number of cells of X_p must be equal to the number of cells of Y');
@@ -300,25 +363,25 @@ classdef stem_varset < handle
                 end
             end
             
-            if nargin>10
-                if not(isempty(X_f))
-                    if not(length(X_f)==length(Y))
-                        error('The number of cells of X_f must be equal to the number of cells of Y');
+            if nargin>10||isstruct(temp_struct)
+                if not(isempty(X_h))
+                    if not(length(X_h)==length(Y))
+                        error('The number of cells of X_h must be equal to the number of cells of Y');
                     end
-                    for i=1:length(X_f)
-                        if not(size(X_f{i},1)==size(Y{i},1))
-                            error('X_f{i} must have the same number of rows of Y{i}');
+                    for i=1:length(X_h)
+                        if not(size(X_h{i},1)==size(Y{i},1))
+                            error('X_h{i} must have the same number of rows of Y{i}');
                         end
-                        if not(size(X_f{i},2)==obj.T || size(X_f{i},2)==1)
-                            error('Each X_f{i} must have either 1 or T time steps');
+                        if not(size(X_h{i},2)==obj.T || size(X_h{i},2)==1)
+                            error('Each X_h{i} must have either 1 or T time steps');
                         end
                     end
-                    obj.X_f=X_f;
+                    obj.X_h=X_h;
                     
-                    if not(ischar(X_f_name))
-                        error('X_f_name must be a string');
+                    if not(ischar(X_h_name))
+                        error('X_h_name must be a string');
                     end
-                    obj.X_f_name=X_f_name;
+                    obj.X_h_name=X_h_name;
                 end
             end
         end
@@ -509,7 +572,7 @@ classdef stem_varset < handle
         end
         
         function time_crop(obj,indices)
-            %DESCRIPTION: crop the matrices Y, X_bp, X_beta, X_z, X_p and X_f with respect to time
+            %DESCRIPTION: crop the matrices Y, X_bp, X_beta, X_z, X_p and X_h with respect to time
             %
             %INPUT
             %obj         - [stem_varset object]       (1x1) the stem_data object
@@ -549,17 +612,17 @@ classdef stem_varset < handle
                     end
                 end
             end
-            if not(isempty(obj.X_f))
-                if obj.X_f_tv
-                    for i=1:length(obj.X_f)
-                        obj.X_f{i}=obj.X_f{i}(:,indices);
+            if not(isempty(obj.X_h))
+                if obj.X_h_tv
+                    for i=1:length(obj.X_h)
+                        obj.X_h{i}=obj.X_h{i}(:,indices);
                     end
                 end
             end
         end     
         
         function time_average(obj,n_steps)
-            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_bp, X_beta, X_z, X_p and X_f
+            %DESCRIPTION: computes time averages of n_steps for the matrice the matrices Y, X_bp, X_beta, X_z, X_p and X_h
             %
             %INPUT
             %obj        - [stem_varset object] (1x1) the stem_varset object
@@ -631,15 +694,15 @@ classdef stem_varset < handle
                 end
             end
             
-            if not(isempty(obj.X_f))
-                if obj.X_f_tv
-                    X_f_temp=cell(length(obj.X_f),1);
-                    for i=1:length(obj.X_f)
+            if not(isempty(obj.X_h))
+                if obj.X_h_tv
+                    X_h_temp=cell(length(obj.X_h),1);
+                    for i=1:length(obj.X_h)
                         for j=1:length(indices)-1
-                            X_f_temp{i}(:,j)=nanmean(obj.X_f{i}(:,indices(j)+1:indices(j+1)),3);
+                            X_h_temp{i}(:,j)=nanmean(obj.X_h{i}(:,indices(j)+1:indices(j+1)),3);
                         end
                     end
-                    obj.X_f=X_f_temp;
+                    obj.X_h=X_h_temp;
                 end
             end
             disp('Time averaging ended.');
@@ -655,32 +718,61 @@ classdef stem_varset < handle
             %
             %OUTPUT
             %
-            %none: the matrices Y, X_bp, X_beta, X_z, X_p and X_f are updated
+            %none: the matrices Y, X_bp, X_beta, X_z, X_p and X_h are updated
             
-            idx_var=obj.get_Y_index(var_name);
-            if isempty(idx_var)
-                error('Variable not found');
+            if not(isempty(obj.X_h_name)) %f-HDGM
+                idx_var=obj.get_Y_index(var_name)';
+                if isempty(idx_var)
+                    error('Variable not found');
+                end
+                if max(indices>obj.N)
+                    error(['The maximum value of indices cannot be greater than ',num2str(obj.N)]);
+                end
+                for idx=idx_var
+                    obj.Y{idx}(indices,:)=[];
+                    if not(isempty(obj.X_bp))
+                        obj.X_bp{idx}(indices,:,:)=[];
+                    end
+                    if not(isempty(obj.X_beta))
+                        obj.X_beta{idx}(indices,:,:)=[];
+                    end
+                    if not(isempty(obj.X_z))
+                        obj.X_z{idx}(indices,:,:)=[];
+                    end
+                    if not(isempty(obj.X_p))
+                        obj.X_p{idx}(indices,:,:)=[];
+                    end
+                    if not(isempty(obj.X_h))
+                        obj.X_h{idx}(indices,:)=[];
+                    end
+                end
+            else
+                idx_var=obj.get_Y_index(var_name);
+                if isempty(idx_var)
+                    error('Variable not found');
+                end
+                if max(indices>obj.N)
+                    error(['The maximum value of indices cannot be greater than ',num2str(obj.N)]);
+                end
+                obj.Y{idx_var}(indices,:)=[];
+
+                if not(isempty(obj.X_bp))
+                    obj.X_bp{idx_var}(indices,:,:)=[];
+                end
+                if not(isempty(obj.X_beta))
+                    obj.X_beta{idx_var}(indices,:,:)=[];
+                end
+                if not(isempty(obj.X_z))
+                    obj.X_z{idx_var}(indices,:,:)=[];
+                end
+                if not(isempty(obj.X_p))
+                    obj.X_p{idx_var}(indices,:,:)=[];
+                end
+                if not(isempty(obj.X_h))
+                    obj.X_h{idx_var}(indices,:)=[];
+                end
             end
-            if max(indices>obj.N)
-                error(['The maximum value of indices cannot be greater than ',num2str(obj.N)]);
-            end
-            obj.Y{idx_var}(indices,:)=[];
             
-            if not(isempty(obj.X_bp))
-                obj.X_bp{idx_var}(indices,:,:)=[];
-            end
-            if not(isempty(obj.X_beta))
-                obj.X_beta{idx_var}(indices,:,:)=[];
-            end
-            if not(isempty(obj.X_z))
-                obj.X_z{idx_var}(indices,:,:)=[];
-            end
-            if not(isempty(obj.X_p))
-                obj.X_p{idx_var}(indices,:,:)=[];
-            end
-            if not(isempty(obj.X_f))
-                obj.X_f{idx_var}(indices,:)=[];
-            end
         end
         
         function idx_vec = missing_crop(obj,threshold)
@@ -704,7 +796,7 @@ classdef stem_varset < handle
         end
            
         function permute(obj,indices)
-            %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_f with respect to indices
+            %DESCRIPTION: permute rows of Y, X_bp, X_beta, X_z, X_p and X_h with respect to indices
             %
             %INPUT
             %obj         - [stem_varset object]       (1x1) the stem_data object
@@ -795,13 +887,13 @@ classdef stem_varset < handle
                     end
                 end
             end
-            if not(isempty(obj.X_f))
-                if obj.X_f_tv
-                    for i=1:length(obj.X_f)
+            if not(isempty(obj.X_h))
+                if obj.X_h_tv
+                    for i=1:length(obj.X_h)
                         if iscell(indices)
-                            obj.X_f{i}=obj.X_f{i}(indices{i},:);
+                            obj.X_h{i}=obj.X_h{i}(indices{i},:);
                         else
-                            obj.X_f{i}=obj.X_f{i}(indices,:);
+                            obj.X_h{i}=obj.X_h{i}(indices,:);
                         end
                     end
                 end
@@ -966,15 +1058,15 @@ classdef stem_varset < handle
             end
         end
         
-        function X_f_tv = get.X_f_tv(obj)
-            if not(isempty(obj.X_f))
-                if size(obj.X_f{1},2)==1
-                    X_f_tv=0;
+        function X_h_tv = get.X_h_tv(obj)
+            if not(isempty(obj.X_h))
+                if size(obj.X_h{1},2)==1
+                    X_h_tv=0;
                 else
-                    X_f_tv=1;
+                    X_h_tv=1;
                 end
             else
-                X_f_tv=0;
+                X_h_tv=0;
             end
         end
         
@@ -1048,18 +1140,18 @@ classdef stem_varset < handle
             obj.X_p_name=X_p_name;
         end          
         
-        function set.X_f(obj,X_f)
-            if not(iscell(X_f))
-                error('X_f must be a cell array');
+        function set.X_h(obj,X_h)
+            if not(iscell(X_h))
+                error('X_h must be a cell array');
             end
-            obj.X_f=X_f;
+            obj.X_h=X_h;
         end
         
-        function set.X_f_name(obj,X_f_name)
-            if not(ischar(X_f_name))
-                error('X_f_name must be a string');
+        function set.X_h_name(obj,X_h_name)
+            if not(ischar(X_h_name))
+                error('X_h_name must be a string');
             end
-            obj.X_f_name=X_f_name;
+            obj.X_h_name=X_h_name;
         end 
     end
     

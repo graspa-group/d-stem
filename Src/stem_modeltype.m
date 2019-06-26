@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -34,10 +37,24 @@
 
 classdef stem_modeltype < handle
     
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    
     properties
         model_name;             %[string]       (1x1) the name of the model either 'DCM' (Dynamic Coregionalization Model), 'HDGM' (Hidden Dynamic Geostatistical Model), 'f-HDGM' (functional Hidden Dynamic Geostatistical Model), 'MBC' (Model-based clustering) or 'Emulator'
         clustering_type;        %[string]       (1x1) the type of clusterig if model_name is 'MBC'. Can be either 'Monopoles' or 'Dipoles'.
-        clustering_error_type;  %[string]       (1x1) the way the model parameter sigma_eps is computer. Can be either 'Shared', 'Proportional' or 'Dynamic'.
+        clustering_error_type;  %[string]       (1x1) the way the model parameter sigma_eps is computed. Can be either 'Shared', 'Proportional' or 'Dynamic'.
     end
 
     methods
@@ -45,7 +62,7 @@ classdef stem_modeltype < handle
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %model_name             -   [string]    (1x1) the name of the model
+            %model_name             -   [string]    (1x1) the name of the model,either 'DCM', 'HDGM', 'f-HDGM', 'MBC' or 'Emulator'
             %
             %OUTPUT
             %obj                    -   [stem_modeltype object] (1x1)    
@@ -63,6 +80,14 @@ classdef stem_modeltype < handle
         end
         
         function res = is(obj,model_name)
+            %DESCRIPTION: check the name of model
+            %
+            %INPUT
+            %obj                    -   [stem_modeltype object] (1x1) the stem_modeltype object 
+            %model_name             -   [string] (1x1) the name of the model,either 'DCM', 'HDGM', 'f-HDGM', 'MBC' or 'Emulator'
+            %
+            %OUTPUT
+            %res                    -   [boolean] (1x1) 1 (true) if the two are identical and 0 (false) otherwise   
             if iscell(model_name)
                 res=false;
                 for i=1:length(model_name)
@@ -76,10 +101,26 @@ classdef stem_modeltype < handle
         end
         
         function res = clustering_type_is(obj,clustering_type)
+            %DESCRIPTION: check the type of clusterig 
+            %
+            %INPUT
+            %obj                    -   [stem_modeltype object] (1x1) the stem_modeltype object 
+            %clustering_type        -   [string]                (1x1) the type of clusterig if model_name is 'MBC'. Can be either 'Monopoles' or 'Dipoles'.
+            %
+            %OUTPUT
+            %res                    -   [boolean] (1x1) 1 (true) if the two are identical and 0 (false) otherwise  
              res = strcmpi(obj.clustering_type,clustering_type);
         end
         
         function res = clustering_error_type_is(obj,clustering_error_type)
+            %DESCRIPTION: check the type of clustering error 
+            %
+            %INPUT
+            %obj                    -   [stem_modeltype object] (1x1) the stem_modeltype object  
+            %clustering_error_type  -   [string]  (1x1) the way the model parameter sigma_eps is computed. Can be either 'Shared', 'Proportional' or 'Dynamic'.
+            %
+            %OUTPUT
+            %res                    -   [boolean] (1x1) 1 (true) if the two are identical and 0 (false) otherwise 
              res = strcmpi(obj.clustering_error_type,clustering_error_type);
         end
        

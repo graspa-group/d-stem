@@ -4,16 +4,18 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % This file is part of D-STEM.
 % 
@@ -31,6 +33,26 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_gridlist < handle
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
+    %q    - the number of variables
+    %N_p  - total number of point sites
+    %N_b  - total number of pixel sites
+    
     properties
         grid={};    %[stem_grid object] {qx1} cell-array of stem_grid objects (one for each variable)
         tap=[];     %[double >0]        (1x1) the tapering parameter. It is the maximum distance after which the spatial correlation is zero
@@ -45,7 +67,7 @@ classdef stem_gridlist < handle
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %<tap>        - [double >0]             (1x1) the tapering parameter. It is the maximum distance after which the spatial correlation is zero. If it is empty the full distance matrix is evaluated
+            %tap          - [double >0]             (1x1) the tapering parameter. It is the maximum distance after which the spatial correlation is zero. If it is empty the full distance matrix is evaluated
             %
             %OUTPUT
             %obj          - [stem_gridlist object]  (1x1)            
@@ -80,8 +102,8 @@ classdef stem_gridlist < handle
             %obj                - [stem_gridlist object]    (1x1)
             %stem_modeltype     - [stem_modeltype object]   (1x1) object of class stem_modeltype
             %correlation_type   - [string]                  (1x1) the name of the correlation function (see the correlation_function method of the stem_misc class for valid names)
-            %<cross_type>       - [boolean]                 (1x1) 1: also the cross-distances are evaluated (distances between different variables); 0: the distance matrix is block-diagonal with respect to the variables
-            %<idx_var>          - [integer>0]               (1x1) the index of the variable in order to get the distance matrix of that variable only
+            %cross_type         - [boolean]                 (1x1) 1: also the cross-distances are evaluated (distances between different variables); 0: the distance matrix is block-diagonal with respect to the variables
+            %idx_var            - [integer>0]               (1x1) the index of the variable in order to get the distance matrix of that variable only
             %
             %OUTPUT
             %DistMat            - [double]                  (N_pxN_p|N_bxN_b)|{d}  The distance matrix
@@ -455,6 +477,14 @@ classdef stem_gridlist < handle
         end
         
         function permute(obj,indices)
+            %DESCRIPTION: permute a stem_grid object from the stem_gridlist object
+            %
+            %INPUT
+            %obj        - [stem_gridlist object]    (1x1)
+            %indices    - [integer >0]              (1x1) the indices of the stem_grid objects to permute
+            %
+            %OUTPUT
+            %none: the stem_grid object is permuted 
             for i=1:length(obj.grid)
                 if iscell(indices)
                     obj.grid{i}.permute(indices{i});

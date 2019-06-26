@@ -4,16 +4,18 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % This file is part of D-STEM.
 % 
@@ -32,9 +34,23 @@
 
 classdef stem_krig < handle
     
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
     %CONSTANTS
     %NN  - number of kriging sites
-    %N_b = n1_b+...+nq_b+n1_b+...+nq_b - total number of covariates
+    %K   - the number of loading vectors related to the latent variable w_p
     %T   - number of temporal steps
     
     properties
@@ -119,34 +135,32 @@ classdef stem_krig < handle
             obj.stem_krig_data=stem_krig_data;
         end
         
-        function st_krig_result = kriging(obj,stem_krig_options)
-            %Yaqiong
-            %{
-            if strcmp(stem_krig_options.type,'y-xbeta')&&not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))
-                error('The kriging type ''y-xbeta'' can only be used with f-HDGM models');
+        function st_krig_result = kriging(obj,stem_krig_options,idx_var)
+            %DESCRIPTION: kriging implementation
+            %
+            %INPUT
+            %
+            %obj                - [stem_krig object]            (1x1) the stem_krig object 
+            %stem_krig_options  - [stem_krig_options object]    (1x1) a stem_krig_options object
+            %<idx_var>          - [integer>0]                   (1x1)
+
+            %OUTPUT
+            %st_krig_result     - [stem_krig_result object]     (1x1)   
+            
+            if nargin<3
+                idx_var=[];
             end
-            %}
+           
             if stem_krig_options.workers==1
                 if not(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
-                    st_krig_result = obj.kriging_core(stem_krig_options);
+                    st_krig_result = obj.kriging_core(stem_krig_options,idx_var);
                 else
                     st_krig_result = obj.kriging_spline_coeff_core(stem_krig_options);
-                    %st_krig_result.beta = obj.stem_model.stem_par.beta;
-                    %st_krig_result.fda = obj.stem_model.stem_data.stem_fda;
-                    %Yaqiong
                     st_krig_result.stem_par = obj.stem_model.stem_par;
                     st_krig_result.stem_fda = obj.stem_model.stem_data.stem_fda;
                 end
-                %{
-                if strcmp(stem_krig_options.type,'y')
-                    st_krig_result = obj.kriging_core(stem_krig_options);
-                else
-                    st_krig_result = obj.kriging_spline_coeff_core(stem_krig_options);
-                end
-                %}  
+               
             else
-                poolobj = parpool(stem_krig_options.workers);
-                
                 disp('Creating folder for kriging results...');
                 folder_name=['kriging_',num2str(round(unifrnd(10000,99999,1,1)))];
                 mkdir(folder_name);
@@ -156,7 +170,6 @@ classdef stem_krig < handle
                 
                 stem_krig_options_block=stem_krig_options;
                 stem_krig_options_block.block_size=0;
-                stem_krig_options_block.workers=1;
 
                 krig_coordinates=obj.stem_krig_data.grid.coordinate;
                 
@@ -167,20 +180,19 @@ classdef stem_krig < handle
                 
                 krig_coordinates_block=cell(length(blocks)-1,1);
                 for k=1:length(blocks)-1
-                    krig_coordinates_block{k}=krig_coordinates((k-1)*block_krig_size+1:k*block_krig_size,:);
+                    krig_coordinates_block{k}=krig_coordinates(blocks(k)+1:blocks(k+1),:);
                 end
                 
                 disp(['Starting kriging using ',num2str(stem_krig_options.workers),' workers...']);
-                %kriging_type=stem_krig_options.type;
-                kriging_type = obj.stem_model.stem_par.stem_modeltype;
+                
+                poolobj = parpool(stem_krig_options.workers);
                 parfor k=1:length(blocks)-1
                     disp(['Kriging block: ',num2str(k),' of ',num2str(length(blocks)-1)]);
                     mat_file=matfile([folder_name,'/block',num2str(k,'%010.0f')],'writable',true)
 
                     obj_stem_krig_grid = stem_grid(krig_coordinates_block{k}, 'deg', 'sparse','point');
                     
-                    %Yaqiong
-                    if not(strcmp(kriging_type,'f-HDGM'))
+                    if stem_krig_options.crossval||not(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))
                         obj_stem_krig_data = stem_krig_data(obj_stem_krig_grid,X_krig,X_krig_names,mask);
                         obj_stem_krig = stem_krig(obj.stem_model,obj_stem_krig_data);
                         obj_stem_krig_result = obj_stem_krig.kriging_core(stem_krig_options_block);
@@ -192,7 +204,6 @@ classdef stem_krig < handle
                         obj_stem_krig = stem_krig(obj.stem_model,obj_stem_krig_data);
                         obj_stem_krig_result = obj_stem_krig.kriging_spline_coeff_core(stem_krig_options_block);
                     end
-                    
                     mat_file.obj_stem_krig_result_block=obj_stem_krig_result; %save
                 end
                
@@ -203,10 +214,11 @@ classdef stem_krig < handle
                 st_krig_result.zk_s=[];
                 st_krig_result.diag_Pk_s=[];
                 st_krig_result.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
-                %Yaqiong
-                %st_krig_result.isSplineCoeff=1;
-                st_krig_result.stem_par = obj.stem_model.stem_par;
-                st_krig_result.stem_fda = obj.stem_model.stem_data.stem_fda;
+                
+                if (stem_krig_options.crossval~=1)&&(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))
+                    st_krig_result.stem_par = obj.stem_model.stem_par;
+                    st_krig_result.stem_fda = obj.stem_model.stem_data.stem_fda;
+                end
                 
                 f=dir([folder_name,'/*.mat']);
                 for i=1:length(f)
@@ -238,13 +250,14 @@ classdef stem_krig < handle
             end
         end
         
-        function st_krig_result = kriging_core(obj,stem_krig_options)
-            %DESCRIPTION: kriging implementation
+        function st_krig_result = kriging_core(obj,stem_krig_options,idx_var)
+            %DESCRIPTION: kriging implementation. Works with model except f-HDGM 
             %
             %INPUT
             %
             %obj                - [stem_krig object]            (1x1) the stem_krig object 
             %stem_krig_options  - [stem_krig_options object]    (1x1) a stem_krig_options object
+            %<idx_var>          - [integer>0]                   (1x1)
 
             %OUTPUT
             %st_krig_result     - [stem_krig_result object]     (1x1)              
@@ -252,7 +265,11 @@ classdef stem_krig < handle
             if nargin<2
                 error('Not enough input arguments');
             end
-
+            
+            if nargin==2
+                idx_var=[];
+            end
+            
             if not(isa(stem_krig_options,'stem_krig_options'))
                 error('The stem_krig_options input argument must be of class stem_krig_options');
             end
@@ -265,7 +282,7 @@ classdef stem_krig < handle
                 idx_notnan=1:size(obj.stem_krig_data.grid.coordinate,1);
                 idx_notnan=idx_notnan';
             else
-                idx_notnan=find(not(isnan(obj.stem_krig_data.mask)));
+                idx_notnan=find(not(isnan(obj.stem_krig_data.mask(:))));
             end
 
             if (stem_krig_options.crossval==1)&&not(obj.stem_model.cross_validation)
@@ -377,9 +394,14 @@ classdef stem_krig < handle
             end
             
             disp('Kriging started...');
-
+            
             st_krig_result=cell(q,1);
-            for j=1:q
+            
+            if isempty(idx_var)
+                idx_var=1:q;
+            end
+            
+            for j=idx_var
                 st_krig_result{j}=stem_krig_result(obj.stem_model.stem_data.stem_varset_p.Y_name{j},obj.stem_krig_data.grid,obj.stem_model.stem_data.stem_gridlist_p.grid{j},obj.stem_model.stem_data.shape);
 
                 if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
@@ -395,8 +417,6 @@ classdef stem_krig < handle
                     st_krig_result{j}.zk_s=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T,p);
                     st_krig_result{j}.diag_Pk_s=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T,p);
                 end
-                st_krig_result{j}.coord_output_block=cell(length(blocks_krig),1);
-                st_krig_result{j}.coord_cond_block=cell(length(blocks_krig),1);
             end
             
             for i=1:length(blocks_krig)-1
@@ -418,8 +438,8 @@ classdef stem_krig < handle
                 X_p_kept=cell(q,1);
                 X_beta_removed=cell(q,1);
                 X_beta_kept=cell(q,1);
-                X_f_removed=cell(q,1); %Yaqiong
-                X_f_kept=cell(q,1);
+                X_h_removed=cell(q,1); 
+                X_h_kept=cell(q,1);
                 X_z_removed=cell(q,1);
                 X_z_kept=cell(q,1);
                 coordinate_removed=cell(q,1);
@@ -438,7 +458,7 @@ classdef stem_krig < handle
                     end
                 end
                 
-                for z=1:q
+                for z=idx_var
                     block_coordinates=obj.stem_krig_data.grid.coordinate(idx_notnan(block_krig),:);
                     
                     if z==1||isotopic==0
@@ -481,7 +501,7 @@ classdef stem_krig < handle
                     %X manage
                     if stem_krig_options.crossval==0
                         if not(isempty(idx_bp{z}))
-                            X_krig_block=obj.stem_krig_data.X(block_krig,idx_bp{z},:);
+                            X_krig_block=obj.stem_krig_data.X(idx_notnan(block_krig),idx_bp{z},:);
                             if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
                                     X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_bp_means{z}(j))/obj.stem_model.stem_data.stem_varset_p.X_bp_stds{z}(j);
@@ -496,7 +516,7 @@ classdef stem_krig < handle
                         end
                         
                         if not(isempty(idx_p{z}))
-                            X_krig_block=obj.stem_krig_data.X(block_krig,idx_p{z},:);
+                            X_krig_block=obj.stem_krig_data.X(idx_notnan(block_krig),idx_p{z},:);
                             if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
                                     X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_p_means{z}(j))/obj.stem_model.stem_data.stem_varset_p.X_p_stds{z}(j);
@@ -517,7 +537,7 @@ classdef stem_krig < handle
                         end
                         
                         if not(isempty(idx_beta{z}))
-                            X_krig_block=obj.stem_krig_data.X(block_krig,idx_beta{z},:);
+                            X_krig_block=obj.stem_krig_data.X(idx_notnan(block_krig),idx_beta{z},:);
                             if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
                                     X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_beta_means{z}(j))/obj.stem_model.stem_data.stem_varset_p.X_beta_stds{z}(j);
@@ -532,7 +552,7 @@ classdef stem_krig < handle
                         end
                         
                         if not(isempty(idx_z{z}))
-                            X_krig_block=obj.stem_krig_data.X(block_krig,idx_z{z},:);
+                            X_krig_block=obj.stem_krig_data.X(idx_notnan(block_krig),idx_z{z},:);
                             if obj.stem_model.stem_data.stem_varset_p.standardized
                                 for j=1:size(X_krig_block,2)
                                     X_krig_block(:,j,:)=(X_krig_block(:,j,:)-obj.stem_model.stem_data.stem_varset_p.X_z_means{z}(j))/obj.stem_model.stem_data.stem_varset_p.X_z_stds{z}(j);
@@ -568,12 +588,12 @@ classdef stem_krig < handle
                             obj.stem_model.stem_data.stem_varset_p.X_beta{z}=cat(1,X_beta_kept{z},X_krig_block);
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_f))
-                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_f{1}(idx_notnan(block_krig),:,:);
-                            X_f_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_f{z}(idx_remove{z},:,:);
-                            X_f_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_f{z}(idx_keep{z},:,:);
-                            obj.stem_model.stem_data.stem_varset_p.X_f{z}=cat(1,X_f_kept{z},X_krig_block);
-                        end %Yaqiong
+                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_h))
+                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_h{1}(idx_notnan(block_krig),:,:);
+                            X_h_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_h{z}(idx_remove{z},:,:);
+                            X_h_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_h{z}(idx_keep{z},:,:);
+                            obj.stem_model.stem_data.stem_varset_p.X_h{z}=cat(1,X_h_kept{z},X_krig_block);
+                        end 
                         
                         if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_z))
                             X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_z{1}(idx_notnan(block_krig),:,:);
@@ -588,9 +608,6 @@ classdef stem_krig < handle
                     coordinate_kept{z}=obj.stem_model.stem_data.stem_gridlist_p.grid{z}.coordinate(idx_keep{z},:);
 
                     obj.stem_model.stem_data.stem_gridlist_p.grid{z}.coordinate=cat(1,coordinate_kept{z},block_coordinates);
-                    
-                    st_krig_result{z}.coord_output_block{i}=block_coordinates;
-                    st_krig_result{z}.coord_cond_block{i}=coordinate_kept{z};
                 end
                 clear Y_add
                 clear X_krig_block
@@ -604,8 +621,8 @@ classdef stem_krig < handle
                 blocks=cumsum(block_kept_size+block_krig_length);
                 
                 %kriging
-                [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1,stem_kalmansmoother_result]=obj.E_step_kriging(stem_krig_options.no_varcov,stem_krig_options.crossval);
-                for j=1:q
+               [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1,stem_kalmansmoother_result]=obj.E_step_kriging(stem_krig_options.no_varcov,stem_krig_options.crossval);
+                for j=idx_var
                     if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
                         st_krig_result{j}.y_hat(idx_notnan(block_krig),:)=y_hat(blocks(j)-block_krig_length+1:blocks(j),:);
                         if not(stem_krig_options.no_varcov)
@@ -623,20 +640,26 @@ classdef stem_krig < handle
                         if obj.stem_model.stem_data.stem_modeltype.is('f-HDGM')
                             temp=block_kept_size(1)*ones(1,p);
                             blocks_z=cumsum(temp+block_krig_length);
+                            for h=1:size(st_krig_result{j}.zk_s,3)
+                                st_krig_result{j}.zk_s(idx_notnan(block_krig),:,h)=stem_kalmansmoother_result.zk_s(blocks_z(h)-block_krig_length+1:blocks_z(h),2:end);
+                                for t=1:size(st_krig_result{j}.diag_Pk_s,2)
+                                    st_krig_result{j}.diag_Pk_s(idx_notnan(block_krig),t,h)=diag(stem_kalmansmoother_result.Pk_s{t+1}(blocks_z(h)-block_krig_length+1:blocks_z(h),blocks_z(h)-block_krig_length+1:blocks_z(h)));
+                                end
+                            end
                         else
                             blocks_z=blocks;
-                        end
-                        for h=1:size(st_krig_result{j}.zk_s,3)
-                            st_krig_result{j}.zk_s(idx_notnan(block_krig),:,h)=stem_kalmansmoother_result.zk_s(blocks_z(h)-block_krig_length+1:blocks_z(h),2:end);
-                            for t=1:size(st_krig_result{j}.diag_Pk_s,2)
-                                st_krig_result{j}.diag_Pk_s(idx_notnan(block_krig),t,h)=diag(stem_kalmansmoother_result.Pk_s{t+1}(blocks_z(h)-block_krig_length+1:blocks_z(h),blocks_z(h)-block_krig_length+1:blocks_z(h)));
+                            for h=idx_var
+                                st_krig_result{j}.zk_s(idx_notnan(block_krig),:,h)=stem_kalmansmoother_result.zk_s(blocks_z(h)-block_krig_length+1:blocks_z(h),2:end);
+                                for t=1:size(st_krig_result{j}.diag_Pk_s,2)
+                                    st_krig_result{j}.diag_Pk_s(idx_notnan(block_krig),t,h)=diag(stem_kalmansmoother_result.Pk_s{t+1}(blocks_z(h)-block_krig_length+1:blocks_z(h),blocks_z(h)-block_krig_length+1:blocks_z(h)));
+                                end
                             end
                         end
                     end
                 end
                 
                 %restore original
-                for j=1:q
+                for j=idx_var
                     obj.stem_model.stem_data.stem_varset_p.Y{j}(end-block_krig_length+1:end,:)=[];
                     obj.stem_model.stem_data.stem_varset_p.Y{j}([idx_keep{j} idx_remove{j}],:)=[Y_kept{j};Y_removed{j}];
                     if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_bp))
@@ -652,10 +675,10 @@ classdef stem_krig < handle
                         obj.stem_model.stem_data.stem_varset_p.X_beta{j}([idx_keep{j} idx_remove{j}],:,:)=[X_beta_kept{j};X_beta_removed{j}];
                     end
                     
-                    if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_f))
-                        obj.stem_model.stem_data.stem_varset_p.X_f{j}(end-block_krig_length+1:end,:,:)=[];
-                        obj.stem_model.stem_data.stem_varset_p.X_f{j}([idx_keep{j} idx_remove{j}],:,:)=[X_f_kept{j};X_f_removed{j}];
-                    end %Yaqiong
+                    if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_h))
+                        obj.stem_model.stem_data.stem_varset_p.X_h{j}(end-block_krig_length+1:end,:,:)=[];
+                        obj.stem_model.stem_data.stem_varset_p.X_h{j}([idx_keep{j} idx_remove{j}],:,:)=[X_h_kept{j};X_h_removed{j}];
+                    end 
                     
                     if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_z))
                         obj.stem_model.stem_data.stem_varset_p.X_z{j}(end-block_krig_length+1:end,:,:)=[];
@@ -679,7 +702,7 @@ classdef stem_krig < handle
             if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
                 if stem_krig_options.back_transform&&(obj.stem_model.stem_data.stem_varset_p.standardized||obj.stem_model.stem_data.stem_varset_p.log_transformed)
                     disp('Back-transformation...');
-                    for j=1:q
+                    for j=idx_var
                         s=obj.stem_model.stem_data.stem_varset_p.Y_stds{j};
                         m=obj.stem_model.stem_data.stem_varset_p.Y_means{j};
                         if (obj.stem_model.stem_data.stem_varset_p.standardized)&&not(obj.stem_model.stem_data.stem_varset_p.log_transformed)
@@ -704,7 +727,7 @@ classdef stem_krig < handle
             
             if strcmp(obj.stem_krig_data.grid.grid_type,'regular')
                 disp('Data reshaping...');
-                for j=1:q
+                for j=idx_var
                     if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
                         st_krig_result{j}.y_hat=reshape(st_krig_result{j}.y_hat,[obj.stem_krig_data.grid.grid_size,obj.stem_model.T]);
                         if not(stem_krig_options.no_varcov)
@@ -724,11 +747,11 @@ classdef stem_krig < handle
                 if not(isempty(obj.stem_krig_data.mask))
                     disp('Applying mask...');
                     mask=reshape(obj.stem_krig_data.mask,obj.stem_krig_data.grid.grid_size);
-                    for j=1:q
+                    for j=idx_var
                         for t=1:size(st_krig_result{j}.y_hat,3)
                             if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
                                 st_krig_result{j}.y_hat(:,:,t)=st_krig_result{j}.y_hat(:,:,t).*mask;
-                                if not(no_varcov)
+                                if not(stem_krig_options.no_varcov)
                                     st_krig_result{j}.diag_Var_y_hat(:,:,t)=st_krig_result{j}.diag_Var_y_hat(:,:,t).*mask;
                                 end
                                 for k=1:K
@@ -747,7 +770,7 @@ classdef stem_krig < handle
                 end
             end
             
-            for j=1:q
+            for j=idx_var
                 st_krig_result{j}.variable_name=obj.stem_model.stem_data.stem_varset_p.Y_name{j};
                 st_krig_result{j}.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
             end
@@ -798,13 +821,11 @@ classdef stem_krig < handle
             disp('Kriging started...');
 
             %the stem_krig_result object is created and initialized
-            st_krig_result=stem_krig_result(obj.stem_model.stem_data.stem_varset_p.Y_name{1},obj.stem_krig_data.grid,obj.stem_model.stem_data.stem_gridlist_p.grid{1},obj.stem_model.stem_data.shape); %note {1} since names and grids are equal when model_type is f-HDGM
+          
+            st_krig_result=stem_krig_result(obj.stem_model.stem_data.stem_varset_p.Y_name{1},obj.stem_krig_data.grid,obj.stem_model.stem_data.stem_gridlist_p.grid{1},obj.stem_model.stem_data.shape);    
             st_krig_result.zk_s=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T,p);
             st_krig_result.diag_Pk_s=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T,p);
-            st_krig_result.coord_output_block=cell(length(blocks_krig),1);
-            st_krig_result.coord_cond_block=cell(length(blocks_krig),1);
             st_krig_result.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
-            %st_krig_result.isSplineCoeff=1;
             
             for i=1:length(blocks_krig)-1
                 ct1=clock;
@@ -821,8 +842,8 @@ classdef stem_krig < handle
                 Y_kept=cell(q,1);
                 X_beta_removed=cell(q,1);
                 X_beta_kept=cell(q,1);
-                X_f_removed=cell(q,1);
-                X_f_kept=cell(q,1); %Yaqiong
+                X_h_removed=cell(q,1);
+                X_h_kept=cell(q,1); 
                 X_z_removed=cell(q,1);
                 X_z_kept=cell(q,1);
                 coordinate_removed=cell(q,1);
@@ -881,17 +902,17 @@ classdef stem_krig < handle
                         X_beta_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_beta{z}(idx_keep{z},:,:);
                         obj.stem_model.stem_data.stem_varset_p.X_beta{z}=cat(1,X_beta_kept{z},X_krig_block);
                     end
-                    %Yaqiong
-                    if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_f))
-                        if size(obj.stem_model.stem_data.stem_varset_p.X_f{z},3)==1
+                   
+                    if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_h))
+                        if size(obj.stem_model.stem_data.stem_varset_p.X_h{z},3)==1
                             %note that nan instead of zeros
-                            X_krig_block=nan(length(block_krig),size(obj.stem_model.stem_data.stem_varset_p.X_f{z},2));                        
+                            X_krig_block=nan(length(block_krig),size(obj.stem_model.stem_data.stem_varset_p.X_h{z},2));                        
                         else
-                            X_krig_block=nan(length(block_krig),size(obj.stem_model.stem_data.stem_varset_p.X_f{z},2),size(obj.stem_model.stem_data.stem_varset_p.X_f{z},3));
+                            X_krig_block=nan(length(block_krig),size(obj.stem_model.stem_data.stem_varset_p.X_h{z},2),size(obj.stem_model.stem_data.stem_varset_p.X_h{z},3));
                         end
-                        X_f_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_f{z}(idx_remove{z},:,:);
-                        X_f_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_f{z}(idx_keep{z},:,:);
-                        obj.stem_model.stem_data.stem_varset_p.X_f{z}=cat(1,X_f_kept{z},X_krig_block);
+                        X_h_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_h{z}(idx_remove{z},:,:);
+                        X_h_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_h{z}(idx_keep{z},:,:);
+                        obj.stem_model.stem_data.stem_varset_p.X_h{z}=cat(1,X_h_kept{z},X_krig_block);
                     end
 
                     if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_z))
@@ -910,9 +931,6 @@ classdef stem_krig < handle
                     coordinate_kept{z}=obj.stem_model.stem_data.stem_gridlist_p.grid{z}.coordinate(idx_keep{z},:);
 
                     obj.stem_model.stem_data.stem_gridlist_p.grid{z}.coordinate=cat(1,coordinate_kept{z},block_coordinates);
-                    
-                    st_krig_result.coord_output_block{i}=block_coordinates;
-                    st_krig_result.coord_cond_block{i}=coordinate_kept{z};
                 end
                 clear Y_add
                 clear X_krig_block
@@ -944,10 +962,10 @@ classdef stem_krig < handle
                         obj.stem_model.stem_data.stem_varset_p.X_beta{j}(end-block_krig_length+1:end,:,:)=[];
                         obj.stem_model.stem_data.stem_varset_p.X_beta{j}([idx_keep{j} idx_remove{j}],:,:)=[X_beta_kept{j};X_beta_removed{j}];
                     end
-                    %Yaqiong
-                    if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_f))
-                        obj.stem_model.stem_data.stem_varset_p.X_f{j}(end-block_krig_length+1:end,:,:)=[];
-                        obj.stem_model.stem_data.stem_varset_p.X_f{j}([idx_keep{j} idx_remove{j}],:,:)=[X_f_kept{j};X_f_removed{j}];
+                  
+                    if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_h))
+                        obj.stem_model.stem_data.stem_varset_p.X_h{j}(end-block_krig_length+1:end,:,:)=[];
+                        obj.stem_model.stem_data.stem_varset_p.X_h{j}([idx_keep{j} idx_remove{j}],:,:)=[X_h_kept{j};X_h_removed{j}];
                     end
                     if not(isempty(obj.stem_model.stem_data.stem_varset_p.X_z))
                         obj.stem_model.stem_data.stem_varset_p.X_z{j}(end-block_krig_length+1:end,:,:)=[];
@@ -992,7 +1010,7 @@ classdef stem_krig < handle
             %DESCRIPTION: kriging is based on the E-step of the EM algorithm
             %
             %INPUT
-            %obj                            - [stem_krig object]                    (1x1)
+            %obj                            - [stem_krig object]                    (1x1) the stem_krig object
             %no_varcov                      - [boolean]                             (1x1) 1: the variance of the kriged variable is not computed; 0: the variance is computed;
             %crossval                       - [boolean]                             (1x1) 1: kriging is done for cross validation; 0: actual kriging
             %
@@ -1037,7 +1055,6 @@ classdef stem_krig < handle
                     else
                         X_z_orlated=[obj.stem_model.stem_data.X_z{1};zeros(N-size(obj.stem_model.stem_data.X_z{1},1),size(obj.stem_model.stem_data.X_z{1},2))];
                     end
-                    %X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
                     
                     if not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p))
                         if obj.stem_model.tapering
@@ -1126,8 +1143,8 @@ classdef stem_krig < handle
                     cov_wp_y=cell(K,1);
                     %cov_wp_yz time invariant case
                     for k=1:K
-                        cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p{1}(:,k),'r'),aj_p,'r');
-                        %cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p{1}(:,k),'r'),aj_p(:,k),'r');
+                        cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},[data.X_p{1}(:,k);...
+                            zeros(data.Np-size(data.X_p{1}(:,k),1),1)],'r'),aj_p,'r');
                     end
                 end
                 cov_wpk_wph_y1=cell(K,K);
@@ -1189,7 +1206,6 @@ classdef stem_krig < handle
                         end
                        
                         for k=1:size(obj.stem_model.stem_data.X_p{1},2)
-                            %sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_model.stem_data.X_p{tP}(:,k),'b'),aj_p(:,k),'b');
                             sigma_geo=sigma_geo+stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},obj.stem_model.stem_data.X_p{tP}(:,k),'b'),aj_p,'b');
                         end
                     end
@@ -1206,7 +1222,6 @@ classdef stem_krig < handle
                         else
                             X_z_orlated=[obj.stem_model.stem_data.X_z{tT};zeros(N-size(obj.stem_model.stem_data.X_z{tT},1),size(obj.stem_model.stem_data.X_z{tT},2))];
                         end
-                        %X_z_orlated=stem_misc.D_apply(X_z_orlated,aj_z,'l');
 
                         if not(isempty(obj.stem_model.stem_data.X_bp))||not(isempty(obj.stem_model.stem_data.X_p))
                             if obj.stem_model.tapering
@@ -1345,7 +1360,6 @@ classdef stem_krig < handle
                         %cov_wp_yz time invariant case
                         
                         for k=1:K
-                            %cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p(:,1,tP,k),'r'),aj_p(:,k),'r');
                             cov_wp_y{k}=stem_misc.D_apply(stem_misc.D_apply(sigma_W_p{k},data.X_p{tP}(:,k),'r'),aj_p,'r');
                         end
                     end
@@ -1384,8 +1398,8 @@ classdef stem_krig < handle
                             end
                             %update diag(Var(e|y1))
                             
-                            %temp=stem_misc.D_apply(stem_misc.D_apply(cov_wp_z_y1(:,:,t,k),data.X_p(:,1,tP,k),'l'),aj_p(:,k),'l');
-                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wp_z_y1(:,:,t,k),data.X_p{tP}(:,k),'l'),aj_p,'l');
+                            temp=stem_misc.D_apply(stem_misc.D_apply(cov_wp_z_y1(:,:,t,k),[data.X_p{tP}(:,k);...
+                                zeros(data.Np-size(data.X_p{tP}(:,k),1),1)],'l'),aj_p,'l');
                             if obj.stem_model.product_step>0
                                 blocks=0:obj.stem_model.product_step:size(diag_Var_e_y1,1);
                                 if not(blocks(end)==size(diag_Var_e_y1,1))
@@ -1402,12 +1416,14 @@ classdef stem_krig < handle
                         end
                         %y_hat
                         
-                        y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wp_y1(:,t,k),data.X_p{tP}(:,k),'l'),aj_p,'l');
+                        y_hat(:,t)=y_hat(:,t)+stem_misc.D_apply(stem_misc.D_apply(E_wp_y1(:,t,k),[data.X_p{tP}(:,k);...
+                            zeros(data.Np-size(data.X_p{tP}(:,k),1),1)],'l'),aj_p,'l');
 
                         if not(no_varcov)
                             %update diag(Var(e|y1))
                             
-                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wp_y1(:,t,k),data.X_p{tP}(:,k),'b'),aj_p,'b'); %K varianze
+                            diag_Var_e_y1(:,t)=diag_Var_e_y1(:,t)+stem_misc.D_apply(stem_misc.D_apply(diag_Var_wp_y1(:,t,k),[data.X_p{tP}(:,k);...
+                                zeros(data.Np-size(data.X_p{tP}(:,k),1),1)],'b'),aj_p,'b'); %K varianze
 
                             if not(isempty(data.X_bp))
                                 %compute M_cov(w_b,w_p|y1); cio? M*cov(w_b,w_p|y1) da tenere in considerazione nelle forme chiuse!
@@ -1465,8 +1481,6 @@ classdef stem_krig < handle
                                     end
                                 end
                                
-                                %temp=stem_misc.D_apply(stem_misc.D_apply(cov_wpk_wph_y1{k,h}(:,t),data.X_p(:,1,tP,k),'l'),aj_p(:,k),'l');
-                                %temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_p(:,1,tP,h);zeros(Nb,1)],'l'),aj_p(:,h),'l');
                                 temp=stem_misc.D_apply(stem_misc.D_apply(cov_wpk_wph_y1{k,h}(:,t),data.X_p{tP}(:,k),'l'),aj_p,'l');
                                 temp=stem_misc.D_apply(stem_misc.D_apply(temp,[data.X_p{tP}(:,h);zeros(Nb,1)],'l'),aj_p,'l');
                                 %update diag(Var(e|y1))

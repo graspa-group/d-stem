@@ -4,13 +4,16 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -29,30 +32,51 @@
 % You should have received a copy of the GNU General Public License
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
-classdef stem_fda
+classdef stem_fda < handle
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
+    %s - dimension of spline knots
    
     properties (SetAccess=private)
+        spline_type=[]              %[string]       (1x1) the type of basis, either 'Bspline' or 'Fourier'
+        spline_range=[];            %[double]       (2x1) the range of the basis function
         
-        spline_type=[]      %[string]      (1x1) the type of basis, 'Bspline' or 'Fourier'
-        spline_range=[];    %[double]       (2x1) the range of the spline
+        spline_order_beta=[];       %[integer >0]   (1x1) the order of the spline for beta 
+        spline_knots_beta=[];       %[double]       (sx1) the spline knots for beta 
+        spline_basis_beta=[];       %[basis obj]    (1x1) the spline basis for beta 
+        spline_nbasis_beta =[]      %[integer >0]   (1x1) the number of basis for beta 
+ 
+        spline_order_z=[];          %[integer >0]   (1x1) the order of the spline 
+        spline_knots_z=[];          %[double]       (sx1) the spline knots 
+        spline_basis_z=[];          %[basis obj]    (1x1) the spline basis 
+        spline_nbasis_z =[]         %[integer >0]   (1x1) the number of basis 
         
-        spline_nbasis_z =[]       %-[integer >0] (1x1) the number of basis spline
-        spline_nbasis_beta =[]  %-[integer >0] (1x1) the number of basis spline for beta
-        spline_nbasis_sigma =[] %-[integer >0] (1x1) the number of basis spline for sigma_eps
-            
-        spline_order_z=[];    %[integer >0]   (1x1) the order of the spline
-        spline_knots_z=[];    %[double]       (sx1) the spline knots
-        spline_basis_z=[];    %[basis obj]    (1x1) the spline basis 
-        spline_order_beta=[];    %[integer >0]   (1x1) the order of the spline for Beta
-        spline_knots_beta=[];    %[double]       (sx1) the spline knots for Beta
-        spline_basis_beta=[];    %[basis obj]    (1x1) the spline basis for Beta
-        spline_order_sigma=[];    %[integer >0]   (1x1) the order of the spline for Sigma
-        spline_knots_sigma=[];    %[double]       (sx1) the spline knots for Sigma
-        spline_basis_sigma=[];    %[basis obj]    (1x1) the spline basis for Sigma
-        flag_beta_spline = 0;   %[interger] (1x1) the indicator of Beta(h)
-        flag_sigma_eps_spline = 0;   %[interger] (1x1) the indicator of Sigma(h)
-        flag_logsigma = 1;    %[interger] (1x1) the indicator of is on logsigma or not, with 1 indicating using the log and temporally used by ourselves
-        flag_sqrsigma = 0;   %[interger] (1x1) the indicator of is on sqrtsigma or not, with 1 indicating using the sqrt and temporally used by ourselves
+        spline_order_sigma=[];      %[integer >0]   (1x1) the order of the spline for sigma_eps2 
+        spline_knots_sigma=[];      %[double]       (sx1) the spline knots for sigma_eps2 
+        spline_basis_sigma=[];      %[basis obj]    (1x1) the spline basis for sigma_eps2 
+        spline_nbasis_sigma =[]     %[integer >0]   (1x1) the number of basis for sigma_eps2 
+        
+        flag_beta_spline = 0;       %[interger]     (1x1) the indicator of estimating beta(h)
+        flag_sigma_eps_spline = 0;  %[interger]     (1x1) the indicator of estimating sigma_eps2 (h)
+    end
+    
+    properties (Hidden=true)
+        flag_logsigma = 1;         %[interger] (1x1) the indicator of is on logsigma or not, with 1 indicating using the log and can not be set by users.
+        flag_sqrsigma = 0;         %[interger] (1x1) the indicator of is on sqrtsigma or not, with 1 indicating using the sqrt and can not be set by users.
     end
     
     methods
@@ -61,16 +85,18 @@ classdef stem_fda
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %fda = []                  %[struct]
+            %obj_fda = []              -[struct]
             %
-            %for type is Fourier
-            %spline_range =[]          -[double]     (2x1) the range of the spline
-            %spline_nbasis_z =[]       -[integer >0] (1x1) the number of basis spline
-            %spline_nbasis_beta =[]    -[integer >0] (1x1) the number of basis spline for beta
-            %spline_nbasis_sigma =[]   -[integer >0] (1x1) the number of basis spline for sigma_eps
+            %The struct including the following
+            %spline_type=[]            -[string]            (1x1) the type of basis, either 'Bspline' or 'Fourier'
+            %spline_range =[]          -[double]            (2x1) the range of the basis function
             %
-            %for type is Bspline
-            %spline_range_z=[]         -[double]            (2x1) the range of the spline
+            %when type is Fourier
+            %spline_nbasis_z =[]       -[integer >0]        (1x1) the number of basis 
+            %spline_nbasis_beta =[]    -[integer >0]        (1x1) the number of basis for beta
+            %spline_nbasis_sigma =[]   -[integer >0]        (1x1) the number of basis for sigma_eps
+            %
+            %when type is Bspline
             %spline_order_z=[]         -[integer >0]        (1x1) the order of the spline
             %spline_knots_z=[]         -[double]            (sx1) the spline knots
             %spline_order_beta=[]      -[integer >0]        (1x1) the order of the spline
@@ -81,16 +107,21 @@ classdef stem_fda
             %OUTPUT
             %obj                       -[stem_fda object]   (1x1)
             
-     
+            if length(fieldnames(obj_fda))<3
+                error('All the input arguments must be provided');
+            end
             if sum(strcmp(obj_fda.spline_type,{'Fourier','Bspline'}))==0
                 error('The spline type must be Fourier or Bspline');
-            elseif strcmp(obj_fda.spline_type,'Fourier')
-                obj.spline_type = obj_fda.spline_type;
+            end
+            
+            obj.spline_type = obj_fda.spline_type;
+            if strcmp(obj_fda.spline_type,'Fourier')
+                
                 if isempty(obj_fda.spline_nbasis_z)||isempty(obj_fda.spline_range)
                     error('All the input arguments must be provided');
                 end
                 obj.spline_range=obj_fda.spline_range;
-                %obj.spline_nbasis=obj_fda.spline_nbasis;
+                
                 if mod(obj_fda.spline_nbasis_z,2)==0
                     warning('The Fourier basis number must be odd, the number is increased by 1.')
                 end
@@ -99,7 +130,7 @@ classdef stem_fda
                 
                 if not(isempty(obj_fda.spline_nbasis_beta))
                     obj.flag_beta_spline = 1;
-                    %obj.spline_nbasis_beta=obj_fda.spline_nbasis_beta;
+                    
                     if mod(obj_fda.spline_nbasis_beta,2)==0
                         warning('The Fourier basis number must be odd, the number is increased by 1.')
                     end
@@ -109,7 +140,7 @@ classdef stem_fda
                 
                 if not(isempty(obj_fda.spline_nbasis_sigma))
                     obj.flag_sigma_eps_spline = 1;
-                    %obj.spline_nbasis_sigma=obj_fda.spline_nbasis_sigma;
+                    
                     if mod(obj_fda.spline_nbasis_sigma,2)==0
                         warning('The Fourier basis number must be odd, the number is increased by 1.')
                     end
@@ -118,9 +149,9 @@ classdef stem_fda
                 end
                 
             else
-                obj.spline_type = obj_fda.spline_type;
+                
                 if isempty(obj_fda.spline_knots_z)||isempty(obj_fda.spline_range)
-                    error('All the input arguments must be provided');
+                    error('Spline knots for z must be provided');
                 end
                 if max(obj_fda.spline_knots_z)>obj_fda.spline_range(2)
                     error('The highest element of spline_knots cannot be higher than spline_range(2)');
@@ -141,11 +172,18 @@ classdef stem_fda
                 if not(isempty(obj_fda.spline_order_beta))&&isempty(obj_fda.spline_knots_beta)
                     error('Spline knots for beta must be provided');
                 end
+                if (isempty(obj_fda.spline_order_beta))&&not(isempty(obj_fda.spline_knots_beta))
+                    error('Spline order for beta must be provided');
+                end
                 if not(isempty(obj_fda.spline_order_sigma))&&isempty(obj_fda.spline_knots_sigma)
                     error('Spline knots for sigma_eps must be provided');
                 end
+                if (isempty(obj_fda.spline_order_sigma))&&not(isempty(obj_fda.spline_knots_sigma))
+                    error('Spline order for sigma_eps must be provided');
+                end
 
                 if not(isempty(obj_fda.spline_order_beta))
+                    
                     obj.flag_beta_spline = 1;
                     if max(obj_fda.spline_knots_beta)>obj_fda.spline_range(2)
                         error('The highest element of spline_knots cannot be higher than spline_range(2)');
@@ -156,6 +194,7 @@ classdef stem_fda
 
                     obj.spline_order_beta = obj_fda.spline_order_beta;
                     obj.spline_knots_beta = obj_fda.spline_knots_beta;
+                    
                     norder=obj.spline_order_beta+1;
                     nbasis=length(obj.spline_knots_beta)+norder-2;
                     obj.spline_basis_beta=create_bspline_basis(obj.spline_range, nbasis, norder, obj.spline_knots_beta);
@@ -179,19 +218,34 @@ classdef stem_fda
                     obj.spline_basis_sigma=create_bspline_basis(obj.spline_range, nbasis, norder, obj.spline_knots_sigma);
                     obj.spline_nbasis_sigma=getnbasis(obj.spline_basis_sigma);
                 end
-
             end    
         end
              
-        %Class set methods
-        function obj = set.spline_order_z(obj,spline_order)
+        function n = get_basis_number(obj)
+            n.beta=[];
+            n.z=[];
+            n.sigma=[];
+            
+            if not(isempty(obj.spline_basis_beta))
+                n.beta=getnbasis(obj.spline_basis_beta);
+            end
+            if not(isempty(obj.spline_basis_z))
+                n.z=getnbasis(obj.spline_basis_z);
+            end
+            if not(isempty(obj.spline_basis_sigma))
+                n.sigma=getnbasis(obj.spline_basis_sigma);
+            end
+        end
+        
+        %Class set methods    
+        function set.spline_order_z(obj,spline_order)
             if spline_order<1
                 error('spline_order must be > 0');
             end
             obj.spline_order_z=spline_order;
         end
         
-        function obj = set.spline_range(obj,spline_range)
+        function set.spline_range(obj,spline_range)
             if not(length(spline_range)==2)
                 error('spline_range must be a 2x1 vector');
             end
@@ -201,7 +255,7 @@ classdef stem_fda
             obj.spline_range=spline_range;
         end
         
-        function obj = set.spline_knots_z(obj,spline_knots)
+        function set.spline_knots_z(obj,spline_knots)
             if length(spline_knots)<2
                 error('spline_knots must be at least 2x1');
             end
@@ -211,21 +265,21 @@ classdef stem_fda
             obj.spline_knots_z=spline_knots;
         end
         
-        function obj = set.spline_order_beta(obj,spline_order_beta)
+        function set.spline_order_beta(obj,spline_order_beta)
             if spline_order_beta<1
                 error('spline_order for beta must be > 0');
             end
             obj.spline_order_beta=spline_order_beta;
         end
         
-        function obj = set.spline_order_sigma(obj,spline_order_sigma)
+        function set.spline_order_sigma(obj,spline_order_sigma)
             if spline_order_sigma<1
                 error('spline_order for sigma must be > 0');
             end
             obj.spline_order_sigma=spline_order_sigma;
         end
         
-        function obj = set.spline_knots_beta(obj,spline_knots_beta)
+        function set.spline_knots_beta(obj,spline_knots_beta)
             if length(spline_knots_beta)<2
                 error('spline_knots for beta must be at least 2x1');
             end
@@ -235,7 +289,7 @@ classdef stem_fda
             obj.spline_knots_beta=spline_knots_beta;
         end
         
-        function obj = set.spline_knots_sigma(obj,spline_knots_sigma)
+        function set.spline_knots_sigma(obj,spline_knots_sigma)
             if length(spline_knots_sigma)<2
                 error('spline_knots for sigma must be at least 2x1');
             end

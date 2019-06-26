@@ -4,16 +4,18 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % This file is part of D-STEM.
 % 
@@ -31,9 +33,33 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_par
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
+    %N   = n1_p+...+nq_p+n1_b+...+nq_b - total number of observation sites
+    %q   - the number of variables
+    %p   - dimension of the latent temporal variable z
+    %N_b - total number of pixel sites
+    %T   - number of temporal steps
+    %H   - the dimension of parameter vector
+    %k  yaqiong
+    
    
     properties
-        %estimated parameters
+        
         beta=[];            %[double]       (N_bx1) beta parameters
         alpha_bp=[];        %[double]       (qx1) alpha point parameters
         theta_b=[];         %[double >0]    (qx1|1x1) coregionalization theta parameter for the pixel variables
@@ -46,30 +72,32 @@ classdef stem_par
         sigma_eps=[];       %[double]       (qxq|2qx2q|qxqxT) measurement-error variance-covariance matrix
         theta_z=[];         %[double]       (1x1|1x2|1xp|2xp) coregionalization theta parameter related to the z latent variable when model_name is 'HDGM' or 'f-HDGM'
         v_z=[];             %[double]       (pxp) coregionalization matrix related to the z latent variable when model_name is 'HDGM' or 'f-HDGM'
+        varcov=[];          %[double]       (HxH) parameter variance-covariance matrix at convergence
         
-        %stem_fda=[];        %[stem_fda obj] (1x1) object of class stem_fda
     end
     
     properties (SetAccess=private)
-        %model type
-        stem_modeltype=[];              %[stem_modeltype obj] (1x1) object of class stem_modeltype
-        %par constraints
-        stem_par_constraints=[];        %[stem_par_contraints obj] (1x1) object of class stem_par_contraints 
         
-        %fixed parameters
+        stem_modeltype=[];              %[stem_modeltype object]      (1x1) object of class stem_modeltype
+        
+        stem_par_constraints=[];        %[stem_par_contraints object] (1x1) object of class stem_par_contraints 
+
         p=[];                           %[integer>0]    (1x1) dimension of the latent temporal variable z
         q=[];                           %[integer>0]    (1x1) number of point level variables
         k=[];                           %[integer>0]    (1x1) number of coregionalization components for the point level variables
         n_beta=[];                      %[integer>0]    (1x1) total number of loading coefficients in X_beta
-        d=[];                           %[integer>0]    (1x1)
-        flag_beta_spline = 0;                 %[interger]     (1x1) the indicator of Beta(h) when modeltype is fHDGM
-        flag_sigma_eps_spline = 0;                %[interger]     (1x1) the indicator of Sigma(h) when modeltype is fHDGM
-        flag_logsigma = 0;              %[interger] (1x1) the indicator of is on logsigma or not, with 1 indicating using the log and temporally used by ourselves
-        flag_sqrsigma = 0;   %[interger] (1x1) the indicator of is on sqrtsigma or not, with 1 indicating using the sqrt and temporally used by ourselves
+        d=[];                           %[integer>0]    (1x1) the dimension of spatial location
         k_beta=[];                      %[integer>0]    (1x1) number of basis functions for beta(h) when modeltype is fHDGM
         k_sigma=[];                     %[integer>0]    (1x1) number of basis functions for sigma(h) when modeltype is fHDGM
         
         correlation_type='exponential'; %[string]       (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the sphere  
+    end
+    
+    properties (SetAccess=private, Hidden=true)
+        flag_beta_spline = 0;           %[interger]     (1x1) the indicator of Beta(h) when modeltype is fHDGM
+        flag_sigma_eps_spline = 0;      %[interger]     (1x1) the indicator of Sigma(h) when modeltype is fHDGM
+        flag_logsigma = 1;              %[interger]     (1x1) the indicator of is on logsigma or not, with 1 indicating using the log and temporally used by ourselves
+        flag_sqrsigma = 0;              %[interger]     (1x1) the indicator of is on sqrtsigma or not, with 1 indicating using the sqrt and temporally used by ourselves
     end
     
     methods
@@ -79,11 +107,11 @@ classdef stem_par
             %
             %INPUT
             %obj_stem_data                  - [stem_data object]            (1x1) an object of class stem_data
-            %<correlation_type>             - [string]                      (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the sphere
-            %<obj_stem_par_contraints>      - [stem_par_contraints object]	(1x1) an object of class stem_par_constraints
+            %correlation_type               - [string]                      (1x1) spatial correlation function type. 'exponential': exponential spatial correlation function; 'matern32': Matern spatial correlation function with parameter nu=3/2; 'matern52': Matern spatial correlation function with parameter nu=5/2; 'expsphere': anisotropic correlation function on the sphere
+            %obj_stem_par_contraints        - [stem_par_contraints object]	(1x1) an object of class stem_par_constraints
             %
             %OUTPUT
-            %obj                        - [stem_par object] (1x1)
+            %obj                            - [stem_par object] (1x1)
             
             if nargin<1
                 error('stem_data must be provided');
@@ -143,9 +171,6 @@ classdef stem_par
                         end
                     end
                 else
-                    %if nargin<3
-                    %    error('obj_stem_fda must be provided since model_type is f-HDGM');
-                    %end
                     obj.p=getnbasis(obj_stem_data.stem_fda.spline_basis_z);
                     obj.flag_beta_spline = obj_stem_data.stem_fda.flag_beta_spline;
                     if obj.flag_beta_spline==1
@@ -222,13 +247,16 @@ classdef stem_par
                 obj.beta=zeros(obj.n_beta,1);
             end
             
-            
             if not(obj.stem_modeltype.is('MBC')&&strcmpi(obj.stem_modeltype.clustering_type,'Dynamic'))
                 if not(obj.stem_modeltype.is('f-HDGM'))
                     if not(isempty(obj_stem_data.stem_varset_b))
-                        %Yaqiong
+                        
                         obj.alpha_bp=zeros(obj.q,1);
-                        obj.sigma_eps=zeros(obj.q*2);
+                        if obj.stem_par_constraints.sigma_eps_timevarying==0
+                            obj.sigma_eps=zeros(obj.q*2);
+                        else
+                            obj.sigma_eps=zeros(obj.q*2,obj.q*2,obj_stem_data.T);
+                        end
                         if obj.stem_par_constraints.pixel_correlated
                             if not(strcmp(obj.correlation_type,'expsphere'))
                                 obj.theta_b=0;
@@ -244,11 +272,14 @@ classdef stem_par
                         end
                         obj.v_b=eye(obj.q);
                     else
-                        obj.sigma_eps=zeros(obj.q);
+                        if obj.stem_par_constraints.sigma_eps_timevarying==0
+                            obj.sigma_eps=zeros(obj.q);
+                        else
+                            obj.sigma_eps=zeros(obj.q,obj.q,obj_stem_data.T);
+                        end
                     end
                 else
-                    if obj.flag_sigma_eps_spline==1 %Yaqiong
-                        %obj.sigma_eps=zeros(obj_stem_data.stem_varset_p.N,1);
+                    if obj.flag_sigma_eps_spline==1 
                         obj.sigma_eps = zeros(obj.k_sigma,1);
                     else
                         obj.sigma_eps=0;
@@ -365,9 +396,6 @@ classdef stem_par
         
         function obj = set.v_p(obj,v_p)
             for i=1:size(v_p,3)
-                %if not(sum(diag(v_p(:,:,i)-eye(size(v_p,1))))==0)
-                %    warning('The diagonal elements of each v_p(:,:,i) matrix must be 1');
-                %end
                 if min(eig(v_p(:,:,i)))<0
                     error('Each v_p(:,:,i) matrix must be positive definited');
                 end
@@ -377,9 +405,6 @@ classdef stem_par
         end   
         
         function obj = set.v_z(obj,v_z)
-            if not(sum(diag(v_z-eye(size(v_z,1))))==0)
-               % warning('The diagonal elements of v_z must be 1');
-            end
             if min(eig(v_z))<0
                 error('v_z must be positive definited');
             end
@@ -398,10 +423,7 @@ classdef stem_par
         end
         
         function obj = set.sigma_eps(obj,sigma_eps)
-            %Yaqiong
-           
             stem_misc.compare(obj.sigma_eps,sigma_eps,stem_misc.varname(sigma_eps));
-          
             obj.sigma_eps=sigma_eps;
         end
         

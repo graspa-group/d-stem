@@ -4,16 +4,18 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 % This file is part of D-STEM.
 % 
 % D-STEM is free software: you can redistribute it and/or modify
@@ -30,6 +32,25 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_krig_data < handle
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
+    %
+    %CONSTANTS
+    %N  - the number of kriging locations
+    %B  - the number of loading coefficients
+    
     properties
         grid=[];                    %[stem_grid object] (1x1)   a stem_grid object for the kriging coordinates
         X=[];                       %[double]           (NxBxT) a matrix with all the loading coefficients used in model estimation. The dimension is NxBxT where N is the number of kriging locations and B the number of loading coefficients
@@ -42,13 +63,13 @@ classdef stem_krig_data < handle
             %DESCRIPTION: object constructor
             %
             %INPUT
-            %grid              %[stem_grid object] (1x1)   a stem_grid object for the kriging coordinates
-            %X                 %[double]           (NxBxT) a matrix with all the loading coefficients used in model estimation. The dimension is NxBxT where N is the number of kriging locations and B the number of loading coefficients
-            %X_names           %[string]           {Bx1}   a cell-array of covariate names. Must be the same used in model estimation
-            %mask              %[integer]          (Nx1)   a mask for the subset of spatial locations where the kriging is needed. Must be a vector of NaNs and 1s of the same lenght of the vector of coordinates
+            %grid              -[stem_grid object] (1x1)   a stem_grid object for the kriging coordinates
+            %X                 -[double]           (NxBxT) a matrix with all the loading coefficients used in model estimation. The dimension is NxBxT where N is the number of kriging locations and B the number of loading coefficients
+            %X_names           -[string]           {Bx1}   a cell-array of covariate names. Must be the same used in model estimation
+            %mask              -[integer]          (Nx1)   a mask for the subset of spatial locations where the kriging is needed. Must be a vector of NaNs and 1s of the same lenght of the vector of coordinates
             %
             %OUTPUT
-            %obj       - [stem_krig_options] (1x1)
+            %obj               - [stem_krig_options] (1x1)
             if nargin<1
                 error('The input arguments grid must be provide');
             end
@@ -77,6 +98,7 @@ classdef stem_krig_data < handle
             
             if nargin>3
                 if not(isempty(mask))
+                    mask=mask(:);
                     if not(length(mask)==size(grid.coordinate,1))
                         error('mask must be a column vector with length equal to kriging locations');
                     end

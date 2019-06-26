@@ -4,16 +4,18 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Economics and Quantitative Methods %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % This file is part of D-STEM.
 % 
@@ -31,6 +33,20 @@
 % along with D-STEM. If not, see <http://www.gnu.org/licenses/>.
 
 classdef stem_sim < handle
+    
+    %PROPERTIES
+    %Each class property or method property is defined as follows
+    %
+    %"Name"="Default value";    %["type"]    "dimension"     "description" 
+    %
+    %DIMENSION NOTATION
+    %(1 x 1) is a scalar
+    %(N x 1) is a Nx1 vector
+    %(N x T) is a NxT matrix
+    %(N x B x T) is a NxBxT array
+    %{q} is a cell array of length q
+    %{q}{p} is a cell array of length q, each cell is a cell array of length p
+    %{q}(NxT) is a cell array of length q, each cell is a NxT matrix
     
     properties
         stem_model=[];      %[stem_model object]    (1x1) stem_model object
@@ -224,10 +240,6 @@ classdef stem_sim < handle
             Y_temp=cell(obj.stem_model.stem_data.stem_varset_p.nvar,1);
             for i=1:obj.stem_model.stem_data.stem_varset_p.nvar
                 Y_temp{i}=Y(blocks(i)+1:blocks(i+1),:);
-                %mask_nan=binornd(1,0.3,size(Y_temp{i}));
-                %mask_nan(mask_nan==1)=NaN;
-                %mask_nan(mask_nan==0)=1;
-                %Y_temp{i}=Y_temp{i}.*mask_nan;
             end
             obj.stem_model.stem_data.stem_varset_p.Y=Y_temp;
             if not(isempty(obj.stem_model.stem_data.stem_varset_b))
