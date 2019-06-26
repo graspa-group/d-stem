@@ -4,8 +4,7 @@ clearvars
 s = RandStream('mt19937ar','Seed',1);
 RandStream.setGlobalStream(s);
 
-addpath('../../../../D-STEM_dev/Src/'); %D-STEM
-addpath('../../../../D-STEM_dev/Src/fda/'); %fda library
+addpath(genpath('../../../../Src/')); %D-STEM
 
 %% Data loading
 
