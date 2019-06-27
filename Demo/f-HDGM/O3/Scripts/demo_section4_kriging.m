@@ -5,7 +5,12 @@ addpath(genpath('../../../../Src/')); %D-STEM
 
 %% Data loading
 
-load ../Output/ozone_model
+if exist('../Output/ozone_model','file')==2
+    error('Run demo_section4_model_estimate.m first');
+else
+    load ../Output/ozone_model
+end
+
 load ../Data/kriging/krig_coordinates;
 
 %% Objects creation
