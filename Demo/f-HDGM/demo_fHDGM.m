@@ -14,7 +14,7 @@ while(1)
     disp('Choose which script to run:');
     pause(0.05);
     disp(' ');
-    disp('[1] - Ozone data: model estimation (< 10 minutes)');
+    disp('[1] - Ozone data: model estimation (< 5 minutes)');
     pause(0.05);
     disp('[2] - Ozone data: cross-validation (< 3 minutes)');
     pause(0.05);

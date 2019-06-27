@@ -72,7 +72,8 @@ o_EM_options = stem_EM_options(exit_toll,max_iterations);
 o_model.EM_estimate(o_EM_options);
 
 %Variance-covariance matrix evaluation
-o_model.set_varcov();
+delta=0.001;
+o_model.set_varcov(delta);
 o_model.set_logL();
 
 %% Print

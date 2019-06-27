@@ -1242,6 +1242,12 @@ classdef stem_misc
             
             B=length(A{:});
         end
+        
+        function [ver_name]=ver()
+            %DESCRIPTION: get the D-STEM version
+            
+            ver_name= 'D-STEM v2';
+        end
 
     end
 end

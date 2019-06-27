@@ -87,6 +87,7 @@ classdef stem_EM_result < handle
         computation_time=[];            %[double]           (1x1) EM estimation time in seconds
         date_start=[];                  %[double]           (1x1) date of the start of the EM estimation
         machine=[];                     %[string]           (1x1) operative system of the machine
+        version=[];                     %[string]           (1x1) the version of D-STEM
     end
     
     methods

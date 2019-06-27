@@ -16,15 +16,7 @@ shape = shaperead('../Maps/Beijing_adm1.shp');
 %model type
 o_modeltype = stem_modeltype('f-HDGM');
 
-tmp=datenum('01-01-2015 00:00','dd-mm-yyyy HH:MM')+Beijing_O3.Time_step-1;
-Beijing_O3.Time=datetime(datestr(tmp,'dd-mm-yyyy HH:MM'),'InputFormat','dd-MM-yyyy HH:mm');
-
 [o_varset,o_gridlist,o_datestamp] = stem_misc.data_formatter(Beijing_O3);
-
-%yaqiong
-%date stamps
-%T=o_varset.T;
-%o_datestamp = stem_datestamp('01-01-2015 00:00','31-12-2017 00:00',T);
 
 %cross-validation
 S_xval = [1,7,10];

@@ -85,7 +85,7 @@ o_model.plot_profile(lat,lon);
 exit_toll=10^-4;
 max_iterations=100;
 o_EM_options=stem_EM_options(exit_toll,max_iterations);
-%o_EM_options.workers=4;
+o_EM_options.workers=4;
 o_EM_options.block_tapering_block_size=block_size;
 
 %EM estimation

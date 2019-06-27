@@ -75,7 +75,7 @@ classdef stem_model < handle
         tapering=[];                %[boolean]  (1x1) 0:tapering is not enabled; 1:tapering is enabled on point sites or pixel sites
         tapering_b=[];              %[boolean]  (1x1) 0:tapering is not enabled on pixel sites; 1:tapering is enabled on pixel sites
         tapering_p=[];              %[boolean]  (1x1) 0:tapering is not enabled on point sites; 1:tapering is enabled on point sites
-        
+       
         stem_EM_result=[];          %[stem_EM_result object] (1x1) object containing all the results of the EM estimation
         stem_crossval_result=[];    %[stem_crossval_result object] {dqx1} the objects including the cross-validation results for each variable
     end
@@ -151,6 +151,7 @@ classdef stem_model < handle
             else
                 obj.tapering=obj.tapering_p;
             end
+            
         end
         
         function [aj_bp] = get_aj(obj)
@@ -1247,6 +1248,10 @@ classdef stem_model < handle
             %
             %none: the information is printed in the command window  
             
+            stem_misc.disp_star('D-STEM version')
+            disp(' ');
+            disp(['Model estimation is performed using ', stem_misc.ver]);
+             
             stem_misc.disp_star('Brief data description')
             
             disp(['Number of variables: q=',num2str(obj.nvar)]);
@@ -4413,8 +4418,8 @@ classdef stem_model < handle
                 if (exit_toll>0)&&(t>2)
                     temp_IM=IM+triu(IM,1)';
                     current_varcov_t=inv(temp_IM/t*T);
-                    delta=diag(abs(current_varcov_t-last_varcov_t))./diag(abs(current_varcov_t));
-                    if max(delta(:))<exit_toll
+                    delta=norm(current_varcov_t-last_varcov_t,'fro')/norm(current_varcov_t,'fro');
+                    if delta<exit_toll
                         IM=IM+triu(IM,1)';
                         obj.stem_par.varcov=inv(IM/t*T);
                         obj.stem_EM_result.stem_par.varcov=obj.stem_par.varcov;

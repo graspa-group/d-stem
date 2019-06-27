@@ -122,6 +122,7 @@ classdef stem_EM < EM
             st_EM_result.block_tapering_block_size=obj.stem_EM_options.block_tapering_block_size;
             st_EM_result.machine=computer;
             st_EM_result.date_start=datestr(now);
+            st_EM_result.version=stem_misc.ver;
             exit_file=0;
             model_changed=0;
             while (delta>obj.stem_EM_options.exit_toll)&&(delta_logL>obj.stem_EM_options.exit_toll)&&(iteration<obj.stem_EM_options.max_iterations)&&(exit_file==0)||(model_changed==1)

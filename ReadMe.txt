@@ -17,12 +17,18 @@
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-In order to run a demo please follow these steps:
+In order to run a demo:
 
 1) Open MATLAB;
-2) Select a demo folder between DCM, HDGM or f-HDGM;
-2) Open and run the demo_*.m script;
-3) Choose an option from the menu.
+2) Select a demo folder between DCM, HDGM or f-HDGM as Current Folder;
+3) Open and run the demo_*.m script;
+4) Choose an option from the menu.
+
+In order to estimate a model on your own data set:
+
+1) Add the D-STEM Src folder and sub-folders to the Matlab seach path list
+2) Adapt any script under DCM/Scripts, HDGM/Scripts or f-HDGM/Scripts to
+   your data set
 
 Please note that:
 
