@@ -1,0 +1,1 @@
+This folder is used to store D-STEM objects needed for kriging
