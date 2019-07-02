@@ -70,4 +70,8 @@ o_EM_options = stem_EM_options(exit_toll,max_iterations);
 o_model.EM_estimate(o_EM_options);
 
 ozone_model_xval = o_model;
+
+if ~exist('../Output/','dir')
+    mkdir('../Output/')
+end
 save('../Output/ozone_model_xval.mat', 'ozone_model_xval', '-v7.3');

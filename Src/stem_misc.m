@@ -963,22 +963,24 @@ classdef stem_misc
            
         end
         
-        function [obj_stem_varset,obj_stem_gridlist_p,o_datestamp]=data_formatter(DataTable)
+        function [obj_stem_varset,obj_stem_gridlist_p,obj_stem_datestamp]=data_formatter(DataTable)
             %DESCRIPTION: provides the obj_sten_varset and obj_stem_gridlist objects. Only used for f-HDGM
             %
             %INPUT
             %
-            %DataTable              - [table] (1x1) A table with variables named profile, Y_name, X_h_name , X_beta_name, lat, lon, and time_step
+            %DataTable              - [table] (1x1) A Matlab table data
             %
             %OUTPUT
             %
             %obj_stem_varset        -[stem_varset object]   (1x1) the stem_varset object
             %obj_stem_gridlist_p    -[stem_gridlist object] (1x1) the stem_gridlist object 
-      
+            %obj_stem_datestamp          -[stem_datestamp object] (1x1) the stem_datestamp object 
 
-            flag_unit=0;
+            
             if not(isempty(DataTable.Properties.VariableUnits))
                 flag_unit=1;
+            else
+                flag_unit=0;
             end
             
             if not(isdatetime(DataTable.Time))
@@ -1052,7 +1054,7 @@ classdef stem_misc
             
             t_start=DataTable.Time(1);
             t_end=DataTable.Time(end);
-            o_datestamp = stem_datestamp(t_start,t_end,T,step_unit);
+            obj_stem_datestamp = stem_datestamp(t_start,t_end,T,step_unit);
             
             %obj_stem_varset
             k=strfind(DataTable.Properties.VariableNames,'X_h');

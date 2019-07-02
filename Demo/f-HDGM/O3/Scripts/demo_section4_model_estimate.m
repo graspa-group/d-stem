@@ -86,4 +86,8 @@ o_model.beta_Chi2_test
 o_model.print
 
 ozone_model = o_model;
+
+if ~exist('../Output/','dir')
+    mkdir('../Output/')
+end
 save('../Output/ozone_model.mat', 'ozone_model', '-v7.3');

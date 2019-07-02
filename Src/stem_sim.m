@@ -135,7 +135,7 @@ classdef stem_sim < handle
                 end
             end            
             
-            [sigma_eps,sigma_W_b,sigma_W_p,~,~,sigma_eta,G_tilde_diag,j_bp,j_p,j_z] = obj.stem_model.get_sigma();
+            [sigma_eps,sigma_W_b,sigma_W_p,~,~,sigma_eta,G_tilde_diag,~,~] = obj.stem_model.get_sigma();
             if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
                 s_eta=sigma_eta;
                 r=length(G_tilde_diag);
@@ -171,7 +171,15 @@ classdef stem_sim < handle
                     W_p(:,:,k)=mvnrnd(zeros(obj.stem_model.stem_data.stem_varset_p.N,1),sigma_W_p{k},T)';
                 end
             end
-            W_eps=mvnrnd(zeros(N,1),sigma_eps,T)';
+            
+            if iscell(sigma_eps)
+                W_eps=nan(N,T);
+                for t=1:T
+                    W_eps(:,t)=mvnrnd(zeros(N,1),sigma_eps{t})';
+                end
+            else
+                W_eps=mvnrnd(zeros(N,1),sigma_eps,T)';
+            end
             
             for t=1:T
                 if not(isempty(obj.stem_model.stem_data.X_bp))
@@ -192,29 +200,29 @@ classdef stem_sim < handle
                     if obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'})
                         if obj.stem_model.stem_data.stem_modeltype.is('HDGM')
                             if obj.stem_model.stem_data.X_z_tv
-                                Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z{t},j_z,'l'))*Z(:,t);
+                                Y(:,t)=Y(:,t)+diag(obj.stem_model.stem_data.X_z{t})*Z(:,t);
                             else
-                                Y(:,t)=Y(:,t)+diag(stem_misc.D_apply(obj.stem_model.stem_data.X_z{1},j_z,'l'))*Z(:,t);
+                                Y(:,t)=Y(:,t)+diag(obj.stem_model.stem_data.X_z{1})*Z(:,t);
                             end
                         else
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z{1},j_z,'l')*Z(:,t);
+                            Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z{1}*Z(:,t);
                         end
                     else
                         if obj.stem_model.stem_data.X_z_tv
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z{t},j_z,'l')*Z(:,t);
+                            Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z{t}*Z(:,t);
                         else
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(obj.stem_model.stem_data.X_z{1},j_z,'l')*Z(:,t);
+                            Y(:,t)=Y(:,t)+obj.stem_model.stem_data.X_z{1}*Z(:,t);
                         end
                     end
                 end      
                 if not(isempty(obj.stem_model.stem_data.X_p))
                     if obj.stem_model.stem_data.X_p_tv
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p{t}(:,k),'l'),j_p(:,k),'l');
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p{t}(:,k),'l');
                         end
                     else
                         for k=1:obj.stem_model.stem_par.k
-                            Y(:,t)=Y(:,t)+stem_misc.D_apply(stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p{1}(:,k),'l'),j_p(:,k),'l');    
+                            Y(:,t)=Y(:,t)+stem_misc.D_apply(W_p(:,t,k),obj.stem_model.stem_data.X_p{1}(:,k),'l');    
                         end
                     end
                 end

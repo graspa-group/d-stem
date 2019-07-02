@@ -4,7 +4,7 @@ clearvars
 s = RandStream('mt19937ar','Seed',1);
 RandStream.setGlobalStream(s);
 
-addpath(genpath('../../../../Src/')); %D-STEM
+addpath(genpath('../../../Src/')); %D-STEM
 
 %% Data loading
 

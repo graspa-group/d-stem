@@ -11,14 +11,14 @@ else
     load ../Output/ozone_model
 end
 
-load ../Data/kriging/krig_coordinates;
+load ../Data/kriging/krig_elevation;
 
 %% Objects creation
 
-[lon_mat,lat_mat] = meshgrid(krig_coordinates.lon,krig_coordinates.lat);
-krig_coordinates_2D = [lat_mat(:) lon_mat(:)];
+[lon_mat,lat_mat] = meshgrid(krig_elevation.lon,krig_elevation.lat);
+krig_coordinates = [lat_mat(:) lon_mat(:)];
 
-o_krig_grid = stem_grid(krig_coordinates_2D,'deg','regular','pixel',size(lat_mat),'square',0.05,0.05);
+o_krig_grid = stem_grid(krig_coordinates,'deg','regular','pixel',size(lat_mat),'square',0.05,0.05);
 o_krig_data = stem_krig_data(o_krig_grid);
 
 o_krig = stem_krig(ozone_model,o_krig_data);
@@ -31,7 +31,10 @@ o_krig_options.block_size = 30;
 
 o_krig_result = o_krig.kriging(o_krig_options);
 
-save('../Output/kriging/ozone_kriging','o_krig_result','-v7.3');
+if ~exist('../Output/','dir')
+    mkdir('../Output/')
+end
+save('../Output/ozone_kriging','o_krig_result','-v7.3');
 
 %% Figure 4 of the paper
 load ../Data/kriging/X_beta_t_100;
