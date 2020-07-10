@@ -16,7 +16,7 @@ while(1)
     disp(' ');
     disp('[1] - Ozone data: model estimation (< 5 minutes)');
     pause(0.05);
-    disp('[2] - Ozone data: cross-validation (< 3 minutes)');
+    disp('[2] - Ozone data: validation (< 3 minutes)');
     pause(0.05);
     disp('[3] - Ozone data: dynamic kriging (> 10 minutes)');
     pause(0.05)
@@ -30,7 +30,7 @@ while(1)
         case '1'
             run('O3/Scripts/demo_section4_model_estimate');
         case '2'
-            run('O3/Scripts/demo_section4_crossvalidation');
+            run('O3/Scripts/demo_section4_validation');
         case '3'
             run('O3/Scripts/demo_section4_kriging');
         case '4'

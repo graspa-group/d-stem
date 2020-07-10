@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -59,7 +66,7 @@ classdef stem_krig_options
     end
     
     properties (Hidden = true)
-        crossval=0;                 %[boolean]          (1x1)   1: the kriging is done for cross-validation; 0: standard kriging. This flag must be 0 when you are doing kriging
+        validation=0;               %[boolean]          (1x1)   1: the kriging is done for validation; 0: standard kriging. This flag must be 0 when you are doing kriging
     end
     
     methods
@@ -102,11 +109,11 @@ classdef stem_krig_options
             obj.no_varcov=no_varcov;
         end
         
-        function obj = set.crossval(obj,crossval)
-            if not(crossval==0||crossval==1)
-                error('crossval must be either 0 or 1');
+        function obj = set.validation(obj,validation)
+            if not(validation==0||validation==1)
+                error('validation must be either 0 or 1');
             end
-            obj.crossval=crossval;
+            obj.validation=validation;
         end
         
         function obj = set.workers(obj,workers)

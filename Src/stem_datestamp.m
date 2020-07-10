@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -114,6 +121,8 @@ classdef stem_datestamp < handle
                     obj.date_start=date_start;
                 elseif ischar(date_start)
                     obj.date_start=datetime(date_start,'InputFormat','dd-MM-yyyy HH:mm');
+                elseif isstring(date_start)
+                    obj.date_start=datetime(date_start,'InputFormat','dd-MM-yyyy HH:mm');
                 else
                     error('Please format the date as dd-MM-yyyy HH:mm')
                 end
@@ -121,6 +130,8 @@ classdef stem_datestamp < handle
                 if isdatetime(date_end)
                     obj.date_end=date_end;
                 elseif ischar(date_end)
+                    obj.date_end=datetime(date_end,'InputFormat','dd-MM-yyyy HH:mm');
+                elseif isstring(date_end)
                     obj.date_end=datetime(date_end,'InputFormat','dd-MM-yyyy HH:mm');
                 else
                     error('Please format the date as dd-MM-yyyy HH:mm')

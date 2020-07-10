@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -71,7 +78,7 @@ classdef stem_data < handle
         stem_gridlist_p=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the point variables        
         stem_gridlist_b=[];     %[stem_gridlist object] (1x1) stem_gridlist object for the pixel variables
         stem_datestamp=[]       %[stem_datestamp object](1x1) stem_datestamp object with information on time steps
-        stem_crossval=[];       %[stem_crossval object] (1x1) stem_crossval object with information on crossvalidation
+        stem_validation=[];       %[stem_validation object] (1x1) stem_validation object with information on validation
         stem_modeltype=[];      %[stem_modeltype object](1x1) stem_modeltype object with information on the model type
         shape=[];               %[struct]               (1x1) boundary of the geographic region loaded from a shape file
         stem_fda=[];            %[stem_fda object]      (1x1) an object of class stem_fda for modeltype f-HDGM
@@ -108,7 +115,7 @@ classdef stem_data < handle
     
     methods
         
-        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_crossval,stem_modeltype,shape,stem_fda)
+        function obj = stem_data(stem_varset_p,stem_gridlist_p,stem_varset_b,stem_gridlist_b,stem_datestamp,stem_validation,stem_modeltype,shape,stem_fda)
             %DESCRIPTION: is the constructor of the class stem_data
             %
             %INPUT
@@ -118,7 +125,7 @@ classdef stem_data < handle
             %stem_varset_b    - [stem_varset object]    (1x1) stem_varset object for the pixel variables
             %stem_gridlist_b  - [stem_gridlist object]  (1x1) stem_gridlist object for the pixel variables
             %stem_datestamp   - [stem_datestamp object] (1x1) stem_datestamp object with information on time steps
-            %stem_crossval    - [stem_crossval object]  (1x1) stem_crossval object with information on crossvalidation
+            %stem_validation  - [stem_validation object](1x1) stem_validation object with information on validation
             %stem_modeltype   - [stem_modeltype object] (1x1) stem_modeltype object with information on the model type
             %shape            - [struct]                (1x1) structure loaded from a shapefile with the boundary of the geographic region
             %stem_fda         - [stem_fda object]       (1x1) an object of class stem_fda
@@ -126,54 +133,57 @@ classdef stem_data < handle
             %OUTPUT
             %obj              - [stem_data object]      (1x1) the stem_data object
             
-            temp_struct=stem_varset_p;
-            if isstruct(temp_struct) 
+            if isstruct(stem_varset_p) 
+                temp_struct=stem_varset_p;
                 names=fieldnames(temp_struct);
+                
+                if sum(strcmp('data_table',names))
+                    if sum(strcmp('stem_varset_p',names))
+                        error('The input structure must NOT include stem_varset_p which is derived from the data table');
+                    end
+                    if sum(strcmp('stem_gridlist_p',names))
+                        error('The input structure must NOT include stem_gridlist_p which is derived from the data table');
+                    end
+                    if sum(strcmp('stem_datestamp',names))
+                        error('The input structure must NOT include stem_datestamp which is derived from the data table');
+                    end
+                    %The data_formatter method of the stem_misc class takes the data table as
+                    %input and returns D-STEM v2 objects including the same information of the
+                    %data table
+                    [obj.stem_varset_p,obj.stem_gridlist_p,obj.stem_datestamp] = stem_misc.data_formatter(temp_struct.data_table);
+                end
+
                 if sum(strcmp('stem_varset_p',names))
-                    stem_varset_p=temp_struct.stem_varset_p;
-                else
-                    error('stem_varset_p must be provided by the user');
+                    obj.stem_varset_p=temp_struct.stem_varset_p;
                 end
                 if sum(strcmp('stem_gridlist_p',names))
-                    stem_gridlist_p=temp_struct.stem_gridlist_p;
-                else
-                    error('stem_gridlist_p must be provided by the user');
+                    obj.stem_gridlist_p=temp_struct.stem_gridlist_p;
                 end
                 if sum(strcmp('stem_varset_b',names))
-                    stem_varset_b=temp_struct.stem_varset_b;
-                else
-                    stem_varset_b=[];
+                    obj.stem_varset_b=temp_struct.stem_varset_b;
                 end
                 if sum(strcmp('stem_gridlist_b',names))
-                    stem_gridlist_b=temp_struct.stem_gridlist_b;
-                else
-                    stem_gridlist_b=[];
+                    obj.stem_gridlist_b=temp_struct.stem_gridlist_b;
                 end
                 if sum(strcmp('stem_datestamp',names))
-                    stem_datestamp=temp_struct.stem_datestamp;
-                else
-                    error('stem_datestamp must be provided by the user');
+                    obj.stem_datestamp=temp_struct.stem_datestamp;
                 end
-                if sum(strcmp('stem_crossval',names))
-                    stem_crossval=temp_struct.stem_crossval;
-                else
-                    stem_crossval=[];
+                if sum(strcmp('stem_validation',names))
+                    obj.stem_validation=temp_struct.stem_validation;
                 end
                 if sum(strcmp('stem_modeltype',names))
-                    stem_modeltype=temp_struct.stem_modeltype;
+                    obj.stem_modeltype=temp_struct.stem_modeltype;
                 else
-                    error('stem_modeltype must be provided by the user');
+                    error('stem_modeltype must be provided by the user in the input structure');
                 end
                 if sum(strcmp('shape',names))
-                    shape=temp_struct.shape;
-                else
-                    shape=[];
+                    obj.shape=temp_struct.shape;
                 end
                 if sum(strcmp('stem_fda',names))
-                    stem_fda=temp_struct.stem_fda;
+                    obj.stem_fda=temp_struct.stem_fda;
                 else
-                    if stem_modeltype.is('f-HDGM')
-                        error('stem_fda must be provided by the user');
+                    if obj.stem_modeltype.is('f-HDGM')
+                        error('stem_fda must be provided by the user in the input structure');
                     end
                 end
             else
@@ -181,41 +191,29 @@ classdef stem_data < handle
                     error('Not enough input parameters');
                 end
             end
-            
-            obj.stem_varset_p=stem_varset_p; 
-            
-            obj.stem_gridlist_p=stem_gridlist_p;
-            if not(length(obj.stem_gridlist_p.grid)==length(obj.stem_varset_p.Y))
-                error('The number of stem_grids must be equal to the q');
-            end
-            for i=1:length(obj.stem_gridlist_p.grid)
-                if not(size(obj.stem_gridlist_p.grid{i}.coordinate,1)==size(obj.stem_varset_p.Y{i},1))
-                    error('The number of coordinates in the grid{i} must be equal to the number of rows of Y{i}');
-                end
-                if not(strcmp(obj.stem_gridlist_p.grid{i}.site_type,'point'))
-                    error('Only point data are supported in stem_gridlist_p');
-                end
-            end
-            
+
             if nargin==3
                 error('stem_gridlist_b must be provided');
             end
-            if nargin>2||isstruct(temp_struct)
+            if nargin>1
+                obj.stem_varset_p=stem_varset_p;
+                obj.stem_gridlist_p=stem_gridlist_p;
+                
                 if not(isempty(stem_varset_b))
                     obj.stem_varset_b=stem_varset_b;
-                    if not(length(obj.stem_varset_b.dim)==length(stem_varset_p.dim))
+                    if not(length(obj.stem_varset_b.dim)==length(obj.stem_varset_p.dim))
                         error('stem_varset_b must contain the same number of variables of stem_varset_p');
                     end
-                    if not(size(obj.stem_varset_b.Y{1},2)==size(stem_varset_p.Y{1},2))
+                    if not(size(obj.stem_varset_b.Y{1},2)==size(obj.stem_varset_p.Y{1},2))
                         error('The number of temporal steps in Y cannot differ between stem_varset_b and stem_varset_p');
                     end
                     if not(isempty(obj.stem_varset_b.X_beta))
-                        if not(size(obj.stem_varset_b.X_beta{1},3)==size(stem_varset_p.X_beta{1},3))
+                        if not(size(obj.stem_varset_b.X_beta{1},3)==size(obj.stem_varset_p.X_beta{1},3))
                             error('The number of temporal steps in X_beta cannot differ between stem_varset_b and stem_varset_p');
                         end
                     end
                     if not(isempty(obj.stem_varset_b.X_z))
-                        if not(size(obj.stem_varset_b.X_z{1},3)==size(stem_varset_p.X_z{1},3))
+                        if not(size(obj.stem_varset_b.X_z{1},3)==size(obj.stem_varset_p.X_z{1},3))
                             error('The number of temporal steps in X_z cannot differ between stem_varset_b and stem_varset_p');
                         end
                     end
@@ -242,35 +240,46 @@ classdef stem_data < handle
                     end
                 end
             end
-            if nargin>4||isstruct(temp_struct)
+            
+            if nargin>=5
                 obj.stem_datestamp=stem_datestamp;
                 if not(length(obj.stem_datestamp.stamp)==obj.stem_varset_p.T)
                     error('The number of datestamps differs from T');
                 end
             end
             
-            if nargin>=6||isstruct(temp_struct)
-                if not(isempty(stem_crossval))
-                    obj.stem_crossval=stem_crossval;
+            if nargin>=6
+                if not(isempty(stem_validation))
+                    obj.stem_validation=stem_validation;
                     if stem_modeltype.is('f-HDGM') 
-                        
-                        idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name);  
+                        idx_var = obj.stem_varset_p.get_Y_index(obj.stem_validation.variable_name);  
                         if isempty(idx_var)
-                            error(['Cross-validation variable ',obj.stem_crossval.variable_name,' not found']);
+                            error(['Validation variable ',obj.stem_validation.variable_name,' not found']);
                         end
-                        
                     else
-                        for i=1:length(obj.stem_crossval.variable_name)
-                            idx_var = obj.stem_varset_p.get_Y_index(obj.stem_crossval.variable_name{i});
+                        for i=1:length(obj.stem_validation.variable_name)
+                            idx_var = obj.stem_varset_p.get_Y_index(obj.stem_validation.variable_name{i});
                             if isempty(idx_var)
-                                error(['Cross-validation variable ',obj.stem_crossval.variable_name{i},' not found']);
+                                error(['Validation variable ',obj.stem_validation.variable_name{i},' not found']);
                             end
                         end    
                     end
                 end
             end
+            
+            if not(isstruct(stem_varset_p))
+                if nargin<7
+                    obj.stem_modeltype=stem_modeltype('DCM');
+                else
+                    if isempty(stem_modeltype)
+                        obj.stem_modeltype=stem_modeltype('DCM');
+                    else
+                        obj.stem_modeltype=stem_modeltype;
+                    end
+                end
+            end
 
-            if nargin>=8||isstruct(temp_struct)
+            if nargin>=8
                 if not(isempty(shape))
                     obj.shape=shape;
                     obj.shape(1,1).Geometry='Line';
@@ -280,7 +289,8 @@ classdef stem_data < handle
             else
                 obj.shape=shaperead('landareas.shp');
             end
-            if strcmp(stem_gridlist_p.grid{1}.unit,'deg')
+            
+            if strcmp(obj.stem_gridlist_p.grid{1}.unit,'deg')
                 shapename=fieldnames(obj.shape);
                 for i=1:length(shapename)
                     if strcmp(shapename{i}, 'X')
@@ -302,13 +312,15 @@ classdef stem_data < handle
                 end
             end
             
-            if nargin<7&&not(isstruct(temp_struct))
-                obj.stem_modeltype=stem_modeltype('DCM');
-            else
-                if isempty(stem_modeltype)
-                    obj.stem_modeltype=stem_modeltype('DCM');   
-                else
-                    obj.stem_modeltype=stem_modeltype;
+            if not(length(obj.stem_gridlist_p.grid)==length(obj.stem_varset_p.Y))
+                error('The number of stem_grids must be equal to the q');
+            end
+            for i=1:length(obj.stem_gridlist_p.grid)
+                if not(size(obj.stem_gridlist_p.grid{i}.coordinate,1)==size(obj.stem_varset_p.Y{i},1))
+                    error('The number of coordinates in the grid{i} must be equal to the number of rows of Y{i}');
+                end
+                if not(strcmp(obj.stem_gridlist_p.grid{i}.site_type,'point'))
+                    error('Only point data are supported in stem_gridlist_p');
                 end
             end
        
@@ -327,10 +339,12 @@ classdef stem_data < handle
                     if not(isempty(obj.stem_varset_b))
                         error('stem_varset_b and stem_gridlist_b must be empty when model_name is f-HDGM');
                     end
-                    if isempty(stem_fda)
-                        error('obj_stem_fda must be provided since model_type is f-HDGM');
+                    if isempty(obj.stem_fda)
+                        if nargin<9||isempty(stem_fda)
+                            error('stem_fda must be provided since model_type is f-HDGM');
+                        end
+                        obj.stem_fda=stem_fda;
                     end
-                    obj.stem_fda=stem_fda;
                     for i=1:length(obj.stem_varset_p.X_h)
                         low=sum(sum(obj.stem_varset_p.X_h{i}<obj.stem_fda.spline_range(1)));
                         high=sum(sum(obj.stem_varset_p.X_h{i}>obj.stem_fda.spline_range(2)));
@@ -355,7 +369,7 @@ classdef stem_data < handle
                     end
                 end       
                 
-                if stem_datestamp.irregular==1
+                if obj.stem_datestamp.irregular==1
                     error('Irregular time steps are not yer supported when model_name is HDGM or f-HDGM');
                 end
             end
@@ -382,7 +396,7 @@ classdef stem_data < handle
             end
            
             obj.update_data();
-            if not(isempty(stem_varset_b))
+            if not(isempty(obj.stem_varset_b))
                 obj.update_M();
             end
             obj.remove_duplicated_sites();
@@ -1159,7 +1173,7 @@ classdef stem_data < handle
             end
         end   
         
-        function site_crop(obj,type,var_name,indices,crossval,update_data_matrices)
+        function site_crop(obj,type,var_name,indices,validation,update_data_matrices)
             %DESCRIPTION: remove specific sites from the dataset
             %
             %INPUT
@@ -1167,7 +1181,7 @@ classdef stem_data < handle
             %type                - [string]             (1x1)  'point': remove the sites from the point dataset; 'pixel': remove the sites from the pixel dataset
             %var_name            - [string]             (1x1)  the name of the variable from which to remove the sites
             %indices             - [integer >0]         (dNx1) the indices of the sites to remove
-            %crossval            - [integer]            (1x1)  1:sites are cropped for cross-validation, 0: sites are cropped to be removed
+            %validation            - [integer]            (1x1)  1:sites are cropped for validation, 0: sites are cropped to be removed
             %update_data_matrices- [integer]            (1x1)  1:matrices are updated, 0: are not
             %
             %OUTPUT
@@ -1182,7 +1196,7 @@ classdef stem_data < handle
             end
             
             if nargin<5
-                crossval=0;
+                validation=0;
             end
             if nargin<6
                 update_data_matrices=1;
@@ -1191,20 +1205,20 @@ classdef stem_data < handle
             if strcmp(type,'point')
                 idx_var=obj.stem_varset_p.get_Y_index(var_name);
                 
-                if not(crossval)
-                    %adjusting cross-validation sites before site cropping
-                    if not(isempty(obj.stem_crossval))
-                        for j=1:length(obj.stem_crossval.variable_name)
-                            if (strcmp(obj.stem_crossval.variable_name{j},var_name))
-                                disp(['Adjusting cross-validation site indices for point variable ',var_name,' due to site cropping.']);
+                if not(validation)
+                    %adjusting validation sites before site cropping
+                    if not(isempty(obj.stem_validation))
+                        for j=1:length(obj.stem_validation.variable_name)
+                            if (strcmp(obj.stem_validation.variable_name{j},var_name))
+                                disp(['Adjusting validation site indices for point variable ',var_name,' due to site cropping.']);
                                 L=false(obj.stem_varset_p.dim(idx_var),1);
-                                L(obj.stem_crossval.indices{j})=true;
-                                n_before=length(obj.stem_crossval.indices{j});
+                                L(obj.stem_validation.indices{j})=true;
+                                n_before=length(obj.stem_validation.indices{j});
                                 L(indices)=[];
-                                obj.stem_crossval.indices{j}=find(L);
-                                n_after=length(obj.stem_crossval.indices{j});
+                                obj.stem_validation.indices{j}=find(L);
+                                n_after=length(obj.stem_validation.indices{j});
                                 if n_after<n_before
-                                    disp(['Removed ',num2str(n_before-n_after),' cross-validation sites for point variable ',var_name,' due to site cropping.']);
+                                    disp(['Removed ',num2str(n_before-n_after),' validation sites for point variable ',var_name,' due to site cropping.']);
                                 end
                             end
                         end
@@ -1405,8 +1419,8 @@ classdef stem_data < handle
             end
         end        
         
-        function [block_tapering_size_step,best_idx_group] = kmeans_globe(obj,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
-            %DESCRIPTION: kmeans method for block tapering
+        function [partitions,best_idx_group] = kmeans_partitioning(obj,n_groups,trials,lambda_pen,force_poles,flag_plot,flag_verbose)
+            %DESCRIPTION: modified kmeans algorithm for spatial locations partitioning
             %
             %INPUT
             %n_groups            - [integer >0]   (1x1) number of groups to partition
@@ -1418,8 +1432,8 @@ classdef stem_data < handle
             %
             %OUTPUT
             %
-            %block_tapering_size_step  - [integer] (n_groupsx1) the step of block tapering size
-            %best_idx_group            - [integer] (nx1) the best clustering index of site
+            %partitions          - [integer] (n_groupsx1) partitions size
+            %best_idx_group      - [integer] (nx1) the best clustering index of site
             
             if nargin<2
                 error('n_groups must be provided');
@@ -1472,10 +1486,10 @@ classdef stem_data < handle
                 centers_last=centers;
                 
                 n_iter=0;
-                exit_toll=1;
+                exit_tol=1;
                 distmat=zeros(n_groups,length(coordinates));
                 group_size=zeros(n_groups,1);
-                while exit_toll>0.001&&n_iter<1000
+                while exit_tol>0.001&&n_iter<1000
                     for i=1:size(distmat,1)
                         distmat(i,:)=distance(centers(i,1),centers(i,2),coordinates(:,1),coordinates(:,2));
                     end
@@ -1511,10 +1525,10 @@ classdef stem_data < handle
                     
                     total_distance=total_distance+lambda_pen*var(group_size);
                     
-                    exit_toll=norm(centers-centers_last);
+                    exit_tol=norm(centers-centers_last);
                     centers_last=centers;
                     if flag_verbose
-                        disp(['k-means iter: ',num2str(n_iter),', tot. dist.: ',num2str(total_distance),', toll: ',num2str(exit_toll)]);
+                        disp(['k-means iter: ',num2str(n_iter),', tot. dist.: ',num2str(total_distance),', toll: ',num2str(exit_tol)]);
                     end
                     n_iter=n_iter+1;
                 end
@@ -1540,9 +1554,8 @@ classdef stem_data < handle
             end
             
             [v,idx_permute]=sort(best_idx_group);
-            block_tapering_size_step=diff([0 find(diff([v 0]))]);
+            partitions=diff([0 find(diff([v 0]))]);
             obj.permute('point',idx_permute);
-           
         end
         
         function permute(obj,type,indices)
@@ -2188,11 +2201,11 @@ classdef stem_data < handle
             obj.stem_gridlist_b=stem_gridlist_b;
         end  
 
-        function set.stem_crossval(obj,stem_crossval)
-            if not(isa(stem_crossval,'stem_crossval'))
-                error('stem_crossval must be of class stem_crossval');
+        function set.stem_validation(obj,stem_validation)
+            if not(isa(stem_validation,'stem_validation'))
+                error('stem_validation must be of class stem_validation');
             end
-            obj.stem_crossval=stem_crossval;
+            obj.stem_validation=stem_validation;
         end
         
         function set.stem_datestamp(obj,stem_datestamp)

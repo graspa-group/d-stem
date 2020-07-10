@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -74,6 +81,7 @@ classdef stem_krig < handle
             if nargin<2
                 error('All the input arguments must be provided');
             end
+                       
             if not(isempty(stem_krig_data.X))
                 if not(stem_model.T==size(stem_krig_data.X,3))
                     error('The number of time steps in the matrix X of stem_krig_data must be equal to the number of time steps in the stem_model object');
@@ -152,7 +160,7 @@ classdef stem_krig < handle
             end
            
             if stem_krig_options.workers==1
-                if not(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
+                if not(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))||stem_krig_options.validation==1
                     st_krig_result = obj.kriging_core(stem_krig_options,idx_var);
                 else
                     st_krig_result = obj.kriging_spline_coeff_core(stem_krig_options);
@@ -192,7 +200,10 @@ classdef stem_krig < handle
 
                     obj_stem_krig_grid = stem_grid(krig_coordinates_block{k}, 'deg', 'sparse','point');
                     
-                    if stem_krig_options.crossval||not(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))
+                    if stem_krig_options.validation||not(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))
+                        X_krig=[];
+                        X_krig_names=[];
+                        mask=[];
                         obj_stem_krig_data = stem_krig_data(obj_stem_krig_grid,X_krig,X_krig_names,mask);
                         obj_stem_krig = stem_krig(obj.stem_model,obj_stem_krig_data);
                         obj_stem_krig_result = obj_stem_krig.kriging_core(stem_krig_options_block);
@@ -215,7 +226,7 @@ classdef stem_krig < handle
                 st_krig_result.diag_Pk_s=[];
                 st_krig_result.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
                 
-                if (stem_krig_options.crossval~=1)&&(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))
+                if (stem_krig_options.validation~=1)&&(obj.stem_model.stem_par.stem_modeltype.is('f-HDGM'))
                     st_krig_result.stem_par = obj.stem_model.stem_par;
                     st_krig_result.stem_fda = obj.stem_model.stem_data.stem_fda;
                 end
@@ -274,7 +285,7 @@ classdef stem_krig < handle
                 error('The stem_krig_options input argument must be of class stem_krig_options');
             end
             
-            if (stem_krig_options.crossval==0)&&isempty(obj.stem_krig_data.X)
+            if (stem_krig_options.validation==0)&&isempty(obj.stem_krig_data.X)
                 error('X in stem_krig_data cannot be empty');
             end
 
@@ -285,12 +296,12 @@ classdef stem_krig < handle
                 idx_notnan=find(not(isnan(obj.stem_krig_data.mask(:))));
             end
 
-            if (stem_krig_options.crossval==1)&&not(obj.stem_model.cross_validation)
-                error('The stem_model object does not contain cross-validation information');
+            if (stem_krig_options.validation==1)&&not(obj.stem_model.cross_validation)
+                error('The stem_model object does not contain validation information');
             end
             
-            if (stem_krig_options.crossval==1)&&not(isempty(obj.stem_krig_data.X))
-                error('X in stem_krig_data object must be empty when kriging is performed for cross-validation');
+            if (stem_krig_options.validation==1)&&not(isempty(obj.stem_krig_data.X))
+                error('X in stem_krig_data object must be empty when kriging is performed for validation');
             end
             
             if stem_krig_options.block_size==0
@@ -307,7 +318,7 @@ classdef stem_krig < handle
             p=obj.stem_model.stem_par.p;
 
             %check if X has all the needed covariates
-            if stem_krig_options.crossval==0
+            if stem_krig_options.validation==0
                 idx_bp=cell(q,1);
                 idx_p=cell(q,1);
                 idx_beta=cell(q,1);
@@ -390,7 +401,7 @@ classdef stem_krig < handle
                     end
                 end
             else
-                %kriging using cross-validation data, no need to check X
+                %kriging using validation data, no need to check X
             end
             
             disp('Kriging started...');
@@ -404,7 +415,7 @@ classdef stem_krig < handle
             for j=idx_var
                 st_krig_result{j}=stem_krig_result(obj.stem_model.stem_data.stem_varset_p.Y_name{j},obj.stem_krig_data.grid,obj.stem_model.stem_data.stem_gridlist_p.grid{j},obj.stem_model.stem_data.shape);
 
-                if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
+                if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.validation==1
                     st_krig_result{j}.y_hat=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T);
                     if not(stem_krig_options.no_varcov)
                         st_krig_result{j}.diag_Var_y_hat=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T);
@@ -499,7 +510,7 @@ classdef stem_krig < handle
                     obj.stem_model.stem_data.stem_varset_p.Y{z}=cat(1,Y_kept{z},Y_add);
                     
                     %X manage
-                    if stem_krig_options.crossval==0
+                    if stem_krig_options.validation==0
                         if not(isempty(idx_bp{z}))
                             X_krig_block=obj.stem_krig_data.X(idx_notnan(block_krig),idx_bp{z},:);
                             if obj.stem_model.stem_data.stem_varset_p.standardized
@@ -566,37 +577,37 @@ classdef stem_krig < handle
                             obj.stem_model.stem_data.stem_varset_p.X_z{z}=cat(1,X_z_kept{z},X_krig_block);
                         end
                     else
-                        %cross-validation data
-                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_bp))
-                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_bp{1}(idx_notnan(block_krig),:,:);
+                        %validation data
+                        if not(isempty(obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_bp))
+                            X_krig_block=obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_bp{1}(idx_notnan(block_krig),:,:);
                             X_bp_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_bp{z}(idx_remove{z},:,:);
                             X_bp_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_bp{z}(idx_keep{z},:,:);
                             obj.stem_model.stem_data.stem_varset_p.X_bp{z}=cat(1,X_bp_kept{z},X_krig_block);
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_p))
-                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_p{1}(idx_notnan(block_krig),:,:,:);
+                        if not(isempty(obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_p))
+                            X_krig_block=obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_p{1}(idx_notnan(block_krig),:,:,:);
                             X_p_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_p{z}(idx_remove{z},:,:);
                             X_p_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_p{z}(idx_keep{z},:,:);
                             obj.stem_model.stem_data.stem_varset_p.X_p{z}=cat(1,X_p_kept{z},X_krig_block);
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_beta))
-                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_beta{1}(idx_notnan(block_krig),:,:);
+                        if not(isempty(obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_beta))
+                            X_krig_block=obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_beta{1}(idx_notnan(block_krig),:,:);
                             X_beta_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_beta{z}(idx_remove{z},:,:);
                             X_beta_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_beta{z}(idx_keep{z},:,:);
                             obj.stem_model.stem_data.stem_varset_p.X_beta{z}=cat(1,X_beta_kept{z},X_krig_block);
                         end
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_h))
-                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_h{1}(idx_notnan(block_krig),:,:);
+                        if not(isempty(obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_h))
+                            X_krig_block=obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_h{1}(idx_notnan(block_krig),:,:);
                             X_h_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_h{z}(idx_remove{z},:,:);
                             X_h_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_h{z}(idx_keep{z},:,:);
                             obj.stem_model.stem_data.stem_varset_p.X_h{z}=cat(1,X_h_kept{z},X_krig_block);
                         end 
                         
-                        if not(isempty(obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_z))
-                            X_krig_block=obj.stem_model.stem_data.stem_crossval.stem_varset{z}.X_z{1}(idx_notnan(block_krig),:,:);
+                        if not(isempty(obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_z))
+                            X_krig_block=obj.stem_model.stem_data.stem_validation.stem_varset{z}.X_z{1}(idx_notnan(block_krig),:,:);
                             X_z_removed{z}=obj.stem_model.stem_data.stem_varset_p.X_z{z}(idx_remove{z},:,:);
                             X_z_kept{z}=obj.stem_model.stem_data.stem_varset_p.X_z{z}(idx_keep{z},:,:);
                             obj.stem_model.stem_data.stem_varset_p.X_z{z}=cat(1,X_z_kept{z},X_krig_block);
@@ -621,9 +632,9 @@ classdef stem_krig < handle
                 blocks=cumsum(block_kept_size+block_krig_length);
                 
                 %kriging
-               [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1,stem_kalmansmoother_result]=obj.E_step_kriging(stem_krig_options.no_varcov,stem_krig_options.crossval);
+               [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1,stem_kalmansmoother_result]=obj.E_step_kriging(stem_krig_options.no_varcov,stem_krig_options.validation);
                 for j=idx_var
-                    if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
+                    if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.validation==1
                         st_krig_result{j}.y_hat(idx_notnan(block_krig),:)=y_hat(blocks(j)-block_krig_length+1:blocks(j),:);
                         if not(stem_krig_options.no_varcov)
                             st_krig_result{j}.diag_Var_y_hat(idx_notnan(block_krig),:)=diag_Var_y_hat(blocks(j)-block_krig_length+1:blocks(j),:);
@@ -699,7 +710,7 @@ classdef stem_krig < handle
                 disp(['Kriging block ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
 
-            if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
+            if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.validation==1
                 if stem_krig_options.back_transform&&(obj.stem_model.stem_data.stem_varset_p.standardized||obj.stem_model.stem_data.stem_varset_p.log_transformed)
                     disp('Back-transformation...');
                     for j=idx_var
@@ -728,7 +739,7 @@ classdef stem_krig < handle
             if strcmp(obj.stem_krig_data.grid.grid_type,'regular')
                 disp('Data reshaping...');
                 for j=idx_var
-                    if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
+                    if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.validation==1
                         st_krig_result{j}.y_hat=reshape(st_krig_result{j}.y_hat,[obj.stem_krig_data.grid.grid_size,obj.stem_model.T]);
                         if not(stem_krig_options.no_varcov)
                             st_krig_result{j}.diag_Var_y_hat=reshape(st_krig_result{j}.diag_Var_y_hat,[obj.stem_krig_data.grid.grid_size,obj.stem_model.T]);
@@ -749,7 +760,7 @@ classdef stem_krig < handle
                     mask=reshape(obj.stem_krig_data.mask,obj.stem_krig_data.grid.grid_size);
                     for j=idx_var
                         for t=1:size(st_krig_result{j}.y_hat,3)
-                            if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.crossval==1
+                            if not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))||stem_krig_options.validation==1
                                 st_krig_result{j}.y_hat(:,:,t)=st_krig_result{j}.y_hat(:,:,t).*mask;
                                 if not(stem_krig_options.no_varcov)
                                     st_krig_result{j}.diag_Var_y_hat(:,:,t)=st_krig_result{j}.diag_Var_y_hat(:,:,t).*mask;
@@ -772,6 +783,7 @@ classdef stem_krig < handle
             
             for j=idx_var
                 st_krig_result{j}.variable_name=obj.stem_model.stem_data.stem_varset_p.Y_name{j};
+                st_krig_result{j}.Y_unit=obj.stem_model.stem_data.stem_varset_p.Y_unit;
                 st_krig_result{j}.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
             end
         end
@@ -826,7 +838,8 @@ classdef stem_krig < handle
             st_krig_result.zk_s=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T,p);
             st_krig_result.diag_Pk_s=zeros(size(obj.stem_krig_data.grid.coordinate,1),obj.stem_model.T,p);
             st_krig_result.stem_datestamp=obj.stem_model.stem_data.stem_datestamp;
-            
+            st_krig_result.Y_unit=obj.stem_model.stem_data.stem_varset_p.Y_unit;
+
             for i=1:length(blocks_krig)-1
                 ct1=clock;
                 if length(blocks_krig)-1>1
@@ -942,7 +955,7 @@ classdef stem_krig < handle
                 end
                                 
                 %kriging
-                [~,~,~,~,stem_kalmansmoother_result]=obj.E_step_kriging(stem_krig_options.no_varcov,stem_krig_options.crossval);
+                [~,~,~,~,stem_kalmansmoother_result]=obj.E_step_kriging(stem_krig_options.no_varcov,stem_krig_options.validation);
                     
                 %save results in the stem_krig_result object
                 temp=block_kept_size(1)*ones(1,p);
@@ -1006,13 +1019,13 @@ classdef stem_krig < handle
             end
         end
 
-        function [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1,st_kalmansmoother_result] = E_step_kriging(obj,no_varcov,crossval)
+        function [y_hat,diag_Var_y_hat,E_wp_y1,diag_Var_wp_y1,st_kalmansmoother_result] = E_step_kriging(obj,no_varcov,validation)
             %DESCRIPTION: kriging is based on the E-step of the EM algorithm
             %
             %INPUT
             %obj                            - [stem_krig object]                    (1x1) the stem_krig object
             %no_varcov                      - [boolean]                             (1x1) 1: the variance of the kriged variable is not computed; 0: the variance is computed;
-            %crossval                       - [boolean]                             (1x1) 1: kriging is done for cross validation; 0: actual kriging
+            %validation                       - [boolean]                             (1x1) 1: kriging is done for cross validation; 0: actual kriging
             %
             %OUTPUT
             %y_hat                          - [double]                              (NNxT) the variable estimated over the kriging sites
@@ -1039,9 +1052,9 @@ classdef stem_krig < handle
                     st_kalman=stem_kalman(obj.stem_model);
                     compute_logL=0;
                     enable_varcov_computation=0;
-                    block_tapering_block_size=0;
-                    %note that, for kriging, block tapering is disabled despite what happened in model estimation
-                    [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,M] = st_kalman.smoother(compute_logL,enable_varcov_computation,[],[],block_tapering_block_size);
+                    partitions=0;
+                    %note that, for kriging, partitioning is disabled despite what happened in model estimation
+                    [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,M] = st_kalman.smoother(compute_logL,enable_varcov_computation,[],[],partitions);
                 else
                     [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,sigma_Z,~,~,aj_bp,M] = obj.stem_model.get_sigma();
                     st_kalmansmoother_result=obj.stem_model.stem_EM_result.stem_kalmansmoother_result;
@@ -1078,7 +1091,7 @@ classdef stem_krig < handle
                 rr=0;
             end
             
-            if obj.stem_model.stem_data.stem_modeltype.is('f-HDGM')&&crossval==0
+            if obj.stem_model.stem_data.stem_modeltype.is('f-HDGM')&&validation==0
                 %no need to compute the rest, only st_kalmansmoother_result is needed
                 y_hat=[];
                 diag_Var_y_hat=[];

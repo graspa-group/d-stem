@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -81,8 +88,9 @@ classdef stem_EM_result < handle
         
         iterations=[];                  %[integer >0]       (1x1) number of EM iterations at convergence
         max_iterations=[];              %[integer >0]       (1x1) maximum number of EM iterations
-        exit_toll=[];                   %[double] >0]       (1x1) exit tolerance
-        block_tapering_block_size=0;    %[integer>0]        (1x1) the block size used for block tapering in model estimation
+        exit_tol_par=[];                %[double] >0]       (1x1) exit tolerance on parameters
+        exit_tol_loglike=[];            %[double] >0]       (1x1) exit tolerance on log-likelihood
+        partitions=0;                   %[integer>0]        (1x1) partitioning used in model estimation
         
         computation_time=[];            %[double]           (1x1) EM estimation time in seconds
         date_start=[];                  %[double]           (1x1) date of the start of the EM estimation

@@ -4,13 +4,23 @@
 %%% Author: Francesco Finazzi                                            %
 %%% E-mail: francesco.finazzi@unibg.it                                   %
 %%% Affiliation: University of Bergamo                                   %
-%%%              Dept. of Management, Information and Production Engineering %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
 %%% Author website: http://www.unibg.it/pers/?francesco.finazzi          %
+%%%                                                                      %
 %%% Author: Yaqiong Wang                                                 %
 %%% E-mail: yaqiongwang@pku.edu.cn                                       %
 %%% Affiliation: Peking University,                                      %
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
+%%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

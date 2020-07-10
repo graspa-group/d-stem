@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -149,7 +156,7 @@ classdef stem_kalman < handle
             disp(['    Kalman filter ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
         end
         
-        function [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,M] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel,block_tapering_block_size,workers)
+        function [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,M] = smoother(obj,compute_logL,enable_varcov_computation,time_steps,pathparallel,partitions,workers)
             %DESCRIPTION: Kalman smoother front-end method
             %
             %INPUT
@@ -159,7 +166,7 @@ classdef stem_kalman < handle
             %enable_varcov_computation      - [boolean]               (1x1)         (dafault: 0) 1:produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
             %time_steps                     - [integer >0]            (dTx1)        (default: []) the subset of time steps with respect to which compute the Kalman filter
             %pathparallel                   - [string]                (1x1)         (defalut: []) full or relative path of the folder to use for distributed computation
-            %block_tapering_block_size      - [integer >0]            (1x1)|(bx1)   (default: 0) the block dimension for block tapering or a vector of block sizes
+            %partitions      - [integer >0]            (1x1)|(bx1)   (default: 0) the block dimension for partitioning or a vector of block sizes
             %workers                        - [integer>0]             (1x1)         (default: 1)the number of matlab workers used for the estimation 
             %
             %    
@@ -184,11 +191,11 @@ classdef stem_kalman < handle
                 time_steps=[];
             end
             if nargin<5
-                block_tapering_block_size=0;
+                partitions=0;
             end
             if nargin>4
-                if isempty(block_tapering_block_size)
-                    block_tapering_block_size=0;
+                if isempty(partitions)
+                    partitions=0;
                 end
             end
             if nargin==4
@@ -256,14 +263,14 @@ classdef stem_kalman < handle
                     times=[];
                 end
                 
-                if sum(block_tapering_block_size)>0
+                if sum(partitions)>0
                     dim=data.dim;
                     if sum(diff(dim))>0
                         error('Block tapering is not yet supported in the multivariate heterotopic case');
                     end
                 end
                 
-                if sum(block_tapering_block_size)==0||not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))
+                if sum(partitions)==0||not(obj.stem_model.stem_data.stem_modeltype.is('f-HDGM'))
                     [zk_s,Pk_s,PPk_s,logL] = obj.Ksmoother(data.Y,data.X_bp,data.X_beta,data.X_z,...
                         data.X_p,times,par.beta,G,par.lambda,s_eta,sigma_W_b,...
                         sigma_W_p,sigma_eps,sigma_geo,aj_bp,M,z0,P0,...
@@ -275,10 +282,10 @@ classdef stem_kalman < handle
                     q=par.q;
                     if not(p==1)
                         blocks_data=[0 cumsum(dim)];
-                        if isscalar(block_tapering_block_size)
-                            blocks_tapering=0:block_tapering_block_size:dim(1);
+                        if isscalar(partitions)
+                            blocks_tapering=0:partitions:dim(1);
                         else
-                            blocks_tapering=[0 cumsum(block_tapering_block_size)];
+                            blocks_tapering=[0 cumsum(partitions)];
                         end
                         
                         if not(blocks_tapering(end)==dim(1))
@@ -392,7 +399,7 @@ classdef stem_kalman < handle
                                 P0_tap=P0(idx_tapering_p,idx_tapering_p);
                                 
                                 if not(isempty(aj_bp))
-                                    error('The block tapering is not available foe the data fusion model.')
+                                    error('The partitioning is not available foe the data fusion model.')
                                 end
                                 
                                 [zk_s_tap,Pk_s_tap,PPk_s_tap,logL_tap] = obj.Ksmoother(Y,X_bp,X_beta,X_z,...
@@ -444,7 +451,7 @@ classdef stem_kalman < handle
                             sigma_Z=sigma_Z_tap;
                         end
                     else
-                        error('Kalman block tapering for HDGM not yet implemented');
+                        error('Kalman partitioning for HDGM not yet implemented');
                     end
                 end
             end
@@ -458,8 +465,8 @@ classdef stem_kalman < handle
             %
             %INPUT
             %obj                            - [stem_kalman object]    (1x1)      stem_kalman object
-            %idx_tapering_q                 - [integer >0] (kx1)       the index of block tapering for response variable  
-            %idx_tapering_p                 - [integer >0] (kx1)       the index of block tapering for latent variable  
+            %idx_tapering_q                 - [integer >0] (kx1)       the index of partitioning for response variable  
+            %idx_tapering_p                 - [integer >0] (kx1)       the index of partitioning for latent variable  
             %time_diagonal                  - [boolean]    (1x1)       1: G and sigma_eta are diagonal matrice; 0:otherwise
             %enable_varcov_computation      - [boolean]    (1x1)       1: produce the output necessary to the computation of the variance-covariance matrix of the estimated model parameter; 0: the output is not produced
             %times                          - [double]     (Tx1)       the vector of times of observation. Must be empty if time steps are regular

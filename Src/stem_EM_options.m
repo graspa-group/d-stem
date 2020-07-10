@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -53,13 +60,15 @@ classdef stem_EM_options
     %B - dimension of vector of block dimensions
     
     properties
-        exit_toll=0.0001;                           %[double >0]  (1x1) the EM algorithm stops if the relative norm between two consecutive iterations is below exit_toll
+        exit_tol_par=0.0001;                        %[double >0]  (1x1) the EM algorithm stops if the maximum relative norm of the model parameters between two consecutive iterations is below exit_tol_par
+        exit_tol_loglike=0.0001;                    %[double >0]  (1x1) the EM algorithm stops if the relative norm of the log-likelihood between two consecutive iterations is below exit_tol_loglike
+
         max_iterations=100;                         %[integer >0] (1x1) the EM algorithm stops if the number of iterations exceed max_iterations
         fminsearch_max_iterations=100;              %[integer >0] (1x1) the fminsearch method used for updating model parameters stops if the number of iterations exceed fminsearch_max_iterations
        
         workers=1;                                  %[integer>0]  (1x1) the number of matlab workers used for EM algorithm
 
-        block_tapering_block_size=0;                %[integer >=0](1x1)|(Bx1) the dimension of blocks in block tapering or the Bx1 vector of block dimensions. If equal to 0, block tapering is NOT enabled
+        partitions=0;                               %[integer >=0](1x1)|(Bx1) the dimension each partition or the Bx1 vector partition sizes. If equal to 0, partitioning is NOT enabled
         compute_logL_at_all_steps=1;                %[boolean]    (1x1) 1: the observed data log-likelihood is evaluated at each iteration of the EM algorithm
         
         verbose=1;                                  %[boolean]    (1x1) 1: all the intermediate operations of the EM algorithm are displayed
@@ -69,31 +78,29 @@ classdef stem_EM_options
     end
     
     methods
-        function obj = stem_EM_options(exit_toll,max_iterations)
+        function obj = stem_EM_options()
             %DESCRIPTION: object constructor
             %
-            %INPUT
-            %exit_toll          - [double >0]              (1x1) the EM algorithm stops if: 1) the relative norm of the model parameter vector between two iterations is below exit toll; 2) the relative norm of the observed data log-likelihood between two iterations is below exit toll (if computed)
-            %max_iterations     - [integer >0]             (1x1) the EM algorithm stops if the number of iterations exceed max_iterations
-            %
             %OUTPUT
-            %obj                - [stem_EM_options object] (1x1)
-            
-            if nargin<2
-                error('exit_toll and max_iterations must be provided when creating objects of class stem_EM_options');
-            end
-            
-            obj.exit_toll=exit_toll;
-            obj.max_iterations=max_iterations;
+            %obj - [stem_EM_options object] (1x1)
         end
         
         %Class set methods
-        function obj = set.exit_toll(obj,exit_toll)
-            if not(isempty(exit_toll))
-                if exit_toll<=0
-                    error('The exit_toll must be >0');
+        function obj = set.exit_tol_par(obj,exit_tol_par)
+            if not(isempty(exit_tol_par))
+                if exit_tol_par<=0
+                    error('exit_tol_par must be >0');
                 end
-                obj.exit_toll=exit_toll;
+                obj.exit_tol_par=exit_tol_par;
+            end
+        end
+        
+        function obj = set.exit_tol_loglike(obj,exit_tol_loglike)
+            if not(isempty(exit_tol_loglike))
+                if exit_tol_loglike<=0
+                    error('exit_tol_loglike must be >0');
+                end
+                obj.exit_tol_loglike=exit_tol_loglike;
             end
         end
         
@@ -108,7 +115,7 @@ classdef stem_EM_options
         
         function obj = set.fminsearch_max_iterations(obj,fminsearch_max_iterations)
             if not(isempty(fminsearch_max_iterations))
-                if fmins  earch_max_iterations<=0
+                if fminsearch_max_iterations<=0
                     error('max_iterations for estimating parameter v and theta must be >0');
                 end
                 obj.fminsearch_max_iterations=fminsearch_max_iterations;
@@ -142,17 +149,17 @@ classdef stem_EM_options
             end
         end
        
-        function obj = set.block_tapering_block_size(obj,block_tapering_block_size)
-            if length(block_tapering_block_size)==1
-                if block_tapering_block_size<0
-                    error('block_tapering_block_size must be >=0');
+        function obj = set.partitions(obj,partitions)
+            if length(partitions)==1
+                if partitions<0
+                    error('partitions must be >=0');
                 end
             else
-                if sum(block_tapering_block_size<=0)>1
-                    error('The elements of block_tapering_block_size must be > 0');
+                if sum(partitions<=0)>1
+                    error('The elements of partitions must be > 0');
                 end
             end
-            obj.block_tapering_block_size=block_tapering_block_size;
+            obj.partitions=partitions;
         end
         
         function obj = set.workers(obj,workers)

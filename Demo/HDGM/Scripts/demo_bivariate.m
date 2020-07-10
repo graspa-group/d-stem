@@ -59,14 +59,14 @@ obj_stem_datestamp = stem_datestamp('01-01-2009 00:00','31-12-2009 00:00',T);
 
 %stem_data object creation
 shape = [];
-%obj_stem_crossval=[];
-S_xval1=1:5:n1;
-S_xval2=1:5:n2;
-obj_stem_crossval=stem_crossval({'no2 ground','pm2.5 ground'},{S_xval1,S_xval2},0,{'point','point'});
+%obj_stem_validation=[];
+S_val1=1:5:n1;
+S_val2=1:5:n2;
+obj_stem_validation=stem_validation({'no2 ground','pm2.5 ground'},{S_val1,S_val2},0,{'point','point'});
 
 obj_stem_modeltype = stem_modeltype('HDGM');
 obj_stem_data = stem_data(obj_stem_varset_p, obj_stem_gridlist_p, ...
-                          [], [], obj_stem_datestamp, obj_stem_crossval, obj_stem_modeltype, shape);
+                          [], [], obj_stem_datestamp, obj_stem_validation, obj_stem_modeltype, shape);
 
 %stem_par object creation
 obj_stem_par_constraints=stem_par_constraints();
@@ -100,7 +100,7 @@ obj_stem_model.set_logL;
 
 
 obj_stem_model.print;      
-% cross-validation result for no2
-obj_stem_model.plot_xval(0,'no2 ground');
-% cross-validation result for pm2.5
-obj_stem_model.plot_xval(0,'pm2.5 ground');
+% validation result for no2
+obj_stem_model.plot_val(0,'no2 ground');
+% validation result for pm2.5
+obj_stem_model.plot_val(0,'pm2.5 ground');

@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -56,6 +63,8 @@ classdef stem_krig_result < handle
     
     properties
         variable_name=[];       %[string]                (1x1) the name of the kriged variable
+        Y_unit={};              %[string]                (1x1) unit of variable y
+
         stem_grid=[];           %[stem_grid object]      (1x1) a stem_grid object with the information of the kriging grid
         stem_datestamp=[];      %[stem_datestamp object] (1x1) a stem_datestamp object with te information on the date stamps
         shape=[];               %[struct]                (1x1) boundary of the geographic region loaded from a shape file
@@ -247,6 +256,7 @@ classdef stem_krig_result < handle
                 global_idx=0;
             end
 
+            
             if nargin<4
                 
                 warning('The surface plot is about the \phi(h)z(s,t).')
@@ -278,160 +288,195 @@ classdef stem_krig_result < handle
                     y_hat = surface1;
                     diag_Var_y_hat = v;
                 end
-                
-                if nargout==0
-                    
-                    lat=reshape(obj.stem_grid.coordinate(:,1),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
-                    lon=reshape(obj.stem_grid.coordinate(:,2),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
-                    figure;
-                    if global_idx
-                        
-                        
-                        axesm eckert4; 
-                        framem; gridm;
-                        axis off
-                        
-                        title(['\phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+                  
+                lat=reshape(obj.stem_grid.coordinate(:,1),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
+                lon=reshape(obj.stem_grid.coordinate(:,2),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
 
-                        hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
+                if global_idx
+
+                    f1=figure;
+                    axesm eckert4; 
+                    framem; gridm;
+                    axis off
+
+                    title(['\phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
                         end
-                        
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit);
-                            ylabel(obj.stem_grid.unit);
-                        end
-
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...,
-                            'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
-
-                        cl = colorbar;
-                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-
-                        figure;
-                        axesm eckert4; 
-                        framem; gridm;
-                        axis off
-                        
-                        temp=sqrt(v);
-                        title(['Std of \phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
-
-                        hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
-                        end
-
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit,'FontSize',14);
-                            ylabel(obj.stem_grid.unit,'FontSize',14);
-                        end    
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
-                            'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
-
-                        cl = colorbar;
-                        cl.Limits=[min(temp(:)) max(temp(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-                    else
-                        
-                        subplot(1,2,1); 
-                        
-                        hold on
-                        title(['\phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
-
-                        hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
-                        end
-
-                        axis equal
-                        xlim([min(lon(:)),max(lon(:))]);
-                        ylim([min(lat(:)),max(lat(:))]);
-                        
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit);
-                            ylabel(obj.stem_grid.unit);
-                        end
-
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','w');
-
-                        cl = colorbar;
-                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-
-                        subplot(1,2,1); 
-                        hold on
-                        temp=sqrt(v);
-                        title(['Std of \phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
-
-                        hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
-                        end
-                        
-                        axis equal
-                        xlim([min(lon(:)),max(lon(:))]);
-                        ylim([min(lat(:)),max(lat(:))]);
-
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit,'FontSize',14);
-                            ylabel(obj.stem_grid.unit,'FontSize',14);
-                        end    
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','w');
-
-                        cl = colorbar;
-                        cl.Limits=[min(temp(:)) max(temp(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-                        
                     end
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit);
+                        ylabel(obj.stem_grid.unit);
+                    end
+
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...,
+                        'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    
+                    if min(surface1(:))*max(surface1(:))>0
+                        colormap(f1,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
+                    else
+                        colormap(f1,stem_misc.get_d_colormap())
+                        cl = colorbar;
+                        caxis( [-max(abs(surface1(:))) max(abs(surface1(:)))] ); 
+                    end
+                    ylabel(cl,['[',obj.Y_unit,']']);
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+
+                    f2=figure;
+                    axesm eckert4; 
+                    framem; gridm;
+                    axis off
+
+                    temp=sqrt(v);
+                    title(['Std of \phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
+                        end
+                    end
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit,'FontSize',14);
+                        ylabel(obj.stem_grid.unit,'FontSize',14);
+                    end    
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
+                        'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(temp(:))*max(temp(:))>0
+                        colormap(f2,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(temp(:)) max(temp(:))]; 
+                    else
+                        colormap(f2,stem_misc.get_d_colormap())
+                        cl = colorbar;
+                        caxis( [-max(abs(temp(:))) max(abs(temp(:)))] ); 
+                    end
+                    ylabel(cl,['[',obj.Y_unit,']']);
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+                else
+
+                    figure;
+                    ax1=subplot(1,2,1); 
+
+                    hold on
+                    title(['\phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
+                        end
+                    end
+
+                    axis equal
+                    xlim([min(lon(:)),max(lon(:))]);
+                    ylim([min(lat(:)),max(lat(:))]);
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit);
+                        ylabel(obj.stem_grid.unit);
+                    end
+
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
+                        'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(surface1(:))*max(surface1(:))>0
+                        colormap(ax1,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
+                    else
+                        colormap(ax1,stem_misc.get_d_colormap())
+                        cl = colorbar;
+                        caxis( [-max(abs(surface1(:))) max(abs(surface1(:)))] );
+                    end
+                    ylabel(cl,['[',obj.Y_unit,']']);
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+
+                    ax2=subplot(1,2,2); 
+                    hold on
+                    temp=sqrt(v);
+                    title(['Std of \phi(h)''z(s,t) on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
+                        end
+                    end
+
+                    axis equal
+                    xlim([min(lon(:)),max(lon(:))]);
+                    ylim([min(lat(:)),max(lat(:))]);
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit,'FontSize',14);
+                        ylabel(obj.stem_grid.unit,'FontSize',14);
+                    end    
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
+                        'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(temp(:))*max(temp(:))>0
+                        colormap(ax2,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(temp(:)) max(temp(:))]; 
+                    else
+                        colormap(ax2,stem_misc.get_d_colormap())
+                        cl = colorbar;
+                        caxis( [-max(abs(temp(:))) max(abs(temp(:)))] ); 
+                    end
+                    ylabel(cl,['[',obj.Y_unit,']']);
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
                 end
             else
-                
                 if obj.stem_fda.flag_beta_spline==1
                     k=obj.stem_fda.spline_nbasis_beta;
                     if size(X_beta,3)~=(length(obj.stem_par.beta)/k)
@@ -484,163 +529,196 @@ classdef stem_krig_result < handle
                     diag_Var_y_hat = v;
                 end
 
-                if nargout==0
-                    
-                    lat=reshape(obj.stem_grid.coordinate(:,1),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
-                    lon=reshape(obj.stem_grid.coordinate(:,2),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
-                    figure;
-                    if global_idx
-                        
-                        axesm eckert4; 
-                        framem; gridm;
-                        axis off
 
-                        temp1=strsplit(obj.variable_name,'_');
-                        title([temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+                lat=reshape(obj.stem_grid.coordinate(:,1),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
+                lon=reshape(obj.stem_grid.coordinate(:,2),obj.stem_grid.grid_size(1),obj.stem_grid.grid_size(2));
 
-                        hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
+                if global_idx
+
+                    f1=figure;
+                    axesm eckert4; 
+                    framem; gridm;
+                    axis off
+
+                    temp1=strsplit(obj.variable_name,'_');
+                    title([temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
                         end
-                        
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit);
-                            ylabel(obj.stem_grid.unit);
-                        end
-
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
-
-                        cl = colorbar;
-                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-
-                        
-                        figure;
-                        axesm eckert4; 
-                        framem; gridm;
-                        axis off
-                        
-                        temp=sqrt(v);
-                        temp1=strsplit(obj.variable_name,'_');
-                        title(['Std of ',temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
-
-                        hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
-                        end
-                        
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit,'FontSize',14);
-                            ylabel(obj.stem_grid.unit,'FontSize',14);
-                        end    
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
-
-                        cl = colorbar;
-                        cl.Limits=[min(temp(:)) max(temp(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-                    else
-                        subplot(1,2,1); 
-                        hold on
-
-                        temp1=strsplit(obj.variable_name,'_');
-                        title([temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),...
-                            ' @ h=',num2str(h)],'FontSize',14);
-
-                        hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
-                        end
-                       
-                        axis equal
-                        xlim([min(lon(:)),max(lon(:))]);
-                        ylim([min(lat(:)),max(lat(:))]);
-                       
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit);
-                            ylabel(obj.stem_grid.unit);
-                        end
-
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
-                            'DisplayType','multipoint','Marker','*','MarkerEdgeColor','w');
-
-                        cl = colorbar;
-                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
-
-                        subplot(1,2,2);
-                        hold on
-                        
-                        temp=sqrt(v);
-                        temp1=strsplit(obj.variable_name,'_');
-                        title(['Std of ',temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),...
-                            ' @ h=',num2str(h)],'FontSize',14);
-
-                        hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
-                        set(hh,'FaceColor','flat');
-                        if not(isempty(obj.shape))
-                            try
-                                geoshow(obj.shape,'FaceColor','none');
-                            catch
-                                geoshow(obj.shape);
-                            end
-                        end
-                        
-                        axis equal
-                        xlim([min(lon(:)),max(lon(:))]);
-                        ylim([min(lat(:)),max(lat(:))]);
-                        
-                        if strcmp(obj.stem_grid.unit,'deg')
-                            xlabel('Longitude [deg]','FontSize',14);
-                            ylabel('Latitude [deg]','FontSize',14);
-                        else
-                            xlabel(obj.stem_grid.unit,'FontSize',14);
-                            ylabel(obj.stem_grid.unit,'FontSize',14);
-                        end    
-                        geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
-                            'DisplayType','multipoint','Marker','*','MarkerEdgeColor','w');
-
-                        cl = colorbar;
-                        cl.Limits=[min(temp(:)) max(temp(:))]; 
-                        grid on;
-                        box on;
-                        set(gca,'FontSize',14);
-                        set(gcf, 'renderer', 'zbuffer');
                     end
 
-                end         
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit);
+                        ylabel(obj.stem_grid.unit);
+                    end
+
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(surface1(:))*max(surface1(:))>0
+                        colormap(f1,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
+                    else
+                        colormap(f1,stem_misc.get_d_colormap())
+                        colorbar;
+                        caxis( [-max(abs(surface1(:))) max(abs(surface1(:)))] ); 
+                    end
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+
+
+                    f2=figure;
+                    axesm eckert4; 
+                    framem; gridm;
+                    axis off
+
+                    temp=sqrt(v);
+                    temp1=strsplit(obj.variable_name,'_');
+                    title(['Std of ',temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
+                        end
+                    end
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit,'FontSize',14);
+                        ylabel(obj.stem_grid.unit,'FontSize',14);
+                    end    
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(temp(:))*max(temp(:))>0
+                        colormap(f2,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(temp(:)) max(temp(:))]; 
+                    else
+                        colormap(f2,stem_misc.get_d_colormap())
+                        colorbar;
+                        caxis( [-max(abs(temp(:))) max(abs(temp(:)))] ); 
+                    end
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+                else
+                    
+                    figure;
+                    ax1=subplot(1,2,1); 
+                    hold on
+
+                    temp1=strsplit(obj.variable_name,'_');
+                    title([temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),...
+                        ' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,surface1,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
+                        end
+                    end
+
+                    axis equal
+                    xlim([min(lon(:)),max(lon(:))]);
+                    ylim([min(lat(:)),max(lat(:))]);
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit);
+                        ylabel(obj.stem_grid.unit);
+                    end
+
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
+                        'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(surface1(:))*max(surface1(:))>0
+                        colormap(ax1,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(surface1(:)) max(surface1(:))]; 
+                    else
+                        colormap(ax1,stem_misc.get_d_colormap())
+                        colorbar;
+                        caxis( [-max(abs(surface1(:))) max(abs(surface1(:)))] ); 
+                    end
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+
+                    ax2=subplot(1,2,2);
+                    hold on
+
+                    temp=sqrt(v);
+                    temp1=strsplit(obj.variable_name,'_');
+                    title(['Std of ',temp1{1},' on ',datestr(obj.stem_datestamp.stamp(t)),...
+                        ' @ h=',num2str(h)],'FontSize',14);
+
+                    hh = geoshow(lat,lon,temp,'DisplayType','texturemap');
+                    set(hh,'FaceColor','flat');
+                    if not(isempty(obj.shape))
+                        try
+                            geoshow(obj.shape,'FaceColor','none');
+                        catch
+                            geoshow(obj.shape);
+                        end
+                    end
+
+                    axis equal
+                    xlim([min(lon(:)),max(lon(:))]);
+                    ylim([min(lat(:)),max(lat(:))]);
+
+                    if strcmp(obj.stem_grid.unit,'deg')
+                        xlabel('Longitude [deg]','FontSize',14);
+                        ylabel('Latitude [deg]','FontSize',14);
+                    else
+                        xlabel(obj.stem_grid.unit,'FontSize',14);
+                        ylabel(obj.stem_grid.unit,'FontSize',14);
+                    end    
+                    geoshow(obj.stem_grid_sites.coordinate(:,1),obj.stem_grid_sites.coordinate(:,2),...
+                        'DisplayType','multipoint','Marker','*','MarkerEdgeColor','k');
+
+                    if min(temp(:))*max(temp(:))>0
+                        colormap(ax2,flipud(stem_misc.get_s_colormap()))
+                        cl = colorbar;
+                        cl.Limits=[min(temp(:)) max(temp(:))]; 
+                    else
+                        colormap(ax2,stem_misc.get_d_colormap())
+                        colorbar;
+                        caxis( [-max(abs(temp(:))) max(abs(temp(:)))] ); 
+                    end
+                    
+                    grid on;
+                    box on;
+                    set(gca,'FontSize',14);
+                    set(gcf, 'renderer', 'zbuffer');
+                end
+         
             end
         
         end
@@ -708,64 +786,63 @@ classdef stem_krig_result < handle
                 quant = [0.005, 0.025, 0.05];
                 
                 
-                if nargout==0
-                    figure;
-                    ax1=subplot(1,2,1);
-                    if vertical
-                        plot(profile,basis_range);
-                        for j=1:3
-                            coef = -norminv(quant(j),0,1);
-                            profile1_up = profile+coef*std_spline;
-                            profile1_low = profile-coef*std_spline;  
-                            patch([profile1_up' fliplr(profile1_low')],[basis_range fliplr(basis_range)],'r','FaceAlpha',0.15,'EdgeAlpha',0)
-                        end
-                        ylim([b_range(1), b_range(2)])
-                     
-                        xlabel('\phi(h)''z(s,t)','FontSize',14);
-                        ylabel('h','FontSize',14);
-                        set(gca,'Ydir','reverse','FontSize',14);
-                        ylim([b_range(1), b_range(2)]);
-                        axis square
-                        
-                        title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-
-                        ax2=subplot(1,2,2);
-                        imagesc(basis_range,basis_range,v_spline);
-                        title(['h-varcov(\phi(h)''z(s,t)) Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-                        xlabel('h','FontSize',14);
-                        ylabel('h','FontSize',14);
-                        set(gca,'Xdir','reverse','FontSize',14);
-                        colorbar
-                        axis square
-                        ax2.Position(2:4)=ax1.Position(2:4);
-                        ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
-                    else
-                        plot(basis_range,profile,'k');
-                        for j=1:3
-                            coef = -norminv(quant(j),0,1);
-                            profile1_up = profile+coef*std_spline;
-                            profile1_low = profile-coef*std_spline;  
-                            patch([basis_range fliplr(basis_range)],[profile1_up' fliplr(profile1_low')],'r','FaceAlpha',0.15,'EdgeAlpha',0)
-                        end
-                        xlim([b_range(1), b_range(2)])
-                        ylabel('\phi(h)''z(s,t)','FontSize',14);
-                        xlabel('h','FontSize',14);
-                        axis square
-                        
-                        title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-
-                        ax2=subplot(1,2,2);
-                        imagesc(basis_range,basis_range,v_spline);
-                        title(['h-varcov(\phi(h)''z(s,t)) Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-                        xlabel('h','FontSize',14);
-                        ylabel('h','FontSize',14);
-                        set(gca,'Ydir','normal','FontSize',14);
-                        colorbar
-                        axis square
-                        ax2.Position(2:4)=ax1.Position(2:4);
-                        ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
+                figure;
+                ax1=subplot(1,2,1);
+                if vertical
+                    plot(profile,basis_range);
+                    for j=1:3
+                        coef = -norminv(quant(j),0,1);
+                        profile1_up = profile+coef*std_spline;
+                        profile1_low = profile-coef*std_spline;  
+                        patch([profile1_up' fliplr(profile1_low')],[basis_range fliplr(basis_range)],'r','FaceAlpha',0.15,'EdgeAlpha',0)
                     end
-                    
+                    ylim([b_range(1), b_range(2)])
+
+                    xlabel('\phi(h)''z(s,t)','FontSize',14);
+                    ylabel('h','FontSize',14);
+                    set(gca,'Ydir','reverse','FontSize',14);
+                    ylim([b_range(1), b_range(2)]);
+                    axis square
+
+                    title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+
+                    ax2=subplot(1,2,2);
+                    imagesc(basis_range,basis_range,v_spline);
+                    title(['h-varcov(\phi(h)''z(s,t)) Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+                    xlabel('h','FontSize',14);
+                    ylabel('h','FontSize',14);
+                    set(gca,'Xdir','reverse','FontSize',14);
+                    colormap(ax2,flipud(stem_misc.get_s_colormap()))
+                    colorbar
+                    axis square
+                    ax2.Position(2:4)=ax1.Position(2:4);
+                    ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
+                else
+                    plot(basis_range,profile,'k');
+                    for j=1:3
+                        coef = -norminv(quant(j),0,1);
+                        profile1_up = profile+coef*std_spline;
+                        profile1_low = profile-coef*std_spline;  
+                        patch([basis_range fliplr(basis_range)],[profile1_up' fliplr(profile1_low')],'r','FaceAlpha',0.15,'EdgeAlpha',0)
+                    end
+                    xlim([b_range(1), b_range(2)])
+                    ylabel('\phi(h)''z(s,t)','FontSize',14);
+                    xlabel('h','FontSize',14);
+                    axis square
+
+                    title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+
+                    ax2=subplot(1,2,2);
+                    imagesc(basis_range,basis_range,v_spline);
+                    title(['h-varcov(\phi(h)''z(s,t)) Lat ',num2str(lat),' Lon ',num2str(lon),' on ',datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+                    xlabel('h','FontSize',14);
+                    ylabel('h','FontSize',14);
+                    set(gca,'Ydir','normal','FontSize',14);
+                    colormap(ax2,flipud(stem_misc.get_s_colormap()))
+                    colorbar
+                    axis square
+                    ax2.Position(2:4)=ax1.Position(2:4);
+                    ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
                 end
                 
             else
@@ -818,71 +895,69 @@ classdef stem_krig_result < handle
                     diag_Var_y_hat = std_spline;
                 end
                 quant = [0.005, 0.025, 0.05];
-                if nargout==0
-                    figure;
-                    ax1=subplot(1,2,1);
-                    if vertical
-                        plot(profile1,basis_range);
-                        for j=1:3
-                            coef = -norminv(quant(j),0,1);
-                            profile1_up = profile1+coef*std_spline;
-                            profile1_low = profile1-coef*std_spline;  
-                            patch([profile1_up' fliplr(profile1_low')],[basis_range fliplr(basis_range)],...
-                                'r','FaceAlpha',0.15,'EdgeAlpha',0)
-                        end
-                        ylim([b_range(1), b_range(2)]);
-                        xlabel(obj.variable_name,'FontSize',14);
-                        ylabel('h','FontSize',14);
-                        set(gca,'Ydir','reverse','FontSize',14); 
-                        axis square
-                        title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
-                            datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-
-                        ax2=subplot(1,2,2);
-                        imagesc(basis_range,basis_range,v_spline);
-                        title(['h-varcov(',obj.variable_name,') Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
-                            datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-                        xlabel('h','FontSize',14);
-                        ylabel('h','FontSize',14);
-                        set(gca,'Xdir','reverse','FontSize',14);
-                        axis square 
-                        colorbar
-                        ax2.Position(2:4)=ax1.Position(2:4);
-                        ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
-                    else
-                        plot(basis_range,profile1,'k');
-                        for j=1:3
-                            coef = -norminv(quant(j),0,1);
-                            profile1_up = profile1+coef*std_spline;
-                            profile1_low = profile1-coef*std_spline;  
-                            patch([basis_range fliplr(basis_range)],[profile1_up' fliplr(profile1_low')],'r','FaceAlpha',0.15,'EdgeAlpha',0)
-                        end
-                        xlim([b_range(1), b_range(2)]);
-                        ylabel(obj.variable_name,'FontSize',14);
-                        xlabel('h','FontSize',14);
-                        set(gca,'FontSize',14); 
-                        axis square
-                        title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
-                            datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-                        
-                        ax2=subplot(1,2,2);
-                        imagesc(basis_range,basis_range,v_spline);
-                        title(['h-varcov(',obj.variable_name,') Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
-                            datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
-                        xlabel('h','FontSize',14);
-                        ylabel('h','FontSize',14);
-                        set(gca,'Ydir','normal','FontSize',14);
-                        axis square 
-                        colorbar
-                        ax2.Position(2:4)=ax1.Position(2:4);
-                        ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
-                    end
-                    
-                end
                 
-            end
+                figure;
+                ax1=subplot(1,2,1);
+                if vertical
+                    plot(profile1,basis_range);
+                    for j=1:3
+                        coef = -norminv(quant(j),0,1);
+                        profile1_up = profile1+coef*std_spline;
+                        profile1_low = profile1-coef*std_spline;  
+                        patch([profile1_up' fliplr(profile1_low')],[basis_range fliplr(basis_range)],...
+                            'r','FaceAlpha',0.15,'EdgeAlpha',0)
+                    end
+                    ylim([b_range(1), b_range(2)]);
+                    xlabel(obj.variable_name,'FontSize',14);
+                    ylabel('h','FontSize',14);
+                    set(gca,'Ydir','reverse','FontSize',14); 
+                    axis square
+                    title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
+                        datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
 
+                    ax2=subplot(1,2,2);
+                    imagesc(basis_range,basis_range,v_spline);
+                    title(['h-varcov(',obj.variable_name,') Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
+                        datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+                    xlabel('h','FontSize',14);
+                    ylabel('h','FontSize',14);
+                    set(gca,'Xdir','reverse','FontSize',14);
+                    axis square 
+                   
+                    colormap(ax2,flipud(stem_misc.get_s_colormap()))
+                    colorbar
+                    ax2.Position(2:4)=ax1.Position(2:4);
+                    ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
+                else
+                    plot(basis_range,profile1,'k');
+                    for j=1:3
+                        coef = -norminv(quant(j),0,1);
+                        profile1_up = profile1+coef*std_spline;
+                        profile1_low = profile1-coef*std_spline;  
+                        patch([basis_range fliplr(basis_range)],[profile1_up' fliplr(profile1_low')],'r','FaceAlpha',0.15,'EdgeAlpha',0)
+                    end
+                    xlim([b_range(1), b_range(2)]);
+                    ylabel(obj.variable_name,'FontSize',14);
+                    xlabel('h','FontSize',14);
+                    set(gca,'FontSize',14); 
+                    axis square
+                    title(['Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
+                        datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+
+                    ax2=subplot(1,2,2);
+                    imagesc(basis_range,basis_range,v_spline);
+                    title(['h-varcov(',obj.variable_name,') Lat ',num2str(lat),' Lon ',num2str(lon),' on ',...
+                        datestr(obj.stem_datestamp.stamp(t))],'FontSize',14);
+                    xlabel('h','FontSize',14);
+                    ylabel('h','FontSize',14);
+                    set(gca,'Ydir','normal','FontSize',14);
+                    axis square
+                    colormap(ax2,flipud(stem_misc.get_s_colormap()))
+                    colorbar
+                    ax2.Position(2:4)=ax1.Position(2:4);
+                    ax2.PlotBoxAspectRatio=ax1.PlotBoxAspectRatio;
+                end
+            end
         end 
-        
     end
 end

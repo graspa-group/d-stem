@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1075,8 +1082,6 @@ classdef stem_misc
             
             Y=cell(Max_q,1);
             Y_name=cell(Max_q,1);
-            X_beta=cell(Max_q,1);
-            X_beta_name=cell(Max_q,1);
             X_h=cell(Max_q,1);
             
             DataTable.Max_q=ones(height(DataTable),1)*Max_q;
@@ -1147,44 +1152,60 @@ classdef stem_misc
             
             %X_beta
             k=strfind(DataTable.Properties.VariableNames,'X_beta');
-            counter=1;
-            X_beta_name_tmp=[];
-            X_beta_unit=[];
+            count_beta=0;
             for varidx=1:size(DataTable,2)
                 if k{varidx}
-                    temp=[];
-                    B=rowfun(@stem_misc.addNaNs,DataTable(:,[varidx,size(DataTable,2)]),'OutputVariableNames','tmp');
-                    DataTable1 = [DataTable,B];
-                    for s=1:N
-                        tmp=nan(T,Max_q);
-                        date_tmp=DataTable1.Time_step(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2));
-                        t_idx=[];
-                        for d=1:length(date_tmp)
-                            t_idx=cat(1,t_idx,find(date_num_fix==date_tmp(d)));
-                        end
-                        tmp(t_idx,:)=cell2mat(DataTable1.tmp(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2)));
-                        temp=cat(1,temp,tmp);
-                    end
-                    tmp_name=strsplit(DataTable.Properties.VariableNames{varidx},'_');
-                    X_beta_name_tmp=cat(1,X_beta_name_tmp,tmp_name(end));
-                    missing_rate=sum(isnan(temp(:)))/numel(temp);
-                    if missing_rate>0.5
-                        warning(['The missing rate of X_beta_',tmp_name{end},' is ', num2str(missing_rate*100),'%'])
-                    end
-                    for i=1:Max_q
-                        X_beta{i}(:,counter,:)=reshape(temp(:,i),T,[])';   
-                    end
-                    counter=counter+1;
-                    if flag_unit&&not(isempty(DataTable.Properties.VariableUnits{varidx}))
-                        X_beta_unit = cat(1,X_beta_unit,{DataTable.Properties.VariableUnits{varidx}});
-                    else
-                        X_beta_unit = cat(1,X_beta_unit,[]);
-                    end
+                    count_beta=count_beta+1;
                 end
-            end 
-            for i=1:Max_q
-                X_beta_name{i}=X_beta_name_tmp;
             end
+            if count_beta>0
+                X_beta=cell(Max_q,1);
+                X_beta_name=cell(Max_q,1);
+                
+                counter=1;
+                X_beta_name_tmp=[];
+                X_beta_unit=[];
+                for varidx=1:size(DataTable,2)
+                    if k{varidx}
+                        temp=[];
+                        B=rowfun(@stem_misc.addNaNs,DataTable(:,[varidx,size(DataTable,2)]),'OutputVariableNames','tmp');
+                        DataTable1 = [DataTable,B];
+                        for s=1:N
+                            tmp=nan(T,Max_q);
+                            date_tmp=DataTable1.Time_step(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2));
+                            t_idx=[];
+                            for d=1:length(date_tmp)
+                                t_idx=cat(1,t_idx,find(date_num_fix==date_tmp(d)));
+                            end
+                            tmp(t_idx,:)=cell2mat(DataTable1.tmp(DataTable1.Y_coordinate==LatLon(s,1)&DataTable1.X_coordinate==LatLon(s,2)));
+                            temp=cat(1,temp,tmp);
+                        end
+                        tmp_name=strsplit(DataTable.Properties.VariableNames{varidx},'_');
+                        X_beta_name_tmp=cat(1,X_beta_name_tmp,tmp_name(end));
+                        missing_rate=sum(isnan(temp(:)))/numel(temp);
+                        if missing_rate>0.5
+                            warning(['The missing rate of X_beta_',tmp_name{end},' is ', num2str(missing_rate*100),'%'])
+                        end
+                        for i=1:Max_q
+                            X_beta{i}(:,counter,:)=reshape(temp(:,i),T,[])';   
+                        end
+                        counter=counter+1;
+                        if flag_unit&&not(isempty(DataTable.Properties.VariableUnits{varidx}))
+                            X_beta_unit = cat(1,X_beta_unit,{DataTable.Properties.VariableUnits{varidx}});
+                        else
+                            X_beta_unit = cat(1,X_beta_unit,[]);
+                        end
+                    end
+                end 
+                for i=1:Max_q
+                    X_beta_name{i}=X_beta_name_tmp;
+                end
+            else
+                X_beta=[];
+                X_beta_name=[];
+                X_beta_unit=[];
+            end
+            
                 
             X_bp=[];
             X_bp_name=[];
@@ -1249,6 +1270,96 @@ classdef stem_misc
             %DESCRIPTION: get the D-STEM version
             
             ver_name= 'D-STEM v2';
+        end
+        
+        function [map]=get_s_colormap()
+            %DESCRIPTION: get a sequential colormap to plot
+            
+            map=[ 0.557,0.024,0.231;
+                  0.584,0.106,0.243;
+                  0.612,0.161,0.255;
+                  0.639,0.204,0.263;
+                  0.663,0.239,0.275;
+                  0.690,0.278,0.282;
+                  0.714,0.310,0.294;
+                  0.737,0.341,0.302;
+                  0.757,0.373,0.310;
+                  0.780,0.404,0.318;
+                  0.800,0.435,0.325;
+                  0.820,0.463,0.333;
+                  0.839,0.490,0.341;
+                  0.855,0.518,0.349;
+                  0.871,0.541,0.357;
+                  0.886,0.569,0.365;
+                  0.898,0.592,0.373;
+                  0.910,0.616,0.376;
+                  0.922,0.639,0.384;
+                  0.929,0.659,0.392;
+                  0.941,0.682,0.400;
+                  0.945,0.702,0.408;
+                  0.953,0.722,0.412;
+                  0.957,0.737,0.420;
+                  0.961,0.757,0.427;
+                  0.965,0.773,0.435;
+                  0.965,0.788,0.443;
+                  0.965,0.804,0.455;
+                  0.965,0.820,0.463;
+                  0.961,0.831,0.471;
+                  0.957,0.847,0.482;
+                  0.953,0.855,0.490;
+                  0.949,0.867,0.502;
+                  0.941,0.878,0.514;
+                  0.933,0.886,0.525;
+                  0.925,0.894,0.537;
+                  0.918,0.898,0.553;
+                  0.906,0.902,0.573;
+                  0.898,0.906,0.600;
+                  0.886,0.902,0.741];
+        end
+        
+        function [map]=get_d_colormap()
+            %DESCRIPTION: get a diverging colormap to plot
+            
+            map = [0.008,0.247,0.647;
+                  0.173,0.294,0.643;
+                  0.251,0.341,0.651;
+                  0.314,0.384,0.667;
+                  0.369,0.427,0.682;
+                  0.420,0.471,0.698;
+                  0.471,0.510,0.718;
+                  0.514,0.549,0.737;
+                  0.557,0.588,0.753;
+                  0.600,0.624,0.769;
+                  0.639,0.663,0.788;
+                  0.678,0.694,0.804;
+                  0.714,0.725,0.816;
+                  0.745,0.757,0.831;
+                  0.776,0.788,0.843;
+                  0.804,0.812,0.855;
+                  0.831,0.835,0.867;
+                  0.855,0.855,0.875;
+                  0.871,0.875,0.882;
+                  0.886,0.886,0.886;
+                  0.886,0.882,0.886;
+                  0.882,0.871,0.875;
+                  0.878,0.851,0.855;
+                  0.871,0.827,0.835;
+                  0.863,0.800,0.812;
+                  0.851,0.769,0.784;
+                  0.839,0.737,0.753;
+                  0.827,0.702,0.722;
+                  0.812,0.663,0.690;
+                  0.796,0.624,0.655;
+                  0.780,0.580,0.616;
+                  0.761,0.533,0.580;
+                  0.741,0.490,0.537;
+                  0.722,0.439,0.498;
+                  0.698,0.388,0.455;
+                  0.675,0.337,0.412;
+                  0.647,0.278,0.369;
+                  0.620,0.220,0.325;
+                  0.588,0.145,0.278;
+                  0.557,0.024,0.231];
         end
 
     end

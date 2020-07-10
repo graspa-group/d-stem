@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -263,7 +270,9 @@ classdef stem_varset < handle
                                 error('All the X_beta{i} must have the same temporal dimension');
                             end
                         else
-                            X_beta{i}=zeros(size(Y{i},1),1,T_max);
+                            if not(isempty(T_max))
+                                X_beta{i}=zeros(size(Y{i},1),1,T_max);
+                            end
                         end
                     end
                     obj.X_beta=X_beta;
@@ -514,8 +523,8 @@ classdef stem_varset < handle
                         m1=0;
                         std1=1;
                     else
-                        m1=mean(temp(:));
-                        std1=std(temp(:));
+                        m1=nanmean(temp(:));
+                        std1=nanstd(temp(:));
                         if std1==0
                             m1=0;
                             std1=1;

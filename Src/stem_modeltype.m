@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -54,7 +61,7 @@ classdef stem_modeltype < handle
     properties
         model_name;             %[string]       (1x1) the name of the model either 'DCM' (Dynamic Coregionalization Model), 'HDGM' (Hidden Dynamic Geostatistical Model), 'f-HDGM' (functional Hidden Dynamic Geostatistical Model), 'MBC' (Model-based clustering) or 'Emulator'
         clustering_type;        %[string]       (1x1) the type of clusterig if model_name is 'MBC'. Can be either 'Monopoles' or 'Dipoles'.
-        clustering_error_type;  %[string]       (1x1) the way the model parameter sigma_eps is computed. Can be either 'Shared', 'Proportional' or 'Dynamic'.
+        clustering_error_type;  %[string]       (1x1) the way the model parameter sigma_eps is computed. Can be either 'Shared' or 'Dynamic'.
     end
 
     methods
@@ -117,11 +124,11 @@ classdef stem_modeltype < handle
             %
             %INPUT
             %obj                    -   [stem_modeltype object] (1x1) the stem_modeltype object  
-            %clustering_error_type  -   [string]  (1x1) the way the model parameter sigma_eps is computed. Can be either 'Shared', 'Proportional' or 'Dynamic'.
+            %clustering_error_type  -   [string]  (1x1) the way the model parameter sigma_eps is computed. Can be either 'Shared' or 'Dynamic'.
             %
             %OUTPUT
             %res                    -   [boolean] (1x1) 1 (true) if the two are identical and 0 (false) otherwise 
-             res = strcmpi(obj.clustering_error_type,clustering_error_type);
+            res = strcmpi(obj.clustering_error_type,clustering_error_type);
         end
        
         %Class set methods
@@ -140,8 +147,8 @@ classdef stem_modeltype < handle
         end 
         
         function set.clustering_error_type(obj,clustering_error_type)
-            if sum(strcmpi(clustering_error_type,{'Shared','Proportional','Dynamic'}))==0
-                error('The clustering_error_type input argument must be either ''Shared'', ''Proportional'' or ''Dynamic''');
+            if sum(strcmpi(clustering_error_type,{'Shared','Dynamic'}))==0
+                error('The clustering_error_type input argument must be either ''Shared'' or ''Dynamic''');
             end
             obj.clustering_error_type=clustering_error_type;
         end

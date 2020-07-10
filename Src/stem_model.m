@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -70,14 +77,14 @@ classdef stem_model < handle
         DistMat_b=[];               %[double]   (N_bxN_b) distance matrix of the pixel sites
         DistMat_z=[];               %[double]   (N_rxN_r)|{2}x(N_pxN_p) distance matrix of the latent variable z when model_name is 'HDGM' or 'f-HDGM'. It is evaluated only if y and z are not 1:1
         
-        cross_validation=0;         %[boolean]  (1x1) 0: the model has been estimated considering all the data; 1: the model has bee estimated excluding the cross-validation data.
+        cross_validation=0;         %[boolean]  (1x1) 0: the model has been estimated considering all the data; 1: the model has bee estimated excluding the validation data.
         product_step=-1;            %[integer]  (1x1) the size of blocks when the operation diag(A*B) is performed, where A and B are matrices
         tapering=[];                %[boolean]  (1x1) 0:tapering is not enabled; 1:tapering is enabled on point sites or pixel sites
         tapering_b=[];              %[boolean]  (1x1) 0:tapering is not enabled on pixel sites; 1:tapering is enabled on pixel sites
         tapering_p=[];              %[boolean]  (1x1) 0:tapering is not enabled on point sites; 1:tapering is enabled on point sites
        
         stem_EM_result=[];          %[stem_EM_result object] (1x1) object containing all the results of the EM estimation
-        stem_crossval_result=[];    %[stem_crossval_result object] {dqx1} the objects including the cross-validation results for each variable
+        stem_validation_result=[];    %[stem_validation_result object] {dqx1} the objects including the validation results for each variable
     end
     
     methods
@@ -362,16 +369,6 @@ classdef stem_model < handle
             else
                 if strcmp(obj.stem_data.stem_modeltype.clustering_error_type,'Shared')
                     d=repmat(obj.stem_par.sigma_eps(1,1),dim(1),1);
-                    I=1:length(d);
-                    sigma_eps=sparse(I,I,d);
-                end
-                if strcmp(obj.stem_data.stem_modeltype.clustering_error_type,'Proportional')
-                    d=repmat(obj.stem_par.sigma_eps(1,1),dim(1),1);
-                    std_variance=obj.stem_data.stem_varset_p.Y_stds{1}.^2;
-                    std_variance=1./std_variance;
-                    std_variance=std_variance./max(std_variance);
-                    d=d.*std_variance;
-                    
                     I=1:length(d);
                     sigma_eps=sparse(I,I,d);
                 end
@@ -765,7 +762,7 @@ classdef stem_model < handle
             obj.stem_data.simulated=1;
         end        
         
-        function EM_estimate(obj,stem_EM_options)
+        function EM_estimate(obj,st_EM_options)
             %DESCRIPTION: front-end method for EM estimation of this model
             %
             %INPUT
@@ -777,48 +774,52 @@ classdef stem_model < handle
             %
             %none: the stem_EM object is created. The method stem_EM.estimate is used to estimate the model and it updates the stem_par object
 
+            if nargin<2
+                st_EM_options=stem_EM_options();
+            end
+            
             obj.set_distance_matrix;
             
-            if length(stem_EM_options.block_tapering_block_size)>1
+            if length(st_EM_options.partitions)>1
                 dim=obj.dim;
-                if not(sum(stem_EM_options.block_tapering_block_size)==dim(1))
-                    error('The sum of the elements of block_tapering_block_size must be equal to the number of spatial sites');
+                if not(sum(st_EM_options.partitions)==dim(1))
+                    error('The sum of the elements of partitions must be equal to the number of spatial sites');
                 end
             end
 
-            if sum(stem_EM_options.block_tapering_block_size)>0&&not(obj.stem_data.stem_modeltype.is('f-HDGM'))
-                error('block_tapering_block_size must be 0 when modeltype is not f-HDGM')
+            if sum(st_EM_options.partitions)>0&&not(obj.stem_data.stem_modeltype.is('f-HDGM'))
+                error('partitions must be 0 when modeltype is not f-HDGM')
             end
             
-            if not(isempty(obj.stem_data.stem_crossval))
-                if length(stem_EM_options.block_tapering_block_size)>1
+            if not(isempty(obj.stem_data.stem_validation))
+                if length(st_EM_options.partitions)>1
                     idx=[];
-                    for z=1:length(stem_EM_options.block_tapering_block_size)
-                        idx=[idx ones(1,stem_EM_options.block_tapering_block_size(z))*z];
+                    for z=1:length(st_EM_options.partitions)
+                        idx=[idx ones(1,st_EM_options.partitions(z))*z];
                     end
                     if obj.stem_par.stem_modeltype.is('f-HDGM')
-                        idx(obj.stem_data.stem_crossval.indices)=[];
+                        idx(obj.stem_data.stem_validation.indices)=[];
                     else
-                        idx(obj.stem_data.stem_crossval.indices{1})=[];
+                        idx(obj.stem_data.stem_validation.indices{1})=[];
                     end
-                    stem_EM_options.block_tapering_block_size=diff([0 find(diff([idx 0]))]);
+                    st_EM_options.partitions=diff([0 find(diff([idx 0]))]);
                 end
-                disp('Data modification for cross-validation started...');
+                disp('Data modification for validation started...');
                 
                 disp('******************')
                 disp('Cropping sites...');
                 
                 if obj.stem_par.stem_modeltype.is('f-HDGM')
                    
-                    obj.stem_crossval_result=stem_crossval_result();
+                    obj.stem_validation_result=stem_validation_result();
 
-                    idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_crossval.variable_name);
+                    idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_validation.variable_name);
                     if isempty(idx_var)
-                        error(['Cross-validation variable',obj.stem_data.stem_crossval.variable_name,'not found.']);
+                        error(['Validation variable',obj.stem_data.stem_validation.variable_name,'not found.']);
                     end
 
-                    %recover the indices of the cross-validation sites
-                    indices=obj.stem_data.stem_crossval.indices;
+                    %recover the indices of the validation sites
+                    indices=obj.stem_data.stem_validation.indices;
                     for idx = idx_var'
                         Y={obj.stem_data.stem_varset_p.Y{idx}(indices,:)};
                         Y_name=obj.stem_data.stem_varset_p.Y_name(idx);
@@ -851,26 +852,26 @@ classdef stem_model < handle
                         X_p={};
                         X_p_name={};
 
-                        obj.stem_data.stem_crossval.stem_varset{idx}=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_h,X_h_name);
-                        obj.stem_data.stem_crossval.stem_gridlist{idx}=stem_gridlist();
+                        obj.stem_data.stem_validation.stem_varset{idx}=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_h,X_h_name);
+                        obj.stem_data.stem_validation.stem_gridlist{idx}=stem_gridlist();
                         coordinate=obj.stem_data.stem_gridlist_p.grid{idx}.coordinate;
                         st_grid=stem_grid(coordinate(indices,:),'deg','sparse','point');
-                        obj.stem_data.stem_crossval.stem_gridlist{idx}.add(st_grid); 
+                        obj.stem_data.stem_validation.stem_gridlist{idx}.add(st_grid); 
                     end
-                    obj.stem_data.site_crop(obj.stem_data.stem_crossval.type,obj.stem_data.stem_crossval.variable_name,indices,1,0);
+                    obj.stem_data.site_crop(obj.stem_data.stem_validation.type,obj.stem_data.stem_validation.variable_name,indices,1,0);
                     
                 else
-                    for i=1:length(obj.stem_data.stem_crossval.variable_name)
+                    for i=1:length(obj.stem_data.stem_validation.variable_name)
                     
-                        obj.stem_crossval_result{i}=stem_crossval_result();
+                        obj.stem_validation_result{i}=stem_validation_result();
 
-                        idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_crossval.variable_name{i});
+                        idx_var=obj.stem_data.stem_varset_p.get_Y_index(obj.stem_data.stem_validation.variable_name{i});
                         if isempty(idx_var)
-                            error(['Cross-validation variable',obj.stem_data.stem_crossval.variable_name{i},'not found.']);
+                            error(['Validation variable',obj.stem_data.stem_validation.variable_name{i},'not found.']);
                         end
 
-                        %recover the indices of the cross-validation sites
-                        indices=obj.stem_data.stem_crossval.indices{i};
+                        %recover the indices of the validation sites
+                        indices=obj.stem_data.stem_validation.indices{i};
                         if isempty(indices)
                             Y={};
                             Y_name={};
@@ -937,18 +938,18 @@ classdef stem_model < handle
                                 end
                                 temp_dist=temp_dist(indices,:);
                                 temp_dist(:,indices)=[];
-                                obj.stem_crossval_result{i}.min_distance=min(temp_dist,[],2);
+                                obj.stem_validation_result{i}.min_distance=min(temp_dist,[],2);
                                 clear temp_dist
                             end
                         end
                         
-                        obj.stem_data.stem_crossval.stem_varset{i}=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_h,X_h_name);
-                        obj.stem_data.stem_crossval.stem_gridlist{i}=stem_gridlist();
+                        obj.stem_data.stem_validation.stem_varset{i}=stem_varset(Y,Y_name,X_bp,X_bp_name,X_beta,X_beta_name,X_z,X_z_name,X_p,X_p_name,X_h,X_h_name);
+                        obj.stem_data.stem_validation.stem_gridlist{i}=stem_gridlist();
                         coordinate=obj.stem_data.stem_gridlist_p.grid{idx_var}.coordinate;
                         st_grid=stem_grid(coordinate(indices,:),'deg','sparse','point');
-                        obj.stem_data.stem_crossval.stem_gridlist{i}.add(st_grid);
-                        %remove the cross-validation data from the estimation dataset
-                        obj.stem_data.site_crop(obj.stem_data.stem_crossval.type{i},obj.stem_data.stem_crossval.variable_name{i},indices,1,0);
+                        obj.stem_data.stem_validation.stem_gridlist{i}.add(st_grid);
+                        %remove the validation data from the estimation dataset
+                        obj.stem_data.site_crop(obj.stem_data.stem_validation.type{i},obj.stem_data.stem_validation.variable_name{i},indices,1,0);
                     end
                 end
 
@@ -962,16 +963,16 @@ classdef stem_model < handle
                 obj.cross_validation=0;
             end
             
-            st_EM=stem_EM(obj,stem_EM_options);
+            st_EM=stem_EM(obj,st_EM_options);
             %set the current parameter value with the estimated initial value
             obj.stem_par=obj.stem_par_initial;
             obj.data_summary;
             
-            if stem_EM_options.workers==1
+            if st_EM_options.workers==1
                 obj.stem_EM_result=st_EM.estimate();
             else
                 delete(gcp('nocreate'))
-                poolobj = parpool(stem_EM_options.workers);
+                poolobj = parpool(st_EM_options.workers);
                 obj.stem_EM_result=st_EM.estimate();
                 delete(poolobj);
             end
@@ -983,23 +984,23 @@ classdef stem_model < handle
         end
           
         function fill_crosval_result(obj)
-            %DESCRIPTION: obtain cross-validation result
+            %DESCRIPTION: obtain validation result
             %
             %INPUT
             %obj  - [stem_model object]   (1x1) the stem_model object
             %
             %OUTPUT
             %
-            %none: stem_crossval_result is created in the stem_crossval_result property of the stem_model object
+            %none: stem_validation_result is created in the stem_validation_result property of the stem_model object
             
             if obj.cross_validation
-                %check if the cross-validation sites are the same for all the variables
+                %check if the validation sites are the same for all the variables
                 equal=1;
-                for i=1:length(obj.stem_data.stem_crossval.stem_gridlist)-1
-                    if not(size(obj.stem_data.stem_crossval.stem_gridlist{i}.grid{1}.coordinate,1)==size(obj.stem_data.stem_crossval.stem_gridlist{i+1}.grid{1}.coordinate,1))
+                for i=1:length(obj.stem_data.stem_validation.stem_gridlist)-1
+                    if not(size(obj.stem_data.stem_validation.stem_gridlist{i}.grid{1}.coordinate,1)==size(obj.stem_data.stem_validation.stem_gridlist{i+1}.grid{1}.coordinate,1))
                         equal=0;
                     else
-                        if sum(sum(obj.stem_data.stem_crossval.stem_gridlist{i}.grid{1}.coordinate-obj.stem_data.stem_crossval.stem_gridlist{i+1}.grid{1}.coordinate))>0
+                        if sum(sum(obj.stem_data.stem_validation.stem_gridlist{i}.grid{1}.coordinate-obj.stem_data.stem_validation.stem_gridlist{i+1}.grid{1}.coordinate))>0
                             equal=0;
                         end
                     end
@@ -1007,27 +1008,27 @@ classdef stem_model < handle
                 
                 st_krig_options=stem_krig_options();
                 st_krig_options.block_size=300;
-                st_krig_options.nn_size=obj.stem_data.stem_crossval.nn_size;
+                st_krig_options.nn_size=obj.stem_data.stem_validation.nn_size;
                 st_krig_options.back_transform=0;
                 st_krig_options.no_varcov=0;
-                st_krig_options.crossval=1;
+                st_krig_options.validation=1;
                 
                 if equal
                     %if they are the same, only one multivariate-kriging is enough
-                    disp('Kriging over cross-validation sites');
+                    disp('Kriging over validation sites');
                     
-                    st_krig_data=stem_krig_data(obj.stem_data.stem_crossval.stem_gridlist{1}.grid{1});
+                    st_krig_data=stem_krig_data(obj.stem_data.stem_validation.stem_gridlist{1}.grid{1});
                     
                     st_krig=stem_krig(obj,st_krig_data);
                     st_krig_result=st_krig.kriging(st_krig_options);
                 else
                     %if they are different, kriging is repeated with respect to the different coordinates
-                    st_krig_result=cell(length(obj.stem_data.stem_crossval.variable_name),1);
-                    for i=1:length(obj.stem_data.stem_crossval.variable_name)
-                        if obj.stem_data.stem_crossval.stem_varset{i}.N>0
-                            disp(['Kriging over cross-validation sites of variable ',obj.stem_data.stem_crossval.variable_name{i}]);
+                    st_krig_result=cell(length(obj.stem_data.stem_validation.variable_name),1);
+                    for i=1:length(obj.stem_data.stem_validation.variable_name)
+                        if obj.stem_data.stem_validation.stem_varset{i}.N>0
+                            disp(['Kriging over validation sites of variable ',obj.stem_data.stem_validation.variable_name{i}]);
                         
-                            st_krig_data=stem_krig_data(obj.stem_data.stem_crossval.stem_gridlist{i}.grid{1});
+                            st_krig_data=stem_krig_data(obj.stem_data.stem_validation.stem_gridlist{i}.grid{1});
 
                             st_krig=stem_krig(obj,st_krig_data);
                             st_krig_result_temp=st_krig.kriging(st_krig_options,i);
@@ -1038,13 +1039,13 @@ classdef stem_model < handle
                 
                 if obj.stem_par.stem_modeltype.is('f-HDGM')
                     
-                    obj.stem_crossval_result.res=cell(length(st_krig_result),1);
-                    obj.stem_crossval_result.res_back=cell(length(st_krig_result),1);
-                    obj.stem_crossval_result.y_back=cell(length(st_krig_result),1);
-                    obj.stem_crossval_result.y_hat_back=cell(length(st_krig_result),1);
+                    obj.stem_validation_result.res=cell(length(st_krig_result),1);
+                    obj.stem_validation_result.res_back=cell(length(st_krig_result),1);
+                    obj.stem_validation_result.y_back=cell(length(st_krig_result),1);
+                    obj.stem_validation_result.y_hat_back=cell(length(st_krig_result),1);
 
                     for i=1:length(st_krig_result)
-                        obj.stem_crossval_result.res{i}=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}-st_krig_result{i}.y_hat;
+                        obj.stem_validation_result.res{i}=obj.stem_data.stem_validation.stem_varset{i}.Y{1}-st_krig_result{i}.y_hat;
 
                         if obj.stem_data.stem_varset_p.standardized
                             s=obj.stem_data.stem_varset_p.Y_stds{i};
@@ -1056,14 +1057,14 @@ classdef stem_model < handle
 
                         if not(obj.stem_data.stem_varset_p.log_transformed)&&not(obj.stem_data.stem_varset_p.boxcox_transformed)
                             y_hat_back=st_krig_result{i}.y_hat*s+m;
-                            y=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m;
+                            y=obj.stem_data.stem_validation.stem_varset{i}.Y{1}*s+m;
                         end
 
                         if obj.stem_data.stem_varset_p.log_transformed
                             y_hat_back=st_krig_result{i}.y_hat;
                             var_y_hat=st_krig_result{i}.diag_Var_y_hat;
                             y_hat_back=exp(y_hat_back*s+m+(var_y_hat*s^2)/2);
-                            y=exp(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m);
+                            y=exp(obj.stem_data.stem_validation.stem_varset{i}.Y{1}*s+m);
                         end
 
                         if obj.stem_data.stem_varset_p.boxcox_transformed
@@ -1073,23 +1074,23 @@ classdef stem_model < handle
                             var_y_hat=st_krig_result{i}.diag_Var_y_hat;
 
                             y_hat_back=(max(0,(lambda*(y_hat_back*s+m)+1)).^(1/lambda)).*(1+(var_y_hat*s^2*(1-lambda))./(2*(lambda*(y_hat_back*s+m)+1).^2));
-                            y=(lambda*(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m)+1).^(1/lambda);
+                            y=(lambda*(obj.stem_data.stem_validation.stem_varset{i}.Y{1}*s+m)+1).^(1/lambda);
                         end
 
-                        obj.stem_crossval_result.res_back{i}=y-y_hat_back;
-                        obj.stem_crossval_result.y_back{i}=y;
-                        obj.stem_crossval_result.y_hat_back{i}=y_hat_back;
+                        obj.stem_validation_result.res_back{i}=y-y_hat_back;
+                        obj.stem_validation_result.y_back{i}=y;
+                        obj.stem_validation_result.y_hat_back{i}=y_hat_back;
                     end
                    
                     %w.r.t t
-                    res=nan(obj.stem_par.q,size(obj.stem_crossval_result.res{1},1),obj.stem_data.T);
+                    res=nan(obj.stem_par.q,size(obj.stem_validation_result.res{1},1),obj.stem_data.T);
                     for qq=1:obj.stem_par.q
-                        res(qq,:,:)=obj.stem_crossval_result.res{qq};
+                        res(qq,:,:)=obj.stem_validation_result.res{qq};
                     end
                     
-                    Y=nan(obj.stem_par.q,size(obj.stem_crossval_result.res{1},1),obj.stem_data.T);
+                    Y=nan(obj.stem_par.q,size(obj.stem_validation_result.res{1},1),obj.stem_data.T);
                     for qq=1:obj.stem_par.q
-                        Y(qq,:,:)=obj.stem_crossval_result.y_back{qq};
+                        Y(qq,:,:)=obj.stem_validation_result.y_back{qq};
                     end
                     
                     if size(res,3)==1
@@ -1099,9 +1100,10 @@ classdef stem_model < handle
                         res_t=squeeze(reshape(res,1,size(res,1)*size(res,2),size(res,3)));
                         Y_t=squeeze(reshape(Y,1,size(res,1)*size(res,2),size(res,3)));
                     end
-                    obj.stem_crossval_result.cv_mse_t=nanvar(res_t,1,1)';
-                    relative_cv_mse_t=obj.stem_crossval_result.cv_mse_t./nanvar(Y_t,1,1)';
-                    obj.stem_crossval_result.cv_R2_t=1-relative_cv_mse_t;
+                    
+                    obj.stem_validation_result.cv_mse_t=nanmean(res_t.^2,1)';
+                    relative_cv_mse_t=obj.stem_validation_result.cv_mse_t./nanvar(Y_t,1,1)';
+                    obj.stem_validation_result.cv_R2_t=1-relative_cv_mse_t;
                     
                     %w.r.t s
                     if size(res,2)==1
@@ -1113,14 +1115,15 @@ classdef stem_model < handle
                         res_s=squeeze(reshape(res1,1,size(res1,1)*size(res1,2),size(res1,3)));
                         Y_s=squeeze(reshape(Y1,1,size(res1,1)*size(res1,2),size(res1,3)));
                     end
-                    obj.stem_crossval_result.cv_mse_s=nanvar(res_s,1,1)';
-                    relative_cv_mse_s=obj.stem_crossval_result.cv_mse_s./nanvar(Y_s,1,1)';
-                    obj.stem_crossval_result.cv_R2_s=1-relative_cv_mse_s;
+                    
+                    obj.stem_validation_result.cv_mse_s=nanmean(res_s.^2,1)';
+                    relative_cv_mse_s=obj.stem_validation_result.cv_mse_s./nanvar(Y_s,1,1)';
+                    obj.stem_validation_result.cv_R2_s=1-relative_cv_mse_s;
                     
                     %w.r.t h
                     X_h=res;
-                    for i =1:length(obj.stem_data.stem_crossval.stem_varset)
-                        X_h(i,:,:)=obj.stem_data.stem_crossval.stem_varset{i}.X_h{1};
+                    for i =1:length(obj.stem_data.stem_validation.stem_varset)
+                        X_h(i,:,:)=obj.stem_data.stem_validation.stem_varset{i}.X_h{1};
                     end
                     
                     tmp1=res(:);
@@ -1139,18 +1142,20 @@ classdef stem_model < handle
                             end
                         end
                         if isempty(X_h_sel)
-                            warning('Cross-validation MSE with respect to h can not be available due to sparse h.')
+                            warning('Validation MSE with respect to h can not be available due to sparse h.')
                         else
                             cv_mse_h=X_h_sel;
                             Y_h_var=X_h_sel;
                             for i=1:length(X_h_sel)
-                                cv_mse_h(i) = nanvar(tmp1(tmp2>=bins(i)&tmp2<bins(i+1)));
+                                %cv_mse_h(i) = nanvar(tmp1(tmp2>=bins(i)&tmp2<bins(i+1)));
+                                res_h_tmp = (tmp1(tmp2>=bins(i)&tmp2<bins(i+1)));
+                                cv_mse_h(i)=nanmean(res_h_tmp.^2);
                                 Y_h_var(i)= nanvar(tmp3(tmp2>=bins(i)&tmp2<bins(i+1)));
                             end
 
-                            obj.stem_crossval_result.cv_mse_h=cv_mse_h;
-                            obj.stem_crossval_result.cv_R2_h=1-cv_mse_h./Y_h_var;
-                            obj.stem_crossval_result.cv_h=X_h_sel;
+                            obj.stem_validation_result.cv_mse_h=cv_mse_h;
+                            obj.stem_validation_result.cv_R2_h=1-cv_mse_h./Y_h_var;
+                            obj.stem_validation_result.cv_h=X_h_sel;
                         end
                     else 
                         X_h_unique_sel=[];
@@ -1160,42 +1165,46 @@ classdef stem_model < handle
                             end
                         end
                         if isempty(X_h_unique_sel)
-                            warning('Cross-validation MSE with respect to h can not be available due to sparse h.')
+                            warning('Validation MSE with respect to h can not be available due to sparse h.')
                         else
                             cv_mse_h=X_h_unique_sel;
                             Y_h_var=X_h_unique_sel;
                             for i=1:length(X_h_unique_sel)
-                                cv_mse_h(i) = nanvar(tmp1(tmp2==X_h_unique_sel(i)));
+                                res_h_tmp = (tmp1(tmp2==X_h_unique_sel(i)));
+                                cv_mse_h(i)=nanmean(res_h_tmp.^2);
+                                %cv_mse_h(i) = nanvar(tmp1(tmp2==X_h_unique_sel(i)));
                                 Y_h_var(i)= nanvar(tmp3(tmp2==X_h_unique_sel(i)));
                             end
 
-                            obj.stem_crossval_result.cv_mse_h=cv_mse_h;
-                            obj.stem_crossval_result.cv_R2_h=1-cv_mse_h./Y_h_var;
-                            obj.stem_crossval_result.cv_h=X_h_unique_sel;
+                            obj.stem_validation_result.cv_mse_h=cv_mse_h;
+                            obj.stem_validation_result.cv_R2_h=1-cv_mse_h./Y_h_var;
+                            obj.stem_validation_result.cv_h=X_h_unique_sel;
                         end
                     end
                 else
                     for i=1:length(st_krig_result)
-                        if obj.stem_data.stem_crossval.stem_varset{i}.N>0
+                        if obj.stem_data.stem_validation.stem_varset{i}.N>0
                             if iscell(st_krig_result)
-                                obj.stem_crossval_result{i}.res=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}-st_krig_result{i}.y_hat;
+                                obj.stem_validation_result{i}.res=obj.stem_data.stem_validation.stem_varset{i}.Y{1}-st_krig_result{i}.y_hat;
                             else
-                                obj.stem_crossval_result{i}.res=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}-st_krig_result.y_hat;
+                                obj.stem_validation_result{i}.res=obj.stem_data.stem_validation.stem_varset{i}.Y{1}-st_krig_result.y_hat;
                             end
 
-                            obj.stem_crossval_result{i}.cv_mse_s=(nanvar(obj.stem_crossval_result{i}.res'))';
-                            obj.stem_crossval_result{i}.cv_mse_t=nanvar(obj.stem_crossval_result{i}.res);
+                            %obj.stem_validation_result{i}.cv_mse_s=(nanvar(obj.stem_validation_result{i}.res'))';
+                            %obj.stem_validation_result{i}.cv_mse_t=nanvar(obj.stem_validation_result{i}.res);
+                            obj.stem_validation_result{i}.cv_mse_s=nanmean(obj.stem_validation_result{i}.res'.^2)';
+                            obj.stem_validation_result{i}.cv_mse_t=nanmean(obj.stem_validation_result{i}.res.^2);
 
-                            obj.stem_crossval_result{i}.cv_R2_s = 1 - (obj.stem_crossval_result{i}.cv_mse_s'./nanvar(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}'))';
-                            obj.stem_crossval_result{i}.cv_R2_t = 1 - obj.stem_crossval_result{i}.cv_mse_t./nanvar(obj.stem_data.stem_crossval.stem_varset{i}.Y{1});
+                            obj.stem_validation_result{i}.cv_R2_s = 1 - (obj.stem_validation_result{i}.cv_mse_s'./nanvar(obj.stem_data.stem_validation.stem_varset{i}.Y{1}'))';
+                            obj.stem_validation_result{i}.cv_R2_t = 1 - obj.stem_validation_result{i}.cv_mse_t./nanvar(obj.stem_data.stem_validation.stem_varset{i}.Y{1});
 
-                            %obj.stem_crossval_result{i}.mse=(nanvar(obj.stem_crossval_result{i}.res'))';
-                            %obj.stem_crossval_result{i}.mse_time=nanvar(obj.stem_crossval_result{i}.res);
+                            %obj.stem_validation_result{i}.mse=(nanvar(obj.stem_validation_result{i}.res'))';
+                            %obj.stem_validation_result{i}.mse_time=nanvar(obj.stem_validation_result{i}.res);
 
-                            %obj.stem_crossval_result{i}.relative_mse=(obj.stem_crossval_result{i}.mse'./nanvar(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}'))';
-                            %obj.stem_crossval_result{i}.relative_mse_time=obj.stem_crossval_result{i}.mse_time./nanvar(obj.stem_data.stem_crossval.stem_varset{i}.Y{1});
+                            %obj.stem_validation_result{i}.relative_mse=(obj.stem_validation_result{i}.mse'./nanvar(obj.stem_data.stem_validation.stem_varset{i}.Y{1}'))';
+                            %obj.stem_validation_result{i}.relative_mse_time=obj.stem_validation_result{i}.mse_time./nanvar(obj.stem_data.stem_validation.stem_varset{i}.Y{1});
 
-                            %obj.stem_crossval_result{i}.R2=1-obj.stem_crossval_result{i}.relative_mse;
+                            %obj.stem_validation_result{i}.R2=1-obj.stem_validation_result{i}.relative_mse;
 
                             if obj.stem_data.stem_varset_p.standardized
                                 s=obj.stem_data.stem_varset_p.Y_stds{i};
@@ -1207,14 +1216,14 @@ classdef stem_model < handle
 
                             if not(obj.stem_data.stem_varset_p.log_transformed)&&not(obj.stem_data.stem_varset_p.boxcox_transformed)
                                 y_hat_back=st_krig_result{i}.y_hat*s+m;
-                                y=obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m;
+                                y=obj.stem_data.stem_validation.stem_varset{i}.Y{1}*s+m;
                             end
 
                             if obj.stem_data.stem_varset_p.log_transformed
                                 y_hat_back=st_krig_result{i}.y_hat;
                                 var_y_hat=st_krig_result{i}.diag_Var_y_hat;
                                 y_hat_back=exp(y_hat_back*s+m+(var_y_hat*s^2)/2);
-                                y=exp(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m);
+                                y=exp(obj.stem_data.stem_validation.stem_varset{i}.Y{1}*s+m);
                             end
 
                             if obj.stem_data.stem_varset_p.boxcox_transformed
@@ -1224,12 +1233,12 @@ classdef stem_model < handle
                                 var_y_hat=st_krig_result{i}.diag_Var_y_hat;
 
                                 y_hat_back=(max(0,(lambda*(y_hat_back*s+m)+1)).^(1/lambda)).*(1+(var_y_hat*s^2*(1-lambda))./(2*(lambda*(y_hat_back*s+m)+1).^2));
-                                y=(lambda*(obj.stem_data.stem_crossval.stem_varset{i}.Y{1}*s+m)+1).^(1/lambda);
+                                y=(lambda*(obj.stem_data.stem_validation.stem_varset{i}.Y{1}*s+m)+1).^(1/lambda);
                             end
 
-                            obj.stem_crossval_result{i}.res_back=y-y_hat_back;
-                            obj.stem_crossval_result{i}.y_back=y;
-                            obj.stem_crossval_result{i}.y_hat_back=y_hat_back;
+                            obj.stem_validation_result{i}.res_back=y-y_hat_back;
+                            obj.stem_validation_result{i}.y_back=y;
+                            obj.stem_validation_result{i}.y_hat_back=y_hat_back;
                         end
                     end
                 end
@@ -1328,6 +1337,7 @@ classdef stem_model < handle
             
             stem_misc.disp_star('Model estimation results')   
             if obj.estimated
+                unit=obj.stem_data.stem_gridlist_p.grid{1}.unit;
                 if obj.tapering
                     disp('* Tapering is enabled.');    
                     if not(isempty(obj.tapering_p))
@@ -1600,8 +1610,8 @@ classdef stem_model < handle
                     if obj.stem_par.stem_par_constraints.pixel_correlated
                         disp('* Pixel data are cross-correlated.');
                         disp(' ');
-                        output{1,2}='Value [km]';
-                        output{1,3}='Std [km]';
+                        output{1,2}=['Value [',unit,']'];
+                        output{1,3}=['Std [',unit,']'];
                         output{2,1}='Theta_b';
                         output{2,2}=num2str(obj.stem_par.theta_b(1),'%05.3f');
                         if not(isempty(obj.stem_par.varcov))
@@ -1639,8 +1649,8 @@ classdef stem_model < handle
                         disp('* Theta_b elements:');
                         output=cell(obj.stem_data.stem_varset_b.nvar+1,3);
                         output{1,1}='Variable';
-                        output{1,2}='Value [km]';
-                        output{1,3}='Std [km]';
+                        output{1,2}=['Value [',unit,']'];
+                        output{1,3}=['Std [',unit,']'];
                         for i=1:obj.stem_data.stem_varset_b.nvar
                             output{i+1,1}=obj.stem_data.stem_varset_b.Y_name{i};
                             output{i+1,2}=num2str(obj.stem_par.theta_b(i),'%05.3f');
@@ -1662,8 +1672,8 @@ classdef stem_model < handle
                     disp('* theta_p elements:');
                     output=cell(1,3);
                     output{1,1}='Coreg. component';
-                    output{1,2}='Value [km]';
-                    output{1,3}='Std [km]';
+                    output{1,2}=['Value [',unit,']'];
+                    output{1,3}=['Std [',unit,']'];
                     for k=1:obj.stem_par.k
                         if k==1
                             postfix='st';
@@ -1901,8 +1911,8 @@ classdef stem_model < handle
                         if not(strcmp(obj.stem_par.correlation_type,'expsphere'))
                             if not(obj.stem_data.stem_modeltype.is('f-HDGM'))
                                 output=cell(length(obj.stem_par.theta_z)+1,2);
-                                output{1,1}='Value [km]';
-                                output{1,2}='Std [km]';
+                                output{1,1}=['Value [',unit,']'];
+                                output{1,2}=['Std [',unit,']'];
                                 output{2,1}=num2str(obj.stem_par.theta_z,'%06.2f');
                                 if not(isempty(obj.stem_par.varcov))
                                     output{2,2}=num2str(sqrt(obj.stem_par.varcov(counter_varcov,counter_varcov)),'%05.2f');
@@ -1914,8 +1924,8 @@ classdef stem_model < handle
                             else
                                 output=cell(length(obj.stem_par.theta_z)+1,3);
                                 output{1,1}='Basis';
-                                output{1,2}='Value [km]';
-                                output{1,3}='Std [km]';
+                                output{1,2}=['Value [',unit,']'];
+                                output{1,3}=['Std [',unit,']'];
                                 for b=1:length(obj.stem_par.theta_z)
                                     output{b+1,1}=obj.stem_data.stem_varset_p.X_z_name{1}{b};
                                     output{b+1,2}=num2str(obj.stem_par.theta_z(b),'%06.2f');
@@ -2289,24 +2299,24 @@ classdef stem_model < handle
            
         end 
         
-        function plot_xval(obj,vertical,variable_name)
-            %DESCRIPTION: the cross-validation results when modeltype is f-HDGM
+        function plot_validation(obj,vertical,variable_name)
+            %DESCRIPTION: the validation results when modeltype is f-HDGM
             %
             %INPUT
             %obj              - [stem_model object] (1x1) the stem_model object
             %vertical         - [boolean]           (1x1) indicating if the plot is vertical or not.
-            %<variable_name>  -[string]              (1x1) the names of the cross-validation variables
+            %<variable_name>  -[string]              (1x1) the names of the validation variables
             %
             %OUTPUT
             %
-            %None: the cross-validation results are shown in the figure window
+            %None: the validation results are shown in the figure window
             
             if not(obj.stem_par.stem_modeltype.is('f-HDGM')||obj.stem_par.stem_modeltype.is('HDGM'))
-                error('The plot_xval method is only used when model type is f-HDGM')
+                error('The plot_val method is only used when model type is f-HDGM')
             end
             
             if not(obj.cross_validation)
-                error('The plot_xval method is only used when crossvalidation is implemented')
+                error('The plot_val method is only used when validation is implemented')
             end
             
             if nargin==1
@@ -2333,27 +2343,36 @@ classdef stem_model < handle
                 end
             end
                 
-            if iscell(obj.stem_crossval_result) 
-                xvalresult=obj.stem_crossval_result{idx};
+            if iscell(obj.stem_validation_result) 
+                valresult=obj.stem_validation_result{idx};
             else
-                xvalresult=obj.stem_crossval_result;
+                valresult=obj.stem_validation_result;
             end
             
             
             % plot of mse_s and r2_s
             if global_idx
-                figure 
-                temp=xvalresult.cv_mse_s;
-                lat=obj.stem_data.stem_crossval.stem_gridlist{idx}.grid{1}.coordinate(:,1);
-                lon=obj.stem_data.stem_crossval.stem_gridlist{idx}.grid{1}.coordinate(:,2);
+                fig=figure; 
+                temp=valresult.cv_mse_s;
+                lat=obj.stem_data.stem_validation.stem_gridlist{idx}.grid{1}.coordinate(:,1);
+                lon=obj.stem_data.stem_validation.stem_gridlist{idx}.grid{1}.coordinate(:,2);
 
                 scatter(lon,lat,100,temp,'filled');
-                cl = colorbar;
-                cl.Limits=[min(temp(:)) max(temp(:))];
+                if min(temp(:))*max(temp(:))>0
+                    colormap(fig,flipud(stem_misc.get_s_colormap()))
+                    cl = colorbar;
+                    cl.Limits=[min(temp(:)) max(temp(:))];
+                else
+                    colormap(fig,stem_misc.get_d_colormap())
+                    cl = colorbar;
+                    caxis( [-max(abs(temp(:))) max(abs(temp(:)))] );
+                end
+                ylabel(cl,['[',obj.stem_data.stem_varset_p.Y_unit,']']);
 
                 lat1=obj.stem_data.stem_gridlist_p.grid{idx}.coordinate(:,1);
                 lon1=obj.stem_data.stem_gridlist_p.grid{idx}.coordinate(:,2);
-                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','r');
+                
+                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','b');
                 
                 if not(isempty(obj.stem_data.shape))
                     try
@@ -2380,11 +2399,11 @@ classdef stem_model < handle
                 box on
                 grid on
 
-                figure 
-                temp=xvalresult.cv_R2_s;
+                fig=figure; 
+                temp=valresult.cv_R2_s;
                 scatter(lon,lat,100,temp,'filled');
 
-                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','r');
+                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','b');
                
                 if not(isempty(obj.stem_data.shape))
                     try
@@ -2401,9 +2420,18 @@ classdef stem_model < handle
                     xlabel(obj.stem_data.stem_gridlist_p.grid{1,1}.unit,'FontSize',14);
                     ylabel(obj.stem_data.stem_gridlist_p.grid{1,1}.unit,'FontSize',14);
                 end
-                title('CV-R2(s)','FontSize',14,'interpreter','latex');
-                cl = colorbar;
-                cl.Limits=[min(temp(:)) max(temp(:))];
+                title('Val-R2(s)','FontSize',14,'interpreter','latex');
+            
+                if min(temp(:))*max(temp(:))>0
+                    colormap(fig,stem_misc.get_s_colormap())
+                    cl = colorbar;
+                    cl.Limits=[min(temp(:)) max(temp(:))];
+                else
+                    colormap(fig,stem_misc.get_d_colormap())
+                    colorbar;
+                    caxis( [-max(abs(temp(:))) max(abs(temp(:)))] );
+                end
+                
                 set(gca,'FontSize',14);
                 set(gcf, 'renderer', 'zbuffer');
                 xticks(-180:30:180);
@@ -2414,18 +2442,28 @@ classdef stem_model < handle
                 grid on 
             else
                 figure          
-                subplot(1,2,1)
-                temp=xvalresult.cv_mse_s;
-                lat=obj.stem_data.stem_crossval.stem_gridlist{idx}.grid{1}.coordinate(:,1);
-                lon=obj.stem_data.stem_crossval.stem_gridlist{idx}.grid{1}.coordinate(:,2);
+                ax1=subplot(1,2,1);
+                temp=valresult.cv_mse_s;
+                lat=obj.stem_data.stem_validation.stem_gridlist{idx}.grid{1}.coordinate(:,1);
+                lon=obj.stem_data.stem_validation.stem_gridlist{idx}.grid{1}.coordinate(:,2);
 
                 scatter(lon,lat,100,temp,'filled');
-                cl = colorbar;
-                cl.Limits=[min(temp(:)) max(temp(:))];
+                
+                if min(temp(:))*max(temp(:))>0
+                    colormap(ax1,stem_misc.get_s_colormap())
+                    cl = colorbar;
+                    cl.Limits=[min(temp(:)) max(temp(:))];
+                else
+                    colormap(ax1,stem_misc.get_d_colormap())
+                    colorbar;
+                    caxis( [-max(abs(temp(:))) max(abs(temp(:)))] );
+                end
+                
 
                 lat1=obj.stem_data.stem_gridlist_p.grid{idx}.coordinate(:,1);
                 lon1=obj.stem_data.stem_gridlist_p.grid{idx}.coordinate(:,2);
-                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','r');
+               
+                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','b');
                 
                 if strcmp(obj.stem_data.shape(1,1).Geometry,'Line')
                     flag_readshape_from_user=1;
@@ -2458,11 +2496,22 @@ classdef stem_model < handle
                 box on
                 grid on
 
-                subplot(1,2,2)
-                temp=xvalresult.cv_R2_s;
+                ax2=subplot(1,2,2);
+                
+                temp=valresult.cv_R2_s;
                 scatter(lon,lat,100,temp,'filled');
-
-                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','r');
+                
+                if min(temp(:))*max(temp(:))>0
+                    colormap(ax2,stem_misc.get_s_colormap())
+                    cl = colorbar;
+                    cl.Limits=[min(temp(:)) max(temp(:))];
+                else
+                    colormap(ax2,stem_misc.get_d_colormap())
+                    colorbar;
+                    caxis( [-max(abs(temp(:))) max(abs(temp(:)))] );
+                end
+                
+                geoshow(lat1,lon1,'DisplayType','multipoint','Marker','*','MarkerEdgeColor','b');
                 
                 if strcmp(obj.stem_data.shape(1,1).Geometry,'Line')
                     flag_readshape_from_user=1;
@@ -2489,9 +2538,7 @@ classdef stem_model < handle
                     xlabel(obj.stem_data.stem_gridlist_p.grid{1,1}.unit,'FontSize',14);
                     ylabel(obj.stem_data.stem_gridlist_p.grid{1,1}.unit,'FontSize',14);
                 end
-                title('CV-R2(s)','FontSize',14,'interpreter','latex');
-                cl = colorbar;
-                cl.Limits=[min(temp(:)) max(temp(:))];
+                title('Val-R2(s)','FontSize',14,'interpreter','latex');
                 set(gca,'FontSize',14);
                 box on
                 grid on  
@@ -2499,14 +2546,14 @@ classdef stem_model < handle
             
             if obj.stem_par.stem_modeltype.is('f-HDGM')
                 % X_h_num for two cases
-                X_h=nan(obj.stem_par.q,size(obj.stem_crossval_result.res{1},1),obj.stem_data.T);
-                for i =1:length(obj.stem_data.stem_crossval.stem_varset)
-                    X_h(i,:,:)=obj.stem_data.stem_crossval.stem_varset{i}.X_h{1};
+                X_h=nan(obj.stem_par.q,size(obj.stem_validation_result.res{1},1),obj.stem_data.T);
+                for i =1:length(obj.stem_data.stem_validation.stem_varset)
+                    X_h(i,:,:)=obj.stem_data.stem_validation.stem_varset{i}.X_h{1};
                 end
                 tmp=X_h(:);
                 X_h_unique=unique(X_h(:));
 
-                cut=sqrt(size(obj.stem_crossval_result.y_back{1},1)*obj.stem_data.T);
+                cut=sqrt(size(obj.stem_validation_result.y_back{1},1)*obj.stem_data.T);
                 X_h_num=[];
                 if length(X_h_unique)/length(tmp)>0.3 
                     flag_mean_h=1;
@@ -2530,25 +2577,28 @@ classdef stem_model < handle
                 % plot of mse_h and mse_t    
                 figure 
                 if vertical
-                    subplot(1,2,1)
-                    if length(xvalresult.cv_h)>50
-                        plot(xvalresult.cv_mse_h,xvalresult.cv_h,'Color','r' );
+                    ax1=subplot(1,2,1);
+                    if length(valresult.cv_h)>50
+                        plot(valresult.cv_mse_h,valresult.cv_h,'Color','r' );
                     else
                         if max(X_h_num(:))==min(X_h_num(:))
-                             plot(xvalresult.cv_mse_h,xvalresult.cv_h,...
+                             plot(valresult.cv_mse_h,valresult.cv_h,...
                                 'Color','r' ,'Marker','o','MarkerFaceColor','r','MarkerEdgeColor','r',...
                                 'MarkerSize',6);
                         else
-                            scatter(xvalresult.cv_mse_h,xvalresult.cv_h,50,X_h_num,'filled',...
+                            scatter(valresult.cv_mse_h,valresult.cv_h,50,X_h_num,'filled',...
                                 'MarkerEdgeColor','k');
+                            
+                            colormap(ax1,stem_misc.get_s_colormap())
                             cl = colorbar;
                             cl.Limits=[min(X_h_num(:)) max(X_h_num(:))];
+                            ylabel(cl,'Number of observations');
                         end
                     end
                     if flag_mean_h
-                        xlabel('CV-MSE($\bar{h}$)','FontSize',14,'interpreter','latex');
+                        xlabel(['CV-MSE($\bar{h}$) [',obj.stem_data.stem_varset_p.Y_unit,']'],'FontSize',14,'interpreter','latex');
                     else
-                        xlabel('CV-MSE(h)','FontSize',14,'interpreter','latex');
+                        xlabel(['CV-MSE(h) [',obj.stem_data.stem_varset_p.Y_unit,']'],'FontSize',14,'interpreter','latex');
                     end
                     set(gca,'YDir','reverse','FontSize',14)
                     if not(isempty(obj.stem_data.stem_varset_p.X_h_unit))
@@ -2559,29 +2609,32 @@ classdef stem_model < handle
                         'FontSize',14,'interpreter','latex');
                     end
 
-                    ylim([xvalresult.cv_h(1),xvalresult.cv_h(end)])
+                    ylim([valresult.cv_h(1),valresult.cv_h(end)])
                     grid on
                     box on
                 else
-                    subplot(1,2,1);
-                    if length(xvalresult.cv_h)>50
-                        plot(xvalresult.cv_h,xvalresult.cv_mse_h,'Color','r' );
+                    ax1=subplot(1,2,1);
+                    if length(valresult.cv_h)>50
+                        plot(valresult.cv_h,valresult.cv_mse_h,'Color','r' );
                     else
                         if max(X_h_num(:))==min(X_h_num(:))
-                            plot(xvalresult.cv_h,xvalresult.cv_mse_h,...
+                            plot(valresult.cv_h,valresult.cv_mse_h,...
                                 'Color','r' ,'Marker','o','MarkerFaceColor','r','MarkerEdgeColor','r',...
                                 'MarkerSize',6);
                         else
-                            scatter(xvalresult.cv_h,xvalresult.cv_mse_h,50,X_h_num,'filled',...
+                            scatter(valresult.cv_h,valresult.cv_mse_h,50,X_h_num,'filled',...
                                 'MarkerEdgeColor','k');
+                            
+                            colormap(ax1,stem_misc.get_s_colormap())
                             cl = colorbar;
                             cl.Limits=[min(X_h_num(:)) max(X_h_num(:))];
+                            ylabel(cl,'Number of observations');
                         end
                     end
                     if flag_mean_h
-                        ylabel('CV-MSE($\bar{h}$)','FontSize',14,'interpreter','latex');
+                        ylabel(['CV-MSE($\bar{h}$) [',obj.stem_data.stem_varset_p.Y_unit,']'],'FontSize',14,'interpreter','latex');
                     else
-                        ylabel('CV-MSE(h)','FontSize',14,'interpreter','latex');
+                        ylabel(['CV-MSE(h) [',obj.stem_data.stem_varset_p.Y_unit,']'],'FontSize',14,'interpreter','latex');
                     end
                     set(gca,'FontSize',14)
                     if not(isempty(obj.stem_data.stem_varset_p.X_h_unit))
@@ -2591,18 +2644,18 @@ classdef stem_model < handle
                         xlabel([obj.stem_data.stem_varset_p.X_h_name],...
                         'FontSize',14,'interpreter','latex');
                     end
-                    xlim([xvalresult.cv_h(1),xvalresult.cv_h(end)])
+                    xlim([valresult.cv_h(1),valresult.cv_h(end)])
                     grid on
                     box on
                 end
 
 
                 subplot(1,2,2);
-                if length(xvalresult.cv_mse_t)>50
-                    plot(1:length(xvalresult.cv_mse_t), xvalresult.cv_mse_t,...
+                if length(valresult.cv_mse_t)>50
+                    plot(1:length(valresult.cv_mse_t), valresult.cv_mse_t,...
                         'Color','r' )
                 else
-                    plot(1:length(xvalresult.cv_mse_t), xvalresult.cv_mse_t,...
+                    plot(1:length(valresult.cv_mse_t), valresult.cv_mse_t,...
                         'Color','r' ,'Marker','o','MarkerFaceColor','r','MarkerEdgeColor','r',...
                         'MarkerSize',6)
                 end
@@ -2615,32 +2668,35 @@ classdef stem_model < handle
                     xlabel('t','FontSize',14,'interpreter','latex');
                 end
 
-                xlim([1,length(xvalresult.cv_mse_t)])
+                xlim([1,length(valresult.cv_mse_t)])
                 grid on
                 box on
 
                 % plot of r2_h and r2_t
                 figure 
                 if vertical
-                    subplot(1,2,1)
-                    if length(xvalresult.cv_h)>50
-                        plot(xvalresult.cv_R2_h,xvalresult.cv_h,'Color','r' );
+                    ax1=subplot(1,2,1);
+                    if length(valresult.cv_h)>50
+                        plot(valresult.cv_R2_h,valresult.cv_h,'Color','r' );
                     else
                         if max(X_h_num(:))==min(X_h_num(:))
-                            plot(xvalresult.cv_R2_h,xvalresult.cv_h,...
+                            plot(valresult.cv_R2_h,valresult.cv_h,...
                                 'Color','r' ,'Marker','o','MarkerFaceColor','r','MarkerEdgeColor','r',...
                                 'MarkerSize',6);
                         else
-                            scatter(xvalresult.cv_R2_h,xvalresult.cv_h,50,X_h_num,'filled',...
+                            scatter(valresult.cv_R2_h,valresult.cv_h,50,X_h_num,'filled',...
                                 'MarkerEdgeColor','k');
+                            
+                            colormap(ax1,stem_misc.get_s_colormap())
                             cl = colorbar;
                             cl.Limits=[min(X_h_num(:)) max(X_h_num(:))];
+                            ylabel(cl,'Number of observations');
                         end
                     end
                     if flag_mean_h
-                        xlabel('CV-R2($\bar{h}$)','FontSize',14,'interpreter','latex');
+                        xlabel('Val-R2($\bar{h}$)','FontSize',14,'interpreter','latex');
                     else
-                        xlabel('CV-R2(h)','FontSize',14,'interpreter','latex');
+                        xlabel('Val-R2(h)','FontSize',14,'interpreter','latex');
                     end
                     set(gca,'YDir','reverse','FontSize',14)
                     if not(isempty(obj.stem_data.stem_varset_p.X_h_unit))
@@ -2650,29 +2706,32 @@ classdef stem_model < handle
                         ylabel([obj.stem_data.stem_varset_p.X_h_name],...
                         'FontSize',14,'interpreter','latex');
                     end
-                    ylim([xvalresult.cv_h(1),xvalresult.cv_h(end)])
+                    ylim([valresult.cv_h(1),valresult.cv_h(end)])
                     grid on
                     box on
                 else 
-                    subplot(1,2,1)
-                    if length(xvalresult.cv_h)>50
-                        plot(xvalresult.cv_h,xvalresult.cv_R2_h,'Color','r' );
+                    ax1=subplot(1,2,1);
+                    if length(valresult.cv_h)>50
+                        plot(valresult.cv_h,valresult.cv_R2_h,'Color','r' );
                     else
                         if max(X_h_num(:))==min(X_h_num(:))
-                             plot(xvalresult.cv_h,xvalresult.cv_R2_h,...
+                             plot(valresult.cv_h,valresult.cv_R2_h,...
                             'Color','r' ,'Marker','o','MarkerFaceColor','r','MarkerEdgeColor','r',...
                             'MarkerSize',6);
                         else
-                            scatter(xvalresult.cv_h,xvalresult.cv_R2_h,50,X_h_num,'filled',...
+                            scatter(valresult.cv_h,valresult.cv_R2_h,50,X_h_num,'filled',...
                                 'MarkerEdgeColor','k');
+                            
+                            colormap(ax1,stem_misc.get_s_colormap())
                             cl = colorbar;
                             cl.Limits=[min(X_h_num(:)) max(X_h_num(:))];
+                            ylabel(cl,'Number of observations');
                         end
                     end
                     if flag_mean_h
-                        ylabel('CV-R2($\bar{h}$)','FontSize',14,'interpreter','latex');
+                        ylabel('Val-R2($\bar{h}$)','FontSize',14,'interpreter','latex');
                     else
-                        ylabel('CV-R2(h)','FontSize',14,'interpreter','latex');
+                        ylabel('Val-R2(h)','FontSize',14,'interpreter','latex');
                     end
                     set(gca,'FontSize',14)
                     if not(isempty(obj.stem_data.stem_varset_p.X_h_unit))
@@ -2682,21 +2741,21 @@ classdef stem_model < handle
                         xlabel([obj.stem_data.stem_varset_p.X_h_name],...
                         'FontSize',14,'interpreter','latex');
                     end
-                    xlim([xvalresult.cv_h(1),xvalresult.cv_h(end)])
+                    xlim([valresult.cv_h(1),valresult.cv_h(end)])
                     grid on
                     box on
                 end
 
                 subplot(1,2,2)
-                if length(xvalresult.cv_R2_t)>50
-                    plot(1:length(xvalresult.cv_R2_t), xvalresult.cv_R2_t,...
+                if length(valresult.cv_R2_t)>50
+                    plot(1:length(valresult.cv_R2_t), valresult.cv_R2_t,...
                         'Color','r')
                 else
-                    plot(1:length(xvalresult.cv_R2_t), xvalresult.cv_R2_t,...
+                    plot(1:length(valresult.cv_R2_t), valresult.cv_R2_t,...
                         'Color','r' ,'Marker','o','MarkerFaceColor','r','MarkerEdgeColor','r',...
                         'MarkerSize',6)
                 end
-                ylabel('CV-R2(t)','FontSize',14,'interpreter','latex');
+                ylabel('Val-R2(t)','FontSize',14,'interpreter','latex');
                 set(gca,'FontSize',14)
                 if not(isempty(obj.stem_data.stem_varset_p.T_unit))
                     xlabel(['t',' [$',obj.stem_data.stem_varset_p.T_unit,'$]'],...
@@ -2704,7 +2763,7 @@ classdef stem_model < handle
                 else
                     xlabel('t','FontSize',14,'interpreter','latex');
                 end
-                xlim([1,length(xvalresult.cv_mse_t)])
+                xlim([1,length(valresult.cv_mse_t)])
                 grid on
                 box on
             end 
@@ -2712,7 +2771,7 @@ classdef stem_model < handle
         end
         
         function plot_profile(obj,lat0,lon0,t_start,t_end)
-            %DESCRIPTION: the cross-validation results when modeltype is f-HDGM
+            %DESCRIPTION: the validation results when modeltype is f-HDGM
             %
             %INPUT
             %obj      - [stem_model object] (1x1) the stem_model object
@@ -2723,10 +2782,10 @@ classdef stem_model < handle
             %
             %OUTPUT
             %
-            %None: the cross-validation results are shown in the figure window
+            %None: the validation results are shown in the figure window
             
             if not(obj.stem_par.stem_modeltype.is('f-HDGM'))
-                error('The plot_xval method is only used when model type is f-HDGM')
+                error('The plot_val method is only used when model type is f-HDGM')
             end
             
             if nargin<3
@@ -2781,8 +2840,18 @@ classdef stem_model < handle
             subplot(1,6,1:3);
             scatter(t_values(:),h_values(:),60,y_values(:),'filled',...
                 'MarkerEdgeColor','k');
-            cl = colorbar;
-            cl.Limits=[min(y_values(:)) max(y_values(:))];
+            
+            
+            if min(y_values(:))*max(y_values(:))>0
+                colormap(flipud(stem_misc.get_s_colormap()))
+                cl = colorbar;
+                cl.Limits=[min(y_values(:)) max(y_values(:))];
+            else
+                colormap(stem_misc.get_d_colormap())
+                colorbar;
+                caxis( [-max(abs(y_values(:))) max(abs(y_values(:)))] );
+            end
+            
             if flag_unit
                 cl.Label.String = [obj.stem_data.stem_varset_p.Y_name{1},' [$',obj.stem_data.stem_varset_p.Y_unit,'$]']; 
                 cl.Label.Interpreter='latex';
@@ -3021,8 +3090,8 @@ classdef stem_model < handle
                         xlswrite(filename,{string},sheet,stem_misc.rc2xls(r,c));
                         r=r+1;
                         output{1,1}='theta_b';
-                        output{2,1}='Value [km]';
-                        output{3,1}='Std [km]';
+                        output{2,1}=['Value ',unit];
+                        output{3,1}=['Std ',unit];
                         output{2,2}=num2str(obj.stem_par.theta_b(1));
                         if not(isempty(obj.stem_par.varcov))
                             output{3,2}=num2str(sqrt(obj.stem_par.varcov(counter_varcov,counter_varcov)));
@@ -3077,8 +3146,8 @@ classdef stem_model < handle
                         output=cell(4,obj.stem_data.stem_varset_b.nvar+1);
                         output{1,1}='Theta_b';
                         output{2,1}='Variable';
-                        output{3,1}='Value [km]';
-                        output{4,1}='Std [km]';
+                        output{3,1}=['Value ',unit];
+                        output{4,1}=['Std ',unit];
                         for i=1:obj.stem_data.stem_varset_b.nvar
                             output{2,i+1}=obj.stem_data.stem_varset_b.Y_name{i};
                             output{3,i+1}=num2str(obj.stem_par.theta_b(i));
@@ -3304,13 +3373,13 @@ classdef stem_model < handle
             disp('Log-Likelihood computation ended.');
         end
         
-        function set_varcov(obj,exit_toll)
+        function set_varcov(obj,exit_tol)
             %DESCRIPTION: evaluate the variance-covariance matrix of the model parameters
             %
             %INPUT
             %
             %obj       - [stem_model object] (1x1) the stem_model object
-            %exit_toll - [double>0]          (1x1) exit tolerance for approximated variance-covariance matrix
+            %exit_tol  - [double>0]          (1x1) exit tolerance for approximated variance-covariance matrix
             %
             %OUTPUT
             %
@@ -3323,11 +3392,11 @@ classdef stem_model < handle
             end
             
             if nargin>1
-                if exit_toll<=0
-                    error('The input exit_toll must be > 0');
+                if exit_tol<=0
+                    error('The input exit_tol must be > 0');
                 end
             else
-                exit_toll=0;
+                exit_tol=0;
             end
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4092,7 +4161,7 @@ classdef stem_model < handle
             disp('Hessian evaluation...');
             c0 = 0;
             IM=zeros(n_psi);
-            if exit_toll>0
+            if exit_tol>0
                 last_varcov_t=zeros(n_psi);
             end
             tot=n_psi*(n_psi+1)/2*T;
@@ -4415,11 +4484,11 @@ classdef stem_model < handle
                     sigma_geo=[];
                 end
                 
-                if (exit_toll>0)&&(t>2)
+                if (exit_tol>0)&&(t>2)
                     temp_IM=IM+triu(IM,1)';
                     current_varcov_t=inv(temp_IM/t*T);
                     delta=norm(current_varcov_t-last_varcov_t,'fro')/norm(current_varcov_t,'fro');
-                    if delta<exit_toll
+                    if delta<exit_tol
                         IM=IM+triu(IM,1)';
                         obj.stem_par.varcov=inv(IM/t*T);
                         obj.stem_EM_result.stem_par.varcov=obj.stem_par.varcov;

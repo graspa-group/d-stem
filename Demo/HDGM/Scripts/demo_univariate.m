@@ -39,13 +39,13 @@ T = size(ground.Y{1}, 2);
 obj_stem_datestamp = stem_datestamp('01-01-2009 00:00','31-12-2009 00:00',T);
 
 %stem_data object creation
-S_xval=1:6:n1;
-obj_stem_crossval=stem_crossval({'no2 ground'},{S_xval},0,{'point'});
-%obj_stem_crossval=[];
+S_val=1:6:n1;
+obj_stem_validation=stem_validation({'no2 ground'},{S_val},0,{'point'});
+%obj_stem_validation=[];
 shape = [];
 obj_stem_modeltype = stem_modeltype('HDGM');
 obj_stem_data = stem_data(obj_stem_varset_p, obj_stem_gridlist_p, ...
-                          [], [], obj_stem_datestamp, obj_stem_crossval, obj_stem_modeltype, shape);
+                          [], [], obj_stem_datestamp, obj_stem_validation, obj_stem_modeltype, shape);
 
 %stem_par object creation
 obj_stem_par_constraints=stem_par_constraints();
@@ -78,4 +78,4 @@ obj_stem_model.set_varcov;
 obj_stem_model.set_logL;
 
 obj_stem_model.print
-obj_stem_model.plot_xval
+obj_stem_model.plot_val

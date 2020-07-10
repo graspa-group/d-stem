@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -74,20 +81,20 @@ classdef stem_EM < EM
             %
             %OUTPUT
             %obj               - [stem_EM object]    (1x1) 
-            if nargin<2
-                error('All the arguments must be provided');
-            end
-            
             if isa(stem_model,'stem_model')
                 obj.stem_model=stem_model;
             else
                 error('The first argument must be of class stem_model');
             end
             
-            if isa(stem_EM_options,'stem_EM_options')
-                obj.stem_EM_options=stem_EM_options;
+            if nargin==2
+                if isa(stem_EM_options,'stem_EM_options')
+                    obj.stem_EM_options=stem_EM_options;
+                else
+                    error('The second argument must be of class stem_EM_options');
+                end
             else
-                error('The second argument must be of class stem_EM_options');
+                obj.stem_EM_options=stem_EM_options();
             end
             
             if isempty(obj.stem_model.stem_par_initial)
@@ -111,21 +118,25 @@ classdef stem_EM < EM
             if isempty(obj.stem_model.stem_par_initial)
                 error('Initial value estimation for model parameters must be provided first');
             end
-            delta=9999;
-            delta_logL=9999;
+            delta_par=Inf;
+            delta_logL=Inf;
             last_logL=0;
             last_stem_par=obj.stem_model.par_vec;
             iteration=0;
+            %An object of class stem_EM_result is created and the first
+            %information are stored
             st_EM_result=stem_EM_result();
             st_EM_result.max_iterations=obj.stem_EM_options.max_iterations;
-            st_EM_result.exit_toll=obj.stem_EM_options.exit_toll;
-            st_EM_result.block_tapering_block_size=obj.stem_EM_options.block_tapering_block_size;
+            st_EM_result.exit_tol_par=obj.stem_EM_options.exit_tol_par;
+            st_EM_result.exit_tol_loglike=obj.stem_EM_options.exit_tol_loglike;
+            st_EM_result.partitions=obj.stem_EM_options.partitions;
             st_EM_result.machine=computer;
             st_EM_result.date_start=datestr(now);
             st_EM_result.version=stem_misc.ver;
             exit_file=0;
             model_changed=0;
-            while (delta>obj.stem_EM_options.exit_toll)&&(delta_logL>obj.stem_EM_options.exit_toll)&&(iteration<obj.stem_EM_options.max_iterations)&&(exit_file==0)||(model_changed==1)
+            %The EM iterations
+            while (delta_par>obj.stem_EM_options.exit_tol_par)&&(delta_logL>obj.stem_EM_options.exit_tol_loglike)&&(iteration<obj.stem_EM_options.max_iterations)&&(exit_file==0)||(model_changed==1)
                 ct1=clock;
                 iteration=iteration+1;
                 disp('************************');
@@ -157,9 +168,12 @@ classdef stem_EM < EM
                        end
                    end
                 end
+                %The E step
                 [E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result] = obj.E_step();
+                %The M step
                 model_changed = obj.M_step(E_wb_y1,sum_Var_wb_y1,diag_Var_wb_y1,cov_wb_z_y1,E_wp_y1,sum_Var_wp_y1,diag_Var_wp_y1,cov_wp_z_y1,M_cov_wb_wp_y1,cov_wpk_wph_y1,diag_Var_e_y1,E_e_y1,sigma_eps,st_kalmansmoother_result,iteration);
 
+                %check if at least one of the exit conditions is satisfied
                 if not(isempty(st_kalmansmoother_result))
                     if not(st_kalmansmoother_result.logL==0)
                         logL=st_kalmansmoother_result.logL;
@@ -177,13 +191,13 @@ classdef stem_EM < EM
                 end
 
                 if (model_changed==0)
-                    delta=norm(obj.stem_model.par_vec()-last_stem_par)/norm(last_stem_par);
+                    delta_par=max(abs(obj.stem_model.par_vec()-last_stem_par)./abs(last_stem_par));
                 else
-                    delta=9999;
+                    delta_par=9999;
                 end
                 
                 last_stem_par=obj.stem_model.par_vec;
-                disp(['Parameter delta norm: ',num2str(delta)]);
+                disp(['Parameter delta norm: ',num2str(delta_par)]);
                 obj.stem_model.print_par;
                 ct2=clock;
                 disp('**********************************************');
@@ -197,7 +211,8 @@ classdef stem_EM < EM
                 end
             end
             
-
+            %At the end of model estimation, additional information is
+            %stored in stem_EM_result
             npars = length(obj.stem_model.par_vec);
             if not(isempty(st_EM_result.logL_all))
                 st_EM_result.AIC = st_EM_result.logL_all(end)-2*npars;
@@ -362,11 +377,12 @@ classdef stem_EM < EM
             disp('  E step started...');
             ct1_estep=clock;
           
+            %check if the model has a latent temporal variable
             if p>0
-                %Kalman smoother
+                %In this case, Kalman smoother is applied
                 st_kalman=stem_kalman(obj.stem_model);
                
-                [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,M] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0,[],[],obj.stem_EM_options.block_tapering_block_size,obj.stem_EM_options.workers);
+                [st_kalmansmoother_result,sigma_eps,sigma_W_b,sigma_W_p,sigma_Z,sigma_geo,aj_bp,M] = st_kalman.smoother(obj.stem_EM_options.compute_logL_at_all_steps,0,[],[],obj.stem_EM_options.partitions,obj.stem_EM_options.workers);
                 
                 rr=size(sigma_Z,1);
                 
@@ -398,7 +414,6 @@ classdef stem_EM < EM
                     var_Yt=sigma_geo+var_Zt;
                 end
             else
-                %[sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,~,~,~,aj_bp,aj_p,~,M] = obj.stem_model.get_sigma();
                 [sigma_eps,sigma_W_b,sigma_W_p,sigma_geo,~,~,~,aj_bp,M] = obj.stem_model.get_sigma();
 
                 st_kalmansmoother_result=stem_kalmansmoother_result([],[],[],[],[]);
@@ -597,19 +612,25 @@ classdef stem_EM < EM
                         if not(blocks(end)==size(diag_Var_e_y1,1))
                             blocks=cat(2,blocks,size(diag_Var_e_y1,1));
                         end
-                        if sum(obj.stem_EM_options.block_tapering_block_size)>0
+                        if sum(obj.stem_EM_options.partitions)>0
                             Pk_s_sparse=sparse(st_kalmansmoother_result.Pk_s{t+1});
                         end
                         for i=1:length(blocks)-1
-                            if sum(obj.stem_EM_options.block_tapering_block_size)>0
+                            if sum(obj.stem_EM_options.partitions)>0
                                 diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(X_z_orlated(blocks(i)+1:blocks(i+1),:)*Pk_s_sparse*X_z_orlated(blocks(i)+1:blocks(i+1),:)');
                             else
                                 diag_Var_e_y1(blocks(i)+1:blocks(i+1),t)=diag(X_z_orlated(blocks(i)+1:blocks(i+1),:)*st_kalmansmoother_result.Pk_s{t+1}*X_z_orlated(blocks(i)+1:blocks(i+1),:)');
                             end
                         end
                     else
-                        temp=X_z_orlated*st_kalmansmoother_result.Pk_s{t+1};
-                        diag_Var_e_y1(:,t)=diag(temp*X_z_orlated');
+                        if obj.stem_model.stem_data.stem_modeltype.is('MBC')
+                            d=diag(st_kalmansmoother_result.Pk_s{t+1});
+                            [~,idx]=max(abs(X_z_orlated),[],2);
+                            diag_Var_e_y1(:,t)=d(idx);
+                        else
+                            temp=X_z_orlated*st_kalmansmoother_result.Pk_s{t+1};
+                            diag_Var_e_y1(:,t)=diag(temp*X_z_orlated');
+                        end
                     end
                     %update E(e|y1)
                     temp=st_kalmansmoother_result.zk_s(:,t+1);
@@ -894,7 +915,7 @@ classdef stem_EM < EM
             end
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %             beta update                %
+            %             Update of beta             %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(obj.stem_model.stem_data.X_beta))
                 ct1=clock;
@@ -941,7 +962,7 @@ classdef stem_EM < EM
                 disp(['    beta updating ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %              sigma_eps                 %
+            %          Update of sigma_eps           %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if par.stem_par_constraints.sigma_eps_fixed==0
                 disp('    sigma_eps updating started...');
@@ -1039,12 +1060,6 @@ classdef stem_EM < EM
                         if obj.stem_model.stem_data.stem_modeltype.clustering_error_type_is('Shared')
                             st_par_em_step.sigma_eps(1,1)=mean(temp);
                         end
-                        if obj.stem_model.stem_data.stem_modeltype.clustering_error_type_is('Proportional')
-                            std_variance=obj.stem_model.stem_data.stem_varset_p.Y_stds{1}.^2;
-                            std_variance=1./std_variance;
-                            std_variance=std_variance./max(std_variance);
-                            st_par_em_step.sigma_eps(1,1)=mean(temp./std_variance);
-                        end
                         if obj.stem_model.stem_data.stem_modeltype.clustering_error_type_is('Dynamic')
                             [~,idx]=max(abs(obj.stem_model.stem_data.X_z{1}),[],2);
                             for i=1:obj.stem_model.stem_par.p
@@ -1061,9 +1076,9 @@ classdef stem_EM < EM
                 disp(['    sigma_eps updating ended in ',stem_misc.decode_time(etime(ct2,ct1))]);
             end
             
-            %%%%%%%%%%%%%%%%%%%%%%%%%
-            %    G and sigma_eta    %
-            %%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %    Update of G and sigma_eta    %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if par.p>0
                 if not(obj.stem_model.stem_data.stem_modeltype.is({'HDGM','f-HDGM'}))
                     disp('    G and sigma_eta updating started...');
@@ -1076,6 +1091,9 @@ classdef stem_EM < EM
                             S00=st_kalmansmoother_result.zk_s(:,1:end-1)*st_kalmansmoother_result.zk_s(:,1:end-1)'+sum(cat(3,st_kalmansmoother_result.Pk_s{1:end-1}),3);
                             S10=st_kalmansmoother_result.zk_s(:,2:end)*st_kalmansmoother_result.zk_s(:,1:end-1)'+sum(cat(3,st_kalmansmoother_result.PPk_s{2:end}),3);
                         else
+                            if issparse(st_kalmansmoother_result.Pk_s{end})
+                                st_kalmansmoother_result.Pk_s{end}=full(st_kalmansmoother_result.Pk_s{end});
+                            end
                             S11=diag(diag(st_kalmansmoother_result.zk_s(:,2:end)*st_kalmansmoother_result.zk_s(:,2:end)'))+diag(diag(sum(cat(3,st_kalmansmoother_result.Pk_s{2:end}),3)));
                             S00=diag(diag(st_kalmansmoother_result.zk_s(:,1:end-1)*st_kalmansmoother_result.zk_s(:,1:end-1)'))+diag(diag(sum(cat(3,st_kalmansmoother_result.Pk_s{1:end-1}),3)));
                             S10=diag(diag(st_kalmansmoother_result.zk_s(:,2:end)*st_kalmansmoother_result.zk_s(:,1:end-1)'))+diag(diag(sum(cat(3,st_kalmansmoother_result.PPk_s{2:end}),3)));
@@ -1259,7 +1277,7 @@ classdef stem_EM < EM
                                 else
                                     dim=obj.stem_model.stem_data.stem_varset_p.dim;
                                     dim=ones(1,par.p)*dim(1);
-                                    if sum(obj.stem_EM_options.block_tapering_block_size)==0
+                                    if sum(obj.stem_EM_options.partitions)==0
                                         [U,~,~] = stem_misc.get_block(dim,j,dim,j,temp);
                                         if not(strcmp(par.correlation_type,'expsphere'))
                                             [B,~,~] = stem_misc.get_block(dim,j,dim,j,obj.stem_model.DistMat_z);
@@ -1272,7 +1290,7 @@ classdef stem_EM < EM
                                         c=chol(sigma_theta);
                                         min_result{j}=trace(stem_misc.chol_solve(c,U))/T/size(c,1);
                                     else
-                                        block_size=obj.stem_EM_options.block_tapering_block_size;
+                                        block_size=obj.stem_EM_options.partitions;
                                         min_result{j} = fminsearch(@(x) stem_EM.geo_coreg_function_velement_block(x,j,j,par.v_z,par.theta_z(:,j),par.correlation_type,obj.stem_model.DistMat_z,...
                                             dim,temp,T,block_size),initial{j},optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                     end
@@ -1285,7 +1303,7 @@ classdef stem_EM < EM
                             dim=ones(1,p)*obj.stem_model.stem_data.stem_varset_p.dim(1);
                             v_z=par.v_z;
                             correlation_type=par.correlation_type;
-                            block_tapering_block_size=obj.stem_EM_options.block_tapering_block_size;
+                            partitions=obj.stem_EM_options.partitions;
                             theta_z=par.theta_z;
                             DistMat_z=obj.stem_model.DistMat_z;
                             
@@ -1294,7 +1312,7 @@ classdef stem_EM < EM
                                 if not(isempty(tap))
                                     error('Block tapering cannot be used when tapering is already enabled');
                                 else
-                                    if sum(block_tapering_block_size)==0
+                                    if sum(partitions)==0
                                         [U,~,~] = stem_misc.get_block(dim,j,dim,j,temp);
                                         if not(strcmp(correlation_type,'expsphere'))
                                             [B,~,~] = stem_misc.get_block(dim,j,dim,j,DistMat_z);
@@ -1309,7 +1327,7 @@ classdef stem_EM < EM
                                         min_result{j}=trace(stem_misc.chol_solve(c,U))/T/size(c,1);
                                         
                                     else
-                                        block_size=block_tapering_block_size;
+                                        block_size=partitions;
                                         min_result{j} = fminsearch(@(x) stem_EM.geo_coreg_function_velement_block(x,j,j,v_z,theta_z(:,j),correlation_type,DistMat_z,...
                                             dim,temp,T,block_size),initial,optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                     end
@@ -1345,14 +1363,14 @@ classdef stem_EM < EM
                                 for h=hindex
                                     initial=par.v_z(k,h);
                                     ctv1=clock;
-                                    if sum(obj.stem_EM_options.block_tapering_block_size)==0
+                                    if sum(obj.stem_EM_options.partitions)==0
                                         min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_z,par.theta_z,par.correlation_type,obj.stem_model.DistMat_p,...
                                             obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial,optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                     else
                                         if not(isempty(obj.stem_model.stem_data.stem_gridlist_p.tap))
                                             error('Block tapering cannot be used when tapering is already enabled');
                                         else
-                                            block_size=obj.stem_EM_options.block_tapering_block_size;
+                                            block_size=obj.stem_EM_options.partitions;
                                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_velement_block(x,k,h,par.v_z,par.theta_z,par.correlation_type,obj.stem_model.DistMat_p,...
                                                 obj.stem_model.stem_data.stem_varset_p.dim,temp,T,block_size),initial,optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                         end
@@ -1373,14 +1391,14 @@ classdef stem_EM < EM
                             parfor j=1:numel(Idx)
                                 [h,k]=ind2sub(size(par.v_z),Idx(j));
                                 initial{j}=par.v_z(k,h);
-                                if sum(obj.stem_EM_options.block_tapering_block_size)==0
+                                if sum(obj.stem_EM_options.partitions)==0
                                     min_result{j} = fminsearch(@(x) stem_EM.geo_coreg_function_velement(x,k,h,par.v_z,par.theta_z,par.correlation_type,obj.stem_model.DistMat_p,...
                                         obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),initial{j},optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                 else
                                     if not(isempty(obj.stem_model.stem_data.stem_gridlist_p.tap))
                                         error('Block tapering cannot be used when tapering is already enabled');
                                     else
-                                        block_size=obj.stem_EM_options.block_tapering_block_size;
+                                        block_size=obj.stem_EM_options.partitions;
                                         min_result{j} = fminsearch(@(x) stem_EM.geo_coreg_function_velement_block(x,k,h,par.v_z,par.theta_z,par.correlation_type,obj.stem_model.DistMat_p,...
                                             obj.stem_model.stem_data.stem_varset_p.dim,temp,T,block_size),initial{j},optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                     end
@@ -1405,14 +1423,14 @@ classdef stem_EM < EM
                     initial=par.theta_z;
                     ct1=clock;
                     if obj.stem_model.stem_data.stem_modeltype.is('HDGM')
-                        if sum(obj.stem_EM_options.block_tapering_block_size)==0
+                        if sum(obj.stem_EM_options.partitions)==0
                             min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_z,par.correlation_type,obj.stem_model.DistMat_p,...
                                 obj.stem_model.stem_data.stem_varset_p.dim,temp,T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial),optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                         else
                             if not(isempty(obj.stem_model.stem_data.stem_gridlist_p.tap))
                                 error('Block tapering cannot be used when tapering is already enabled');
                             else
-                                block_size=obj.stem_EM_options.block_tapering_block_size;
+                                block_size=obj.stem_EM_options.partitions;
                                 min_result = fminsearch(@(x) stem_EM.geo_coreg_function_theta_block(x,par.v_z,par.correlation_type,obj.stem_model.DistMat_p,...
                                     obj.stem_model.stem_data.stem_varset_p.dim,temp,T,block_size),log(initial),optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                             end
@@ -1436,12 +1454,12 @@ classdef stem_EM < EM
                                     else
                                         DistMat_z_block=obj.stem_model.DistMat_z(idx_block,idx_block);
                                     end
-                                    if sum(obj.stem_EM_options.block_tapering_block_size)==0
+                                    if sum(obj.stem_EM_options.partitions)==0
                                         %note the input argument dim(1) because for the f-HDGM model there is a theta for each base
                                         min_result{b} = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_z(b,b),par.correlation_type,DistMat_z_block,...
                                             dim(1),temp(idx_block,idx_block),T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial(:,b)),optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                     else
-                                        block_size=obj.stem_EM_options.block_tapering_block_size;
+                                        block_size=obj.stem_EM_options.partitions;
                                         %note the input argument dim(1) because for the f-HDGM model there is a theta for each base
                                         min_result{b} = fminsearch(@(x) stem_EM.geo_coreg_function_theta_block(x,par.v_z(b,b),par.correlation_type,DistMat_z_block,...
                                             dim(1),temp(idx_block,idx_block),T,block_size),log(initial(:,b)),optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
@@ -1458,12 +1476,12 @@ classdef stem_EM < EM
                                     else
                                         DistMat_z_block=obj.stem_model.DistMat_z(idx_block,idx_block);
                                     end
-                                    if sum(obj.stem_EM_options.block_tapering_block_size)==0
+                                    if sum(obj.stem_EM_options.partitions)==0
                                         %note the input argument dim(1) because for the f-HDGM model there is a theta for each base
                                         min_result{b} = fminsearch(@(x) stem_EM.geo_coreg_function_theta(x,par.v_z(b,b),par.correlation_type,DistMat_z_block,...
                                             dim(1),temp(idx_block,idx_block),T,obj.stem_model.stem_data.stem_gridlist_p.tap),log(initial(:,b)),optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
                                     else
-                                        block_size=obj.stem_EM_options.block_tapering_block_size;
+                                        block_size=obj.stem_EM_options.partitions;
                                         %note the input argument dim(1) because for the f-HDGM model there is a theta for each base
                                         min_result{b} = fminsearch(@(x) stem_EM.geo_coreg_function_theta_block(x,par.v_z(b,b),par.correlation_type,DistMat_z_block,...
                                             dim(1),temp(idx_block,idx_block),T,block_size),log(initial(:,b)),optimset('MaxIter',fminsearch_max_iter,'TolFun',0.01,'UseParallel','always'));
@@ -1480,7 +1498,7 @@ classdef stem_EM < EM
             end
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %          alpha_bp, theta_b and v_b            %
+            %      Upate of alpha_bp, theta_b and v_b       %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(obj.stem_model.stem_data.X_bp))
                 disp('    alpha_bp updating started...');
@@ -1680,9 +1698,9 @@ classdef stem_EM < EM
                 end
             end
             
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %        v_p and theta_p         %
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            %      Update of v_p and theta_p     %
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             if not(isempty(obj.stem_model.stem_data.X_p))
                 
                 if obj.stem_EM_options.wpar_estimation==1
@@ -1812,40 +1830,85 @@ classdef stem_EM < EM
                     clear I;
                     clear K;
                     if size(obj.stem_model.stem_data.X_z{1},3)==1
-                        %correlation computation
-                        for i=1:N
-                            L=not(isnan(obj.stem_model.stem_data.Y(i,:)));
-                            a=obj.stem_model.stem_data.Y(i,L)';
-                            b=st_kalmansmoother_result.zk_s(:,2:end)';
+                        X_z_temp=zeros(size(obj.stem_model.stem_data.X_z{1}));
+                        is_monopole=obj.stem_model.stem_data.stem_modeltype.clustering_type_is('Monopoles');
+                        Y=obj.stem_model.stem_data.Y;
+                        zk_s=st_kalmansmoother_result.zk_s;
+                        Pk_s=st_kalmansmoother_result.Pk_s;
+                        sigma_eps=par.sigma_eps;
+
+                        parfor i=1:N
+                            L=not(isnan(Y(i,:)));
+                            n_M=T-sum(L); %number of non missing
+                            a=Y(i,L)';
+                            b=zk_s(:,2:end)';
                             b=b(L,:);
-                            if not(isempty(b))
-                                temp=corr(a,b);
+                            
+                            if is_monopole
+                                r1=sum((a-b).^2)';
+                                v=diag(sum(cat(3,Pk_s{L}),3));
+                                r1=r1+v;
+                                
+                                if n_M>0
+                                    r1=r1+diag(sigma_eps)*n_M;
+                                end
+                                
+                                r1=r1./diag(sigma_eps);
+                                
+                                [~,idx]=min(r1);
+                                row_temp=zeros(1,size(zk_s,1));
+                                row_temp(idx)=1;
+
+                                X_z_temp(i,:)=row_temp;
                             else
-                                temp=repmat(0.0001,1,par.p);
+                                r1=sum((a-b).^2)';
+                                r2=sum((a+b).^2)';
+                                
+                                v=diag(sum(cat(3,Pk_s{L}),3));
+                                
+                                r1=r1+v;
+                                r2=r2+v;
+                                
+                                if n_M>0
+                                    r1=r1+diag(sigma_eps)*n_M;
+                                    r2=r2+diag(sigma_eps)*n_M;
+                                end
+                                
+                                r1=r1./diag(sigma_eps);
+                                r2=r2./diag(sigma_eps);
+                                
+                                [~,idx]=min([r1;r2]);
+                                
+                                if idx>size(b,2)
+                                    idx=idx-size(b,2);
+                                    row_temp=zeros(1,size(zk_s,1));
+                                    row_temp(idx)=-1;
+                                    X_z_temp(i,:)=row_temp;
+                                else
+                                    row_temp=zeros(1,size(zk_s,1));
+                                    row_temp(idx)=1;
+                                    X_z_temp(i,:)=row_temp;
+                                end
                             end
-                            if obj.stem_model.stem_data.stem_modeltype.clustering_type_is('Monopoles')
-                                temp(temp<=0)=0.0001;
-                            end
-                            temp(isnan(temp))=0.0001;
-                            obj.stem_model.stem_data.X_z{1}(i,:)=temp;
                         end
+                        obj.stem_model.stem_data.X_z{1}=X_z_temp;
                         
-                        %weight computation
-                        for h=1:iteration
-                            if obj.stem_model.stem_data.stem_modeltype.clustering_type_is('Monopoles')
-                                obj.stem_model.stem_data.X_z{1}=obj.stem_model.stem_data.X_z{1}.^2;
-                                ss=sum(obj.stem_model.stem_data.X_z{1},2);
-                            else
-                                obj.stem_model.stem_data.X_z{1}=obj.stem_model.stem_data.X_z{1}.^2.*sign(obj.stem_model.stem_data.X_z{1});
-                                ss=sum(abs(obj.stem_model.stem_data.X_z{1}),2);
-                            end
-                            for j=1:size(obj.stem_model.stem_data.X_z{1},2)
-                                obj.stem_model.stem_data.X_z{1}(:,j)=obj.stem_model.stem_data.X_z{1}(:,j)./ss;
-                            end
-                        end
+%                         %weight computation
+%                         for h=1:iteration
+%                             if obj.stem_model.stem_data.stem_modeltype.clustering_type_is('Monopoles')
+%                                 obj.stem_model.stem_data.X_z{1}=obj.stem_model.stem_data.X_z{1}.^2;
+%                                 ss=sum(obj.stem_model.stem_data.X_z{1},2);
+%                             else
+%                                 obj.stem_model.stem_data.X_z{1}=abs(obj.stem_model.stem_data.X_z{1}).^2.*sign(obj.stem_model.stem_data.X_z{1});
+%                                 ss=sum(abs(obj.stem_model.stem_data.X_z{1}),2);
+%                             end
+%                             for j=1:size(obj.stem_model.stem_data.X_z{1},2)
+%                                 obj.stem_model.stem_data.X_z{1}(:,j)=obj.stem_model.stem_data.X_z{1}(:,j)./ss;
+%                             end
+%                         end
                         
                         %check for empty columns
-                        empty=find(sum(abs(obj.stem_model.stem_data.X_z{1}>0.01))==0);
+                        empty=find(sum(abs(obj.stem_model.stem_data.X_z{1})>0.01)==0);
                         if not(isempty(empty))
                             nc=st_par_em_step.p;
                             st_par_em_step.p=st_par_em_step.p-length(empty);

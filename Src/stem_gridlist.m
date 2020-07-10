@@ -14,6 +14,13 @@
 %%%              Guanghua school of management,                          %
 %%%              Business Statistics and Econometrics                    %
 %%%                                                                      %
+%%% Author: Alessandro Fassò                                             %
+%%% E-mail: alessandro.fasso@unibg.it                                    %
+%%% Affiliation: University of Bergamo                                   %
+%%%              Dept. of Management, Information and                    %
+%%%              Production Engineering                                  %
+%%% Author website: http://www.unibg.it/pers/?alessandro.fasso           %
+%%%                                                                      %
 %%% Code website: https://github.com/graspa-group/d-stem                 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -142,15 +149,12 @@ classdef stem_gridlist < handle
                         end
                         DistMat=zeros(size(d,1));
                         for z=1:length(d)
-                            DistMat(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
+                            DistMat(z,z+1:end)=distance(d(z,:),d(z+1:end,:));
                         end
                         DistMat=DistMat+DistMat';
                     else
                         if not(strcmp(stem_modeltype,'Emulator'))
                             DistMat=squareform(pdist(d));
-                            if strcmp(obj.grid{1}.unit,'m')
-                                DistMat=DistMat/1000;
-                            end
                         else
                             DistMat=cell(size(d,2),1);
                             for i=1:size(d,2)
@@ -162,10 +166,10 @@ classdef stem_gridlist < handle
                     DistMat=cell(2,1);
                     DistMat{1}=zeros(size(d,1));
                     for z=1:length(d)
-                        DistMat{1}(z,z+1:end)=distdim(distance(d(z,:),d(z+1:end,:)), obj.grid{1}.unit, 'km');
+                        DistMat{1}(z,z+1:end)=distance(d(z,:),d(z+1:end,:));
                     end
                     DistMat{1}=DistMat{1}+DistMat{1}';
-                    DistMat{2}=distdim(squareform(pdist(d(:,1))), obj.grid{1}.unit, 'km');
+                    DistMat{2}=squareform(pdist(d(:,1)));
                 end
             else
                 if not(strcmp(correlation_type,'expsphere'))
@@ -179,16 +183,12 @@ classdef stem_gridlist < handle
                                 %evaluate the distance between the z-th coordinate and
                                 %the vector ahead (z included)
                                 if strcmp(obj.grid{1}.unit,'deg')
-                                    dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                    dist_vec=distance(d(z,:),d(z:end,:));
                                 else
                                     temp=d(z,:);
                                     temp2=d(z:end,:);
                                     temp=repmat(temp,[size(temp2,1),1]);
                                     dist_vec=sqrt(sum((temp-temp2).^2,2));
-                                    
-                                    if strcmp(obj.grid{1}.unit,'m')
-                                        dist_vec=dist_vec/1000;
-                                    end
                                 end
                                 %IMPORTANT! the distances equal to zero are setted to
                                 %eps so they are not confused with the zero generated
@@ -232,15 +232,12 @@ classdef stem_gridlist < handle
                                         %evaluate the distance between the z-th coordinate and
                                         %the vector ahead (z included)
                                         if strcmp(obj.grid{1}.unit,'deg')
-                                            dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                            dist_vec=distance(d(z,:),d(z:end,:));
                                         else
                                             temp=d(z,:);
                                             temp2=d(z:end,:);
                                             temp=repmat(temp,[size(temp2,1),1]);
                                             dist_vec=sqrt(sum((temp-temp2).^2,2));
-                                            if strcmp(obj.grid{1}.unit,'m')
-                                                dist_vec=dist_vec/1000;
-                                            end
                                         end
                                         
                                         %IMPORTANT! the distances equal to zero are setted to
@@ -282,10 +279,6 @@ classdef stem_gridlist < handle
                                 temp2=d(z:end,i);
                                 dist_vec=abs(temp-temp2);
                                 
-                                if strcmp(obj.grid{1}.unit,'m')
-                                    dist_vec=dist_vec/1000;
-                                end
-                                
                                 %IMPORTANT! the distances equal to zero are setted to
                                 %eps so they are not confused with the zero generated
                                 %by tapering
@@ -314,16 +307,12 @@ classdef stem_gridlist < handle
                             %evaluate the distance between the z-th coordinate and
                             %the vector ahead (z included)
                             if strcmp(obj.grid{1}.unit,'deg')
-                                dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                dist_vec=distance(d(z,:),d(z:end,:));
                             else
                                 temp=d(z,:);
                                 temp2=d(z:end,:);
                                 temp=repmat(temp,[size(temp2,1),1]);
                                 dist_vec=sqrt(sum((temp-temp2).^2,2));
-                                
-                                if strcmp(obj.grid{1}.unit,'m')
-                                    dist_vec=dist_vec/1000;
-                                end
                             end
                             %IMPORTANT! the distances equal to zero are setted to
                             %eps so they are not confused with the zero generated
@@ -367,15 +356,12 @@ classdef stem_gridlist < handle
                                     %evaluate the distance between the z-th coordinate and
                                     %the vector ahead (z included)
                                     if strcmp(obj.grid{1}.unit,'deg')
-                                        dist_vec=distdim(distance(d(z,:),d(z:end,:)), obj.grid{1}.unit, 'km');
+                                        dist_vec=distance(d(z,:),d(z:end,:));
                                     else
                                         temp=d(z,:);
                                         temp2=d(z:end,:);
                                         temp=repmat(temp,[size(temp2,1),1]);
                                         dist_vec=sqrt(sum((temp-temp2).^2,2));
-                                        if strcmp(obj.grid{1}.unit,'m')
-                                            dist_vec=dist_vec/1000;
-                                        end
                                     end
                                     
                                     %IMPORTANT! the distances equal to zero are setted to
@@ -430,7 +416,6 @@ classdef stem_gridlist < handle
                         elements=cat(1,elements,dist_vec(L));
                     end
                     DistMat{2}=sparse(idx_r,idx_c,elements);
-                    DistMat{2}=distdim(DistMat{2}, obj.grid{1}.unit, 'km');
                 end
             end
         end

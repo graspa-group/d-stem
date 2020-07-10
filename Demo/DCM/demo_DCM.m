@@ -26,7 +26,7 @@ while (1)
     pause(0.05);
     disp('[5] - Section 7.3: Univariate model of Section 4 with log-likelihood computing disabled (> 5 minutes)');
     pause(0.05);
-    disp('[6] - Cross-val. : Cross-validation of bivariate model (< 3 minutes)');
+    disp('[6] - Validation. : Validation of bivariate model (< 3 minutes)');
     pause(0.05);
     disp(' ');
     disp('[7] - Exit');
